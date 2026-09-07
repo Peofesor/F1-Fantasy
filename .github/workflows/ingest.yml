@@ -61,6 +61,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run prices
 
+      # Scores depend on both results and prices, so this runs last. Upserts
+      # make it safe to repeat when nothing new arrived.
+      - name: Score rosters
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run score -- "$(date -u +%Y)"
+
       - name: Report coverage
         if: always()
         env:

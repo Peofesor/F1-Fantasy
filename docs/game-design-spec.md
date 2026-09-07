@@ -123,6 +123,15 @@ Normal driver scoring **adopts the official F1 Fantasy table** documented in §1
 
 **The backmarker slot pays cost cap rather than points** (see §4). A DNF pays nothing, in either the backmarker or reverse-constructor slot: paying maximum for a retirement would make "whoever crashes most" the optimal pick.
 
+**A constructor scores the sum of its two drivers' fantasy points.** This matches the official game. The official also adds constructor-only bonuses (Q3 progression, pit-stop times); those are deliberately omitted rather than half-implemented, since the pit-stop bonus depends on stationary times neither upstream source publishes.
+
+Consequence worth watching in playtesting: because a constructor sums two drivers, its slots carry roughly **double a driver slot's variance**. Scoring the real 2026 Monza race — 7 retirements — produced constructor slots at −31 and −17, and a premium roster costing 114.0 scored *less* (34) than a cheaper one at 130.2 (41). Attrition races swing heavily on constructor picks.
+
+### Decisions on scoring edge cases
+
+- **A member who fields no roster scores zero.** No separate forfeit rule: zero already loses to anyone who picked, and a penalty on top would punish the same omission twice. They still get a `round_scores` row so the standings show the zero rather than the member vanishing from that round.
+- **A drawn duel splits the point** — win 1, draw 0.5, loss 0, the standard convention. Voiding the point would discard a week that actually happened.
+
 ## 6. Chips
 
 Two chips are **unlimited-use, always available, weekly-repeatable**:
