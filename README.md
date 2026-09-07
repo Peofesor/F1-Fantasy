@@ -47,6 +47,17 @@ npx tsx scripts/verify-ingest.ts 2026 13
 
 This hits the live APIs and respects their rate limits, so it takes a few seconds per round.
 
+## Scheduled ingestion
+
+[`.github/workflows/ingest.yml`](.github/workflows/ingest.yml) runs daily at 06:00 UTC and ingests any completed rounds of the current season that aren't stored yet. Rounds already present are skipped, so a run with nothing new costs only a few requests. It can also be triggered manually from the Actions tab, optionally against a specific season.
+
+It needs two repository secrets (Settings → Secrets and variables → Actions):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+> Supabase `pg_cron` was considered and rejected: it runs SQL inside Postgres and cannot call the upstream APIs or run these transforms. Driving it via `pg_net` to a Deno Edge Function would require adding `.ts` extensions across `src/` for Deno's resolver, and Edge Function time limits risk a partial run when catching up on several rounds — which is the failure mode that previously destroyed data.
+
 ## Database
 
 Migrations live in `supabase/migrations/`, applied in filename order. With the Supabase CLI linked to a project:

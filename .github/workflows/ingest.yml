@@ -1,0 +1,52 @@
+name: Ingest F1 data
+
+# Race results land within roughly 24 hours, so a daily poll keeps the database
+# current without burning jolpica's 500 requests/hour budget. Rounds already
+# stored are skipped, so a run with nothing new to do costs only the handful of
+# requests needed to read the season schedule.
+on:
+  schedule:
+    # 06:00 UTC daily — after a Sunday race has settled, including the late
+    # night races in the Americas that finish after midnight UTC.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season to ingest (defaults to the current year)"
+        required: false
+        type: string
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    # Generous relative to a normal run (minutes), but the clients serialise
+    # requests to respect rate limits and will wait out a 429, so a catch-up
+    # run spanning several rounds needs room.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Ingest newly completed rounds
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          SEASON="${{ inputs.season }}"
+          if [ -z "$SEASON" ]; then SEASON="$(date -u +%Y)"; fi
+          echo "Ingesting season $SEASON"
+          npm run backfill -- "$SEASON"
+
+      - name: Report coverage
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run db:status
