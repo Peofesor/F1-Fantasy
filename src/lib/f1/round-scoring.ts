@@ -6,6 +6,7 @@ import {
   type ScoreBreakdown,
 } from "./scoring";
 import type { RosterSelection } from "./roster";
+import { applyChips, type ActiveChips } from "./chips";
 
 /**
  * Scoring a roster for one round.
@@ -63,7 +64,11 @@ export function constructorScore(constructorId: string, facts: RoundFacts): numb
  * A missing competitor scores nothing rather than throwing: a driver can be
  * replaced mid-season, and a roster picked before that should still score.
  */
-export function scoreRoster(selection: RosterSelection, facts: RoundFacts): RosterScore {
+export function scoreRoster(
+  selection: RosterSelection,
+  facts: RoundFacts,
+  chips: ActiveChips = {},
+): RosterScore {
   const slots: SlotScore[] = [];
 
   const scoreDriverSlot = (slot: string, driverId: string) => {
@@ -109,9 +114,15 @@ export function scoreRoster(selection: RosterSelection, facts: RoundFacts): Rost
     });
   }
 
+  // Chips are applied to the finished slot scores rather than folded into the
+  // per-driver calculation, so a multiplier acts on the driver's whole result
+  // (including penalties) exactly as a player would expect.
+  const withChips = applyChips(slots, chips);
+  const scored = slots.map((slot, index) => ({ ...slot, points: withChips[index].points }));
+
   return {
-    slots,
-    points: Math.round(slots.reduce((total, slot) => total + slot.points, 0) * 100) / 100,
+    slots: scored,
+    points: Math.round(scored.reduce((total, slot) => total + slot.points, 0) * 100) / 100,
     budget,
   };
 }

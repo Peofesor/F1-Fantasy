@@ -6,6 +6,8 @@ import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { EMPTY_SELECTION, type RosterSelection } from "@/lib/f1/roster";
 import { FREE_CHANGES_PER_ROUND, ledgerBalance, spendableCap } from "@/lib/f1/ledger";
 import { RosterBuilder, type PickOption } from "./roster-builder";
+import { ChipsPanel, toChipRow } from "./chips-panel";
+import { CHIP_LIST, chipAvailability, type ChipId, type ChipUsage } from "@/lib/f1/chips";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +122,39 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     }))
     .sort((a, b) => b.price - a.price);
 
+  // Chip state for this season, so availability reflects the whole season
+  // rather than just this round.
+  const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
+    supabase
+      .from("chip_plays")
+      .select("chip_id, round, target_driver_id, target_constructor_id")
+      .eq("member_id", membership.id)
+      .eq("season", context.season),
+    supabase.from("chip_purchases").select("chip_id").eq("member_id", membership.id),
+  ]);
+
+  const usage: ChipUsage[] = (chipPlays ?? []).map((play) => ({
+    chipId: play.chip_id as ChipId,
+    round: play.round,
+  }));
+
+  const chipRows = CHIP_LIST.map((definition) => {
+    const owned = (chipPurchases ?? []).filter((row) => row.chip_id === definition.id).length;
+    const state = chipAvailability(definition.id, usage, owned, context.round);
+    const played = (chipPlays ?? []).find(
+      (play) => play.chip_id === definition.id && play.round === context.round,
+    );
+    const targetId = played?.target_driver_id ?? played?.target_constructor_id ?? undefined;
+    const targetName = targetId
+      ? (context.driverNames.get(targetId) ?? context.constructorNames.get(targetId) ?? targetId)
+      : undefined;
+    return toChipRow(state, Boolean(played), targetName);
+  });
+
+  const selection = slots.length ? selectionFromSlots(slots) : EMPTY_SELECTION;
+  const rosterDriverIds = [...selection.top, ...selection.mid];
+  const rosterConstructorIds = [...selection.constructors];
+
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
       <header className="pt-2">
@@ -139,7 +174,23 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
         freeTransfers={FREE_CHANGES_PER_ROUND}
         drivers={drivers}
         constructors={constructors}
-        initialSelection={slots.length ? selectionFromSlots(slots) : EMPTY_SELECTION}
+        initialSelection={selection}
+        locked={Boolean(existingRoster?.locked_at)}
+      />
+
+      <ChipsPanel
+        leagueId={league.id}
+        round={context.round}
+        chips={chipRows}
+        balance={ledgerBalance(ledgerRows ?? [])}
+        driverOptions={rosterDriverIds.map((driverId) => ({
+          id: driverId,
+          name: context.driverNames.get(driverId) ?? driverId,
+        }))}
+        constructorOptions={rosterConstructorIds.map((constructorId) => ({
+          id: constructorId,
+          name: context.constructorNames.get(constructorId) ?? constructorId,
+        }))}
         locked={Boolean(existingRoster?.locked_at)}
       />
     </main>

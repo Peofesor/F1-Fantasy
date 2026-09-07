@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { rankConstructorsForRace } from "./scoring";
 import { resolveDuel, scoreRoster, type RoundFacts } from "./round-scoring";
 import { backmarkerPayoutEntry, priceDriftEntries, type LedgerEntry } from "./ledger";
+import type { ActiveChips } from "./chips";
 import type { DriverRaceInput } from "./scoring";
 import type { FinishClassification } from "./types";
 import type { RosterSelection } from "./roster";
@@ -181,6 +182,29 @@ export async function scoreRound(
       loadConstructorPrices(supabase, season, round - 1),
     ]);
 
+  // Chips played this round, keyed by member. Loaded once rather than per
+  // roster, since a round has few plays and many rosters.
+  const { data: chipPlays } = await supabase
+    .from("chip_plays")
+    .select("member_id, chip_id, target_driver_id, target_constructor_id")
+    .eq("season", season)
+    .eq("round", round);
+
+  const chipsByMember = new Map<string, ActiveChips>();
+  for (const play of chipPlays ?? []) {
+    const active = chipsByMember.get(play.member_id) ?? {};
+    switch (play.chip_id) {
+      case "turbo_driver": active.turboDriverId = play.target_driver_id ?? undefined; break;
+      case "konstruktor_boost": active.konstruktorBoostId = play.target_constructor_id ?? undefined; break;
+      case "super_driver": active.superDriverId = play.target_driver_id ?? undefined; break;
+      case "autopilot": active.autopilot = true; break;
+      case "no_negative": active.noNegative = true; break;
+      // final_fix, wildcard and unlimited_cap change what may be picked rather
+      // than how it scores, so they do not appear here.
+    }
+    chipsByMember.set(play.member_id, active);
+  }
+
   const pointsByMember = new Map<string, number>();
   const scoreRows: { member_id: string; season: number; round: number; points: number; duel_points: number }[] = [];
   const ledgerEntries: LedgerEntry[] = [];
@@ -188,7 +212,7 @@ export async function scoreRound(
   for (const roster of rosters ?? []) {
     const slots = (roster.roster_slots ?? []) as unknown as SlotRow[];
     const selection = selectionFromSlots(slots);
-    const score = scoreRoster(selection, facts);
+    const score = scoreRoster(selection, facts, chipsByMember.get(roster.member_id) ?? {});
     pointsByMember.set(roster.member_id, score.points);
     scoreRows.push({
       member_id: roster.member_id,

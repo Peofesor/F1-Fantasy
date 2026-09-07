@@ -160,6 +160,27 @@ All other chips follow a shared rule: **1 free use per season by default; additi
 | **Wildcard** | Unlimited free roster changes for one transfer window/week only (see §7 for normal change costs). Does not turn off the cost permanently — only for that one week. |
 | **Unlimited cost cap (one race)** | Removes the budget/cost-cap limit for a single race weekend. Does **not** bypass the 3-top/3-mid/1-backmarker tier structure — you still need a legal roster shape, just without a spending cap on it. (This is the same idea as the original notes' separately-listed "chip without budget restrictions" — one chip, not two.) |
 
+### Chip prices and limits
+
+Prices are set relative to the 130 cost cap. A mid-price driver is around 15, so a chip at 10–20 costs about one roster upgrade — enough to be a real decision, not enough to decide a season on its own. The strongest effects sit at the top of the range, the safety nets at the bottom.
+
+| Chip | Price | Free uses | Season cap |
+|---|---|---|---|
+| Turbo Driver | — | unlimited | unlimited |
+| Konstruktor Boost | — | unlimited | unlimited |
+| SuperDriver | 20 | 1 | 3 |
+| Unlimited Cost Cap | 20 | 1 | 2 |
+| Final Fix | 15 | 1 | 3 |
+| Autopilot | 15 | 1 | 3 |
+| Wildcard | 12 | 1 | 3 |
+| No Negative | 10 | 1 | 3 |
+
+Season caps exist because chips are bought with the same currency that buys drivers: without them, a member banking cap by fielding a cheap roster could play the strongest chip every week. One chip of a given kind per round, since stacking two multipliers on one race swings far beyond what the scoring model is balanced for.
+
+**Ordering matters and is fixed**: multipliers apply first, then No Negative. The other way round, doubling a −20 after cancelling it would reintroduce the negative the chip was bought to prevent. Autopilot resolves last among the multipliers, since it targets whichever driver actually scored highest, and it skips a driver an explicit multiplier already covers so the two cannot compound.
+
+Measured on the real 2026 Monza round against a roster scoring 193: Turbo +65, Konstruktor +94, No Negative +30, SuperDriver **+130**. Worth watching — SuperDriver returning 130 points for 20 cost cap is a very high return, and if it proves dominant the lever is its price and season cap rather than the multiplier itself.
+
 ### Explicitly dropped chips
 - The opponent-hindering chip (halve/lock an opponent's driver) — dropped as unbalanced/unfun in a 1v1 duel context.
 - The illegible tire-strategy/distraction-bonus chip from the original notes — dropped; the handwriting was unreadable and there was nothing concrete to design against.
