@@ -12,6 +12,7 @@ import {
 } from "./jolpica/transform";
 import {
   excludePitDrivenOvertakes,
+  findSessionForRaceDate,
   toOpenF1PitStops,
   toOvertakes,
   toSafetyCarEvents,
@@ -165,7 +166,7 @@ async function resolveOpenF1Session(
     sessionsBySeason.set(season, sessions);
   }
 
-  const session = sessions.find((candidate) => candidate.date_start.startsWith(race.date));
+  const session = findSessionForRaceDate(sessions, race.date);
 
   if (!session) {
     return {

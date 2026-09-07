@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countOvertakesByDriver,
   excludePitDrivenOvertakes,
+  findSessionForRaceDate,
   hadSafetyCar,
   linkDriverNumbers,
   toSafetyCarEvents,
@@ -135,6 +136,49 @@ describe("toSafetyCarEvents", () => {
     expect(
       hadSafetyCar(toSafetyCarEvents([message("SAFETY CAR IN THIS LAP")])),
     ).toBe(false);
+  });
+});
+
+describe("findSessionForRaceDate", () => {
+  const session = (date_start: string, location: string) => ({ date_start, location });
+
+  it("matches a session starting the same day", () => {
+    const found = findSessionForRaceDate(
+      [session("2026-09-06T13:00:00+00:00", "Monza")],
+      "2026-09-06",
+    );
+    expect(found?.location).toBe("Monza");
+  });
+
+  it("matches a night race that starts after midnight UTC", () => {
+    // Las Vegas 2024: jolpica files it under 2024-11-23 (local date) while the
+    // session starts 2024-11-24T06:00Z. Exact date matching misses it entirely.
+    const found = findSessionForRaceDate(
+      [session("2024-11-24T06:00:00+00:00", "Las Vegas")],
+      "2024-11-23",
+    );
+    expect(found?.location).toBe("Las Vegas");
+  });
+
+  it("does not match an unrelated event a week away", () => {
+    expect(
+      findSessionForRaceDate([session("2026-09-13T13:00:00+00:00", "Baku")], "2026-09-06"),
+    ).toBeNull();
+  });
+
+  it("picks the closest session when several are in range", () => {
+    const found = findSessionForRaceDate(
+      [
+        session("2026-09-07T18:00:00+00:00", "Later"),
+        session("2026-09-06T13:00:00+00:00", "Closer"),
+      ],
+      "2026-09-06",
+    );
+    expect(found?.location).toBe("Closer");
+  });
+
+  it("returns null for an unparseable date", () => {
+    expect(findSessionForRaceDate([session("2026-09-06T13:00:00+00:00", "Monza")], "")).toBeNull();
   });
 });
 

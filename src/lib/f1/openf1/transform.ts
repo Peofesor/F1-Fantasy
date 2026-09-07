@@ -99,6 +99,45 @@ function stopWindowSeconds(stop: PitStop): number {
   return Math.min(stop.pitLaneSeconds, PIT_WINDOW_CAP_SECONDS);
 }
 
+/**
+ * How far a session's start may sit from the reported race date and still be
+ * the same event.
+ *
+ * A night race can start after midnight UTC while jolpica still files it under
+ * the previous local date: Las Vegas 2024 is dated 2024-11-23 by jolpica but
+ * starts 2024-11-24T06:00Z per OpenF1, 30 hours after that date's midnight.
+ * Grands Prix are at least a week apart, so a day-and-a-half window cannot
+ * match the wrong event.
+ */
+const SESSION_DATE_TOLERANCE_MS = 36 * 60 * 60 * 1000;
+
+/**
+ * Finds the OpenF1 session for a race date, tolerating timezone drift.
+ *
+ * Returns the closest session within the tolerance window, so that even if two
+ * candidates qualified the nearer one wins.
+ */
+export function findSessionForRaceDate<T extends { date_start: string }>(
+  sessions: T[],
+  raceDate: string,
+): T | null {
+  const target = Date.parse(`${raceDate}T00:00:00Z`);
+  if (!Number.isFinite(target)) return null;
+
+  let best: { session: T; distance: number } | null = null;
+
+  for (const session of sessions) {
+    const start = Date.parse(session.date_start);
+    if (!Number.isFinite(start)) continue;
+
+    const distance = Math.abs(start - target);
+    if (distance > SESSION_DATE_TOLERANCE_MS) continue;
+    if (!best || distance < best.distance) best = { session, distance };
+  }
+
+  return best?.session ?? null;
+}
+
 /** Counts on-track overtakes per car number. */
 export function countOvertakesByDriver(
   overtakes: Overtake[],
