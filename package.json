@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "ingest": "tsx scripts/ingest.ts",
     "backfill": "tsx scripts/backfill.ts",
+    "db:status": "tsx scripts/db-status.ts",
     "db:link": "supabase link --project-ref cffgnedqsxfrgruevkvl",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff"
