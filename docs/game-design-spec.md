@@ -86,9 +86,28 @@ The rolling window removes the round-one special case rather than patching it, w
 
 ## 5. Driver & constructor pricing
 
-- Prices are inspired by/based on the real official F1 Fantasy game's pricing as a sensible, pre-balanced starting point.
-- Prices are **dynamic**, driven by current championship standings, recalculated after every race (same cadence as tier recalculation).
-- A driver's price affects your cost cap (see §2): owning a driver whose price rises grows your cap; a price drop shrinks it.
+Prices are **derived from form**, not imported: no upstream source publishes F1 Fantasy prices, and hand-entered ones would go stale every week.
+
+- The signal is the **same rolling 5-race window that drives tier assignment**. Using one signal for both is deliberate — computing them separately would let a driver be top-bracket while priced like a backmarker.
+- Form is normalised against the strongest competitor in the field, so a quiet run of races doesn't make everyone cheap.
+- **Bands**: drivers 4–28, constructors 5–26.
+- **Curve**: normalised form is raised to the power **0.5** before mapping onto the band. F1 points are heavily top-weighted (25 for a win against 1 for tenth), so a linear map bunches everyone below the leader near the floor; the exponent compresses the top and spreads the midfield, which is where roster decisions are actually made.
+- Recalculated after every race, same cadence as tiers. Owning a driver whose price rises grows your cost cap; a price drop shrinks it (§2).
+
+### Starting cost cap: 130
+
+Set from measured roster costs at 2026 round 13 rather than picked:
+
+| Roster archetype | Cost |
+|---|---|
+| Cheapest legal | 88.6 |
+| Stars and scrubs | 111.8 |
+| Balanced | 116.6 |
+| Every premium pick | 206.5 |
+
+The original placeholder of 100 admitted **only the cheapest legal roster** — a budget permitting exactly one affordable team is a forced selection, not a choice. At 130 the first three archetypes are all reachable while an all-premium roster stays far out of reach.
+
+Note that constructors are a larger lever than expected: a set of three ranges from 15.0 to 74.0, rivalling the driver spread, so "expensive drivers with cheap teams" is a genuine strategy.
 
 ## 5a. Scoring
 
