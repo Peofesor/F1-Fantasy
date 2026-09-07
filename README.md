@@ -36,6 +36,9 @@ npm run dev
 | `npm test` | Vitest suite (pure transform logic, runs offline) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run backfill` | Ingest completed rounds (skips those already stored) |
+| `npm run prices` | Recompute derived driver and constructor prices |
+| `npm run db:status` | Row counts, coverage and integrity check |
 
 ### Verifying ingestion against live data
 

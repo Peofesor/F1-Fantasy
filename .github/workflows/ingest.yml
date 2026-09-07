@@ -52,6 +52,15 @@ jobs:
           echo "Ingesting season $SEASON"
           npm run backfill -- "$SEASON"
 
+      # Prices derive from results, so they are recomputed after ingestion
+      # rather than on their own schedule. Upserts make this safe to repeat even
+      # when no new round arrived.
+      - name: Recompute prices
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run prices
+
       - name: Report coverage
         if: always()
         env:

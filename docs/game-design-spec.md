@@ -230,7 +230,11 @@ Backfill target is **2023 onward** — where both sources overlap. Pre-2026 race
 
 Verified against the live database with 12 constraint tests covering occupant/slot-type mismatches, index bounds, duplicate picks, negative prices, duplicate rosters, self-duels, and invalid enum values.
 
-**Not yet populated: driver and constructor prices.** No upstream source publishes F1 Fantasy prices — neither jolpica nor OpenF1 — so the tables exist but the numbers must come from our own model or by hand. This blocks any roster being priced.
+**Prices are populated by a derived job** (`npm run prices`), which runs after ingestion in the daily workflow. Prices upsert on their key, so re-running after a results correction rewrites them.
+
+Populated across all 83 ingested rounds: 1,863 driver prices and 843 constructor prices. Only 2023 R01 is priced entirely at the floor, which is correct — nothing precedes it, so no form exists to tell competitors apart. The job reports any other round in that state, since elsewhere it would mean a gap in results.
+
+Measured behaviour: prices span the full 4.0–28.0 band, and the median round-to-round change is 0.9 with a maximum of 3.9 — so a member's cost cap drifts steadily rather than lurching.
 
 ### Ingestion design
 
