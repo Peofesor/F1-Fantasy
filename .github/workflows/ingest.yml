@@ -42,6 +42,14 @@ jobs:
 
       - run: npm ci
 
+      # The calendar comes first: results ingestion only stores rounds that have
+      # already run, so without this there is never an upcoming round to pick for.
+      - name: Ingest season calendar
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run calendar -- "$(date -u +%Y)"
+
       - name: Ingest newly completed rounds
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

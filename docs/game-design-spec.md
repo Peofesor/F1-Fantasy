@@ -311,6 +311,16 @@ Populated across all 83 ingested rounds: 1,863 driver prices and 843 constructor
 
 Measured behaviour: prices span the full 4.0–28.0 band, and the median round-to-round change is 0.9 with a maximum of 3.9 — so a member's cost cap drifts steadily rather than lurching.
 
+### Calendar versus results
+
+Two separate ingestion paths, because they answer different questions.
+
+**Results ingestion** refuses a round with no published results — correct, since a race that has not run has nothing to score. But on its own that means the database only ever holds *past* rounds, and every stored round has already locked. A fantasy game in that state has nothing to pick for: the roster builder lands on a finished race and the schedule generator reports that every round is over.
+
+**Calendar ingestion** stores the schedule regardless — race names, dates and qualifying times for the whole season. Rounds that have run get updated in place by results ingestion afterwards; rounds still to come sit there with their lock deadline set. It deliberately does not touch `openf1_session_key`, which results ingestion owns — overwriting it would unlink rounds already matched to an OpenF1 session.
+
+Relatedly, the round a roster is picked for is the **next round whose qualifying has not started**, not the most recently ingested one. The latter is always a race that has already run.
+
 ### Ingestion design
 
 - Scheduled via Supabase `pg_cron`, polling daily. Results land within ~24h of a race, so daily is sufficient; running it next to the database avoids Vercel's free-tier cron restrictions.

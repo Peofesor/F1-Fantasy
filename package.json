@@ -14,6 +14,7 @@
     "ingest": "tsx scripts/ingest.ts",
     "backfill": "tsx scripts/backfill.ts",
     "prices": "tsx scripts/prices.ts",
+    "calendar": "tsx scripts/calendar.ts",
     "session-times": "tsx scripts/session-times.ts",
     "score": "tsx scripts/score.ts",
     "db:status": "tsx scripts/db-status.ts",

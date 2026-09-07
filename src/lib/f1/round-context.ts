@@ -28,22 +28,37 @@ export interface RoundContext {
 /**
  * The round a roster is currently being picked for.
  *
- * Uses the most recently ingested round of the season. Once a real fixture
- * calendar with lock deadlines exists this should become "the next unlocked
- * round"; for now it is the latest one we hold data for.
+ * The next round whose qualifying has not yet started — the one a member can
+ * still act on. Picking the *latest* round instead would always land on a race
+ * that has already run and locked, leaving nothing selectable.
+ *
+ * Falls back to the most recent round when the season is over, so the page
+ * still renders something (locked) rather than an error.
  */
 export async function currentRound(
   supabase: SupabaseClient,
   season: number,
 ): Promise<{ season: number; round: number; race_name: string } | null> {
-  const { data } = await supabase
+  const { data: upcoming } = await supabase
+    .from("rounds")
+    .select("season, round, race_name")
+    .eq("season", season)
+    .gt("qualifying_at", new Date().toISOString())
+    .order("round", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (upcoming) return upcoming;
+
+  const { data: latest } = await supabase
     .from("rounds")
     .select("season, round, race_name")
     .eq("season", season)
     .order("round", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data ?? null;
+
+  return latest ?? null;
 }
 
 export async function loadRoundContext(
