@@ -241,7 +241,17 @@ Three markets can't settle against the figures shown on the F1 broadcast, becaus
 - **Fastest pit stop** — settles on pit *lane* time, not the ~2s stationary time quoted on TV. Neither jolpica nor OpenF1 exposes stationary time (OpenF1's `stop_duration` field is null across every session checked, 2024 and 2026 alike). Stops taken during a red-flag suspension legitimately record in the tens of minutes; since the market takes the minimum, those exclude themselves.
 - **Safety car (yes/no)** — available only from OpenF1's race-control feed. Full and virtual safety cars are distinguished at ingestion.
 
-- Lap-1 leader settles from jolpica's lap-1 timing data and matches the official record exactly.
+- **Lap-1 leader is currently hidden.** jolpica publishes lap-by-lap timing, but it is not ingested, so the market cannot be settled. A market that always voids and refunds looks broken rather than generous, so it is withheld until the data exists.
+
+### Betting balance numbers
+
+- **Maximum stake: a fifth of the bank.** Without a ceiling, one all-in bet could decide a season and make the roster — the actual game — irrelevant. A fifth is enough to matter and survivable when it loses.
+- **Stakes come from the bank**, the uncommitted balance, not from cap tied up in a roster. A member cannot stake money that is currently a driver.
+- **Stakes are charged when the bet is placed**, not at settlement. Otherwise the same cap could be staked on every market at once.
+- **One bet per market per round**, enforced by a unique constraint. Without it a member could back every driver in a market and profit regardless of the result.
+- **A bet cannot be withdrawn or edited** — there is no update or delete policy on the table, which is the point of a bet.
+- **Odds are shaded below true odds** so betting is not a better expected return than picking a good roster: naming one winner from twenty pays 4x, not 20x, because the field is not uniform. Pre-qualifying bets pay 1.5x the market odds, since they are placed before the grid is known.
+- **A market with no data voids and refunds** rather than grading as a loss. The member cannot be blamed for a feed that did not publish.
 - "Unlimited Roster Changes" is **not** a separate bet type — it was a miscategorized note; the actual mechanic is the Wildcard chip (§6).
 
 ## 9. Rivals

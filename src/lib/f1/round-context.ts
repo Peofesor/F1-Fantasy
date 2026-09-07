@@ -20,6 +20,8 @@ export interface RoundContext {
   constructorPrices: Map<string, number>;
   driverNames: Map<string, string>;
   driverTeams: Map<string, string>;
+  /** Needed by the winner-nationality betting market. */
+  driverNationalities: Map<string, string>;
   constructorNames: Map<string, string>;
 }
 
@@ -74,7 +76,7 @@ export async function loadRoundContext(
         .select("constructor_id, price")
         .eq("season", season)
         .eq("round", round.round),
-      supabase.from("drivers").select("driver_id, given_name, family_name"),
+      supabase.from("drivers").select("driver_id, given_name, family_name, nationality"),
       supabase.from("constructors").select("constructor_id, name"),
     ]);
 
@@ -129,6 +131,9 @@ export async function loadRoundContext(
       ]),
     ),
     driverTeams,
+    driverNationalities: new Map(
+      (drivers.data ?? []).map((row) => [row.driver_id, row.nationality]),
+    ),
     constructorNames: new Map(
       (constructors.data ?? []).map((row) => [row.constructor_id, row.name]),
     ),

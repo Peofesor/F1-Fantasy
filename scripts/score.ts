@@ -9,6 +9,7 @@
  */
 
 import { scoreRound } from "../src/lib/f1/score-job";
+import { settleRound } from "../src/lib/f1/bet-settlement";
 import { createAdminClient, loadLocalEnv } from "../src/lib/supabase/admin";
 
 loadLocalEnv();
@@ -45,6 +46,10 @@ async function main(): Promise<void> {
           `${season} R${String(round).padStart(2, "0")}  rosters ${report.rostersScored}  duels ${report.duelsResolved}` +
             (report.membersWithoutRoster ? `  no-roster ${report.membersWithoutRoster}` : ""),
         );
+      }
+      const bets = await settleRound(supabase, season, round);
+      if (bets.settled) {
+        console.log(`      bets: ${bets.settled} settled (${bets.won} won, ${bets.lost} lost, ${bets.void} void), paid ${bets.paidOut}`);
       }
       scored++;
     } catch (error) {

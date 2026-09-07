@@ -7,6 +7,8 @@ import { EMPTY_SELECTION, type RosterSelection } from "@/lib/f1/roster";
 import { FREE_CHANGES_PER_ROUND, ledgerBalance, spendableCap } from "@/lib/f1/ledger";
 import { RosterBuilder, type PickOption } from "./roster-builder";
 import { ChipsPanel, toChipRow } from "./chips-panel";
+import { BetsPanel, type PlacedBet } from "./bets-panel";
+import { MARKETS, type MarketId, type BetTiming } from "@/lib/f1/betting";
 import { CHIP_LIST, chipAvailability, type ChipId, type ChipUsage } from "@/lib/f1/chips";
 
 export const dynamic = "force-dynamic";
@@ -151,6 +153,33 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     return toChipRow(state, Boolean(played), targetName);
   });
 
+  const { data: betRows } = await supabase
+    .from("bets")
+    .select("market_id, selection, stake, timing, outcome, returned")
+    .eq("member_id", membership.id)
+    .eq("season", context.season)
+    .eq("round", context.round);
+
+  const placedBets: PlacedBet[] = (betRows ?? []).map((bet) => {
+    const marketId = bet.market_id as MarketId;
+    const selectionId = bet.selection;
+    return {
+      marketId,
+      marketName: MARKETS[marketId]?.name ?? marketId,
+      // Show a readable name where the selection is an id.
+      selection:
+        context.driverNames.get(selectionId) ??
+        context.constructorNames.get(selectionId) ??
+        selectionId,
+      stake: Number(bet.stake),
+      timing: bet.timing as BetTiming,
+      outcome: bet.outcome,
+      returned: bet.returned === null ? null : Number(bet.returned),
+    };
+  });
+
+  const nationalities = [...new Set([...context.driverNationalities.values()])].sort();
+
   const selection = slots.length ? selectionFromSlots(slots) : EMPTY_SELECTION;
   const rosterDriverIds = [...selection.top, ...selection.mid];
   const rosterConstructorIds = [...selection.constructors];
@@ -191,6 +220,17 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
           id: constructorId,
           name: context.constructorNames.get(constructorId) ?? constructorId,
         }))}
+        locked={Boolean(existingRoster?.locked_at)}
+      />
+
+      <BetsPanel
+        leagueId={league.id}
+        round={context.round}
+        bank={ledgerBalance(ledgerRows ?? [])}
+        bets={placedBets}
+        drivers={[...context.driverNames.entries()].map(([id, name]) => ({ id, name }))}
+        constructors={[...context.constructorNames.entries()].map(([id, name]) => ({ id, name }))}
+        nationalities={nationalities}
         locked={Boolean(existingRoster?.locked_at)}
       />
     </main>
