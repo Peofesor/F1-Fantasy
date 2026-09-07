@@ -118,7 +118,15 @@ All other chips follow a shared rule: **1 free use per season by default; additi
   - Most overtakes
   - Safety car (yes/no)
   - Who leads after lap 1
-- Two of these (most overtakes, lap-1 leader) depend on live timing data that may be harder to source reliably than official results — implementation may need a manual-entry fallback if live data isn't available.
+### Settlement rules for the data-dependent markets
+
+Three markets can't settle against the figures shown on the F1 broadcast, because the underlying stats aren't available from any free source. Each settles against a stated house definition instead (verified against real race data during pipeline development — see §11):
+
+- **Most overtakes** — settles on our own ingested OpenF1 overtake feed, with position changes caused by the overtaken car pitting filtered out. This is stated in the UI when the bet is placed. Note the absolute count runs roughly an order of magnitude above the broadcast figure (OpenF1 logs every position change, and a multi-car pass counts once per car); the *ranking* of drivers is what the market settles on and that remains meaningful.
+- **Fastest pit stop** — settles on pit *lane* time, not the ~2s stationary time quoted on TV. Neither jolpica nor OpenF1 exposes stationary time (OpenF1's `stop_duration` field is null across every session checked, 2024 and 2026 alike). Stops taken during a red-flag suspension legitimately record in the tens of minutes; since the market takes the minimum, those exclude themselves.
+- **Safety car (yes/no)** — available only from OpenF1's race-control feed. Full and virtual safety cars are distinguished at ingestion.
+
+- Lap-1 leader settles from jolpica's lap-1 timing data and matches the official record exactly.
 - "Unlimited Roster Changes" is **not** a separate bet type — it was a miscategorized note; the actual mechanic is the Wildcard chip (§6).
 
 ## 9. Rivals
@@ -140,7 +148,33 @@ Gathered as background reference for designing the point-scoring model (particul
 
 Sources (secondary, cross-checked): Motor Sport Magazine's F1 Fantasy scoring guide, F1 Pitwall's 2026 scoring guide, Fanamp's 2026 rules-changes article. The official rules page (fantasy.formula1.com/en/game-rules) is JS-rendered and wasn't directly fetchable at research time.
 
-## 11. Open items for later (not blocking, explicitly deferred)
+## 11. Technical architecture
+
+**Stack**: Next.js 16 + TypeScript, Supabase (Postgres, auth, `pg_cron`), Tailwind. Deployed as a web app; mobile is not a target.
+
+**Build order**: data pipeline first, then game logic. The 2026 season is a live test bed — standing the pipeline up now means the remaining races bank verified real data, so 2027 (the real target) starts with months of ingestion history rather than cold.
+
+### Data sources
+
+| Source | Role | Constraints |
+|---|---|---|
+| **jolpica-f1** (`api.jolpi.ca`) | Source of record: qualifying (with Q1/Q2/Q3 derivation), race results, DNF/DSQ status, grid positions, lap timings, pit-lane times, driver + constructor standings per round | Free. **4 req/s, 500 req/hour**, and their docs warn limits may tighten. **Requires a descriptive User-Agent** or traffic risks being blocked. Volunteer-funded — ingest into our own store, never proxy user traffic to it |
+| **OpenF1** (`api.openf1.org`) | Only source for overtakes, safety-car events, and session-keyed pit timing | Free tier: **3 req/s but only 30/min** — the per-minute figure binds. History starts **2023**. Live data is paid (€9.90/mo); we only need post-session data. **Licensed CC BY-NC-SA 4.0 — non-commercial** |
+
+Ergast is dead (shut down end of 2024, returns 404). Do not build against it.
+
+**Known blocker for a public launch**: OpenF1's non-commercial licence covers the three markets above. A private friends' league is fine; monetising would require their permission or dropping those markets. Recorded per the decision in §1 to accept this rather than design around a speculative future.
+
+Backfill target is **2023 onward** — where both sources overlap. Pre-2026 races are useful for testing the scoring engine mechanically, but the 2026 regulation overhaul makes them less representative for balancing prices.
+
+### Ingestion design
+
+- Scheduled via Supabase `pg_cron`, polling daily. Results land within ~24h of a race, so daily is sufficient; running it next to the database avoids Vercel's free-tier cron restrictions.
+- **Raw payloads are stored verbatim alongside normalised tables.** Since every balancing number in §12 is still open, scoring rules will change — and replaying a rule change against already-ingested races is only possible if the original payloads are kept. Re-fetching is not a reliable fallback given jolpica's request budget and OpenF1's 2023 floor.
+- The two APIs share no identifier: jolpica keys drivers by slug (`max_verstappen`), OpenF1 by car number. They're joined on the car number actually raced, taken from jolpica's per-race results.
+- Transform logic is pure and dependency-free, so it is unit-testable offline and reusable from either a Next.js route or a Supabase Edge Function.
+
+## 12. Open items for later (not blocking, explicitly deferred)
 
 - Multi-league/public-product infrastructure (§1).
 - Per-league-class chip slot counts (§1, §6).
