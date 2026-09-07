@@ -224,6 +224,55 @@ export function canPurchase(
   return { allowed: true, price: chip.price };
 }
 
+/**
+ * A chip's state, flattened for rendering.
+ *
+ * Lives here rather than beside the panel component because the page is a
+ * Server Component: anything it calls must not sit in a "use client" module,
+ * and this is plain data-shaping with no React in it.
+ */
+export interface ChipRow {
+  chipId: ChipId;
+  name: string;
+  description: string;
+  unlimited: boolean;
+  price: number;
+  seasonCap: number;
+  target: "driver" | "constructor" | "none";
+  usedThisSeason: number;
+  freeRemaining: number;
+  purchasedRemaining: number;
+  available: boolean;
+  reason?: string;
+  playedThisRound: boolean;
+  playedTarget?: string;
+}
+
+export function toChipRow(
+  state: ChipAvailability,
+  playedThisRound: boolean,
+  playedTarget?: string,
+): ChipRow {
+  return {
+    chipId: state.chip.id,
+    name: state.chip.name,
+    description: state.chip.description,
+    unlimited: state.chip.unlimited,
+    price: state.chip.price,
+    // Infinity does not survive serialisation to a Client Component, so an
+    // unlimited chip reports zero and is distinguished by the flag instead.
+    seasonCap: state.chip.unlimited ? 0 : state.chip.seasonCap,
+    target: state.chip.target,
+    usedThisSeason: state.usedThisSeason,
+    freeRemaining: state.chip.unlimited ? 0 : state.freeRemaining,
+    purchasedRemaining: state.purchasedRemaining,
+    available: state.available,
+    reason: state.reason,
+    playedThisRound,
+    playedTarget,
+  };
+}
+
 export interface ActiveChips {
   /** Driver whose score is doubled. */
   turboDriverId?: string;

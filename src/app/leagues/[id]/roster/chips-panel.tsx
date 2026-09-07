@@ -2,25 +2,8 @@
 
 import { useActionState, useState } from "react";
 
-import { CHIP_LIST, type ChipAvailability, type ChipId } from "@/lib/f1/chips";
+import type { ChipRow } from "@/lib/f1/chips";
 import { buyChip, cancelChip, playChip, type ChipState } from "./chip-actions";
-
-export interface ChipRow {
-  chipId: ChipId;
-  name: string;
-  description: string;
-  unlimited: boolean;
-  price: number;
-  seasonCap: number;
-  target: "driver" | "constructor" | "none";
-  usedThisSeason: number;
-  freeRemaining: number;
-  purchasedRemaining: number;
-  available: boolean;
-  reason?: string;
-  playedThisRound: boolean;
-  playedTarget?: string;
-}
 
 export function ChipsPanel({
   leagueId,
@@ -171,29 +154,3 @@ export function ChipsPanel({
     </section>
   );
 }
-
-/** Kept alongside the component so the page and panel cannot disagree on shape. */
-export function toChipRow(
-  state: ChipAvailability,
-  playedThisRound: boolean,
-  playedTarget?: string,
-): ChipRow {
-  return {
-    chipId: state.chip.id,
-    name: state.chip.name,
-    description: state.chip.description,
-    unlimited: state.chip.unlimited,
-    price: state.chip.price,
-    seasonCap: state.chip.unlimited ? 0 : state.chip.seasonCap,
-    target: state.chip.target,
-    usedThisSeason: state.usedThisSeason,
-    freeRemaining: state.chip.unlimited ? 0 : state.freeRemaining,
-    purchasedRemaining: state.purchasedRemaining,
-    available: state.available,
-    reason: state.reason,
-    playedThisRound,
-    playedTarget,
-  };
-}
-
-export { CHIP_LIST };
