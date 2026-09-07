@@ -23,6 +23,8 @@ export interface PickOption {
 interface Props {
   leagueId: string;
   costCap: number;
+  transfersUsed: number;
+  freeTransfers: number;
   drivers: PickOption[];
   constructors: PickOption[];
   initialSelection: RosterSelection;
@@ -45,6 +47,8 @@ function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
 export function RosterBuilder({
   leagueId,
   costCap,
+  transfersUsed,
+  freeTransfers,
   drivers,
   constructors,
   initialSelection,
@@ -119,6 +123,10 @@ export function RosterBuilder({
     return null;
   }
 
+  // Transfers already used this round consume the free allowance, so a second
+  // edit does not silently get a fresh one.
+  const freeRemaining = Math.max(0, freeTransfers - transfersUsed);
+
   const overBudget = validation.remaining < 0;
 
   return (
@@ -139,6 +147,12 @@ export function RosterBuilder({
             style={{ width: `${Math.min(100, (validation.cost / costCap) * 100)}%` }}
           />
         </div>
+
+        <p className="mt-1 text-xs text-zinc-500">
+          {freeRemaining > 0
+            ? `${freeRemaining} free transfer${freeRemaining === 1 ? "" : "s"} left this round`
+            : "Free transfers used — further changes cost cap"}
+        </p>
 
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-zinc-500">
           <span>

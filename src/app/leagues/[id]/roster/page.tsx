@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { loadRoundContext } from "@/lib/f1/round-context";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { EMPTY_SELECTION, type RosterSelection } from "@/lib/f1/roster";
+import { FREE_CHANGES_PER_ROUND, ledgerBalance, spendableCap } from "@/lib/f1/ledger";
 import { RosterBuilder, type PickOption } from "./roster-builder";
 
 export const dynamic = "force-dynamic";
@@ -72,13 +73,32 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
   const { data: existingRoster } = await supabase
     .from("rosters")
-    .select("id, locked_at, roster_slots(slot_type, slot_index, driver_id, constructor_id)")
+    .select(
+      "id, locked_at, transfers_used, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
+    )
     .eq("member_id", membership.id)
     .eq("season", context.season)
     .eq("round", context.round)
     .maybeSingle();
 
+  // Spendable cap is the ledger balance, not the league's opening figure —
+  // price drift, payouts and fees have all moved it since.
+  const { data: ledgerRows } = await supabase
+    .from("cost_cap_entries")
+    .select("amount")
+    .eq("member_id", membership.id);
+
   const slots = (existingRoster?.roster_slots ?? []) as unknown as SlotRow[];
+
+  // Spending power is the bank plus what is already held: the current roster
+  // is an asset that gets sold back when a slot is swapped.
+  const heldValue = (slots as SlotRow[]).reduce((total, slot) => {
+    if (slot.driver_id) return total + (context.driverPrices.get(slot.driver_id) ?? 0);
+    if (slot.constructor_id) return total + (context.constructorPrices.get(slot.constructor_id) ?? 0);
+    return total;
+  }, 0);
+
+  const costCap = spendableCap(ledgerBalance(ledgerRows ?? []), heldValue);
 
   const drivers: PickOption[] = [...context.driverPrices.entries()]
     .map(([driverId, price]) => ({
@@ -114,7 +134,9 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
       <RosterBuilder
         leagueId={league.id}
-        costCap={Number(league.starting_cost_cap)}
+        costCap={costCap}
+        transfersUsed={existingRoster?.transfers_used ?? 0}
+        freeTransfers={FREE_CHANGES_PER_ROUND}
         drivers={drivers}
         constructors={constructors}
         initialSelection={slots.length ? selectionFromSlots(slots) : EMPTY_SELECTION}

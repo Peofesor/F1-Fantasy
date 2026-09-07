@@ -182,6 +182,20 @@ Nine reasons move the cap, and each writes its own entry so the balance is alway
 - **Price drift is applied symmetrically** — rises credit, falls charge. A one-way ratchet would remove any downside to a pick whose value craters, which is most of what makes pricing a real decision. Only competitors held across both rounds drift; anything bought or sold is already accounted for by its own entry.
 - **Drift and payouts are replaced on re-scoring**, not appended, so a stewards' correction cannot credit a backmarker payout twice. Verified against the real Monza round: re-scoring left the balance unchanged at 139.8.
 
+### Bank versus spending power
+
+The ledger balance is the **bank** — buying a roster deducts its cost. The roster itself remains an asset, since swapping a slot sells the outgoing pick back at its current price. So:
+
+```
+spending power = bank + value of what is currently held
+```
+
+Validating a roster against the bank alone double-counts the original purchase and makes every held roster look unaffordable the moment it is bought. This was a real bug, caught by simulating successive edits against live prices: a roster costing 94.5 bought from 130 left a bank of 35.5, and the next edit was then rejected as "over budget by 78.8" despite being perfectly affordable.
+
+The resulting invariant is worth keeping: **swapping conserves total wealth; only fees consume it.** Verified across three successive edits at real prices — spending power held at exactly 130.0 through two free swaps and fell to exactly 126.0 after one 4.0 fee.
+
+Note the free allowance is tracked on the roster (`transfers_used`), not derived from the ledger. Purchase entries cannot distinguish a first roster fill (not a transfer) from a later edit (which is one), and without the counter, saving twice would grant the allowance twice.
+
 ## 8. Betting (Wetten)
 
 - Stakes and payouts are in cost cap directly (drawn from spare/uncommitted cap), capped per bet.

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { loadRoundContext } from "@/lib/f1/round-context";
 import { validateRoster, type RosterSelection } from "@/lib/f1/roster";
-import { rosterChangeEntries, transferFeeEntries } from "@/lib/f1/ledger";
+import { EXTRA_CHANGE_FEE, ledgerBalance, rosterChangeEntries, spendableCap, summariseTransfers } from "@/lib/f1/ledger";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SaveState = { error: string } | { ok: true; savedAt: string } | null;
@@ -29,6 +29,7 @@ async function recordRosterLedger(input: {
   nextConstructors: string[];
   driverPrices: ReadonlyMap<string, number>;
   constructorPrices: ReadonlyMap<string, number>;
+  chargeableChanges: number;
 }): Promise<void> {
   const entries = [
     ...rosterChangeEntries(
@@ -51,14 +52,19 @@ async function recordRosterLedger(input: {
     ),
   ];
 
-  // The first roster of a round is not a transfer; only later edits are.
-  const changeCount = input.previousDrivers.length + input.previousConstructors.length === 0
-    ? 0
-    : entries.filter((entry) => entry.reason.endsWith("_purchase")).length;
-
-  entries.push(
-    ...transferFeeEntries(input.memberId, input.season, input.round, changeCount),
-  );
+  // The chargeable count is worked out by the caller, which knows how many
+  // transfers this round has already used. Recomputing it here from the diff
+  // alone would reset the free allowance on every save.
+  if (input.chargeableChanges > 0) {
+    entries.push({
+      memberId: input.memberId,
+      season: input.season,
+      round: input.round,
+      amount: -Math.round(input.chargeableChanges * EXTRA_CHANGE_FEE * 10) / 10,
+      reason: "transfer_fee",
+      note: `${input.chargeableChanges} change(s) beyond the free allowance`,
+    });
+  }
 
   if (entries.length === 0) return;
 
@@ -146,12 +152,65 @@ export async function saveRoster(
   const context = await loadRoundContext(supabase, league.season);
   if (!context) return { error: "No round available to pick for yet." };
 
+  // The spendable cap is the ledger balance, not the league's opening figure.
+  // Validating against the opening cap would ignore every movement since —
+  // price drift, backmarker payouts, fees — which is the whole point of the
+  // ledger.
+  const { data: ledgerRows } = await supabase
+    .from("cost_cap_entries")
+    .select("amount")
+    .eq("member_id", membership.id);
+
+  const balance = ledgerBalance(ledgerRows ?? []);
+
+  // The existing roster is read before anything is written, because its value
+  // is part of what the member can spend and its slots are what the ledger
+  // diffs against.
+  const { data: existingRoster } = await supabase
+    .from("rosters")
+    .select("id, locked_at, transfers_used")
+    .eq("member_id", membership.id)
+    .eq("season", context.season)
+    .eq("round", context.round)
+    .maybeSingle();
+
+  if (existingRoster?.locked_at) {
+    return { error: "This round has locked; the roster can no longer change." };
+  }
+
+  const { data: previousSlots } = existingRoster
+    ? await supabase
+        .from("roster_slots")
+        .select("driver_id, constructor_id")
+        .eq("roster_id", existingRoster.id)
+    : { data: [] };
+
+  const previousDrivers = (previousSlots ?? [])
+    .map((slot) => slot.driver_id)
+    .filter((id): id is string => Boolean(id));
+  const previousConstructors = (previousSlots ?? [])
+    .map((slot) => slot.constructor_id)
+    .filter((id): id is string => Boolean(id));
+
+  // Spending power is the bank plus the value of what is held: swapping a slot
+  // sells the outgoing pick back at its current price. Validating against the
+  // bank alone would double-count the original purchase and make every held
+  // roster look unaffordable the moment it was bought.
+  const heldValue =
+    previousDrivers.reduce((total, id) => total + (context.driverPrices.get(id) ?? 0), 0) +
+    previousConstructors.reduce(
+      (total, id) => total + (context.constructorPrices.get(id) ?? 0),
+      0,
+    );
+
+  const costCap = spendableCap(balance, heldValue);
+
   const selection = parseSelection(formData);
   const validation = validateRoster(selection, {
     tiers: context.tiers,
     driverPrices: context.driverPrices,
     constructorPrices: context.constructorPrices,
-    costCap: Number(league.starting_cost_cap),
+    costCap,
   });
 
   if (!validation.valid) return { error: validation.errors.join(" ") };
@@ -162,24 +221,31 @@ export async function saveRoster(
       { member_id: membership.id, season: context.season, round: context.round },
       { onConflict: "member_id,season,round" },
     )
-    .select("id, locked_at")
+    .select("id, locked_at, transfers_used")
     .single();
 
   if (rosterError) return { error: rosterError.message };
-  if (roster.locked_at) return { error: "This round has locked; the roster can no longer change." };
 
-  // Read before replacing, so the ledger can record what actually changed.
-  const { data: previousSlots } = await supabase
-    .from("roster_slots")
-    .select("driver_id, constructor_id")
-    .eq("roster_id", roster.id);
+  const nextDrivers = [...selection.top, ...selection.mid, selection.backmarker!];
+  const nextConstructors = [...selection.constructors, selection.reverseConstructor!];
 
-  const previousDrivers = (previousSlots ?? [])
-    .map((slot) => slot.driver_id)
-    .filter((id): id is string => Boolean(id));
-  const previousConstructors = (previousSlots ?? [])
-    .map((slot) => slot.constructor_id)
-    .filter((id): id is string => Boolean(id));
+  const transfers = summariseTransfers(
+    previousDrivers,
+    previousConstructors,
+    nextDrivers,
+    nextConstructors,
+    roster.transfers_used,
+  );
+
+  // The fee comes out of the same cap the roster is bought from, so a roster
+  // that fits exactly but leaves nothing for the fee is not affordable.
+  if (validation.cost + transfers.fee > costCap) {
+    return {
+      error:
+        `That needs ${(validation.cost + transfers.fee).toFixed(1)} including a ` +
+        `${transfers.fee.toFixed(1)} transfer fee, but your cap is ${costCap.toFixed(1)}.`,
+    };
+  }
 
   const slots: SlotRow[] = [
     ...selection.top.map((driverId, index) => ({
@@ -242,11 +308,20 @@ export async function saveRoster(
     round: context.round,
     previousDrivers,
     previousConstructors,
-    nextDrivers: [...selection.top, ...selection.mid, selection.backmarker!],
-    nextConstructors: [...selection.constructors, selection.reverseConstructor!],
+    nextDrivers,
+    nextConstructors,
+    chargeableChanges: transfers.chargeable,
     driverPrices: context.driverPrices,
     constructorPrices: context.constructorPrices,
   });
+
+  // Consumed allowance persists, so a second save this round does not reset it.
+  if (transfers.changes > 0) {
+    await supabase
+      .from("rosters")
+      .update({ transfers_used: roster.transfers_used + transfers.changes })
+      .eq("id", roster.id);
+  }
 
   revalidatePath(`/leagues/${leagueId}/roster`);
   return { ok: true, savedAt: new Date().toISOString() };

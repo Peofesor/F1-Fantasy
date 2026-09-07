@@ -6,7 +6,8 @@ import {
   ledgerBalance,
   priceDriftEntries,
   rosterChangeEntries,
-  spareCap,
+  spendableCap,
+  summariseTransfers,
   transferFeeEntries,
 } from "./ledger";
 
@@ -107,13 +108,67 @@ describe("backmarkerPayoutEntry", () => {
   });
 });
 
-describe("spareCap", () => {
-  it("is the balance not committed to the roster", () => {
-    expect(spareCap(130, 114)).toBeCloseTo(16, 1);
+describe("summariseTransfers", () => {
+  it("counts a swap as one transfer, not two", () => {
+    // Counting both halves of a swap would silently double every fee.
+    const summary = summariseTransfers(["a", "b"], [], ["a", "c"], []);
+    expect(summary.changes).toBe(1);
+    expect(summary.out).toEqual(["b"]);
+    expect(summary.in).toEqual(["c"]);
   });
 
-  it("can be negative when the roster is worth more than the balance", () => {
-    // Possible after prices fall: the cap shrank but the roster is still held.
-    expect(spareCap(100, 118)).toBeCloseTo(-18, 1);
+  it("charges nothing for a roster filled for the first time", () => {
+    const summary = summariseTransfers([], [], ["a", "b", "c"], ["x"]);
+    expect(summary.changes).toBe(0);
+    expect(summary.fee).toBe(0);
+  });
+
+  it("charges nothing within the free allowance", () => {
+    const summary = summariseTransfers(["a", "b", "c"], [], ["x", "y", "c"], []);
+    expect(summary.changes).toBe(2);
+    expect(summary.chargeable).toBe(0);
+    expect(summary.fee).toBe(0);
+  });
+
+  it("charges for changes beyond the allowance", () => {
+    const summary = summariseTransfers(["a", "b", "c", "d"], [], ["w", "x", "y", "z"], []);
+    expect(summary.changes).toBe(4);
+    expect(summary.chargeable).toBe(2);
+    expect(summary.fee).toBeCloseTo(2 * EXTRA_CHANGE_FEE, 1);
+  });
+
+  it("consumes the allowance across separate saves in the same round", () => {
+    // Otherwise saving twice would hand out four free changes.
+    const summary = summariseTransfers(["a", "b"], [], ["x", "y"], [], 2);
+    expect(summary.freeRemaining).toBe(0);
+    expect(summary.chargeable).toBe(2);
+  });
+
+  it("counts constructor changes alongside driver changes", () => {
+    const summary = summariseTransfers(["a"], ["x"], ["a"], ["y"]);
+    expect(summary.changes).toBe(1);
+    expect(summary.in).toEqual(["y"]);
+  });
+
+  it("reports no change when the roster is identical", () => {
+    const summary = summariseTransfers(["a"], ["x"], ["a"], ["x"]);
+    expect(summary.changes).toBe(0);
+    expect(summary.fee).toBe(0);
+  });
+});
+
+describe("spendableCap", () => {
+  it("is the bank plus the value of what is held", () => {
+    // After buying a 94.5 roster from 130, the bank is 35.5 but spending power
+    // is still 130 -- the roster can be sold back when swapping.
+    expect(spendableCap(35.5, 94.5)).toBeCloseTo(130, 1);
+  });
+
+  it("equals the bank when nothing is held", () => {
+    expect(spendableCap(130, 0)).toBeCloseTo(130, 1);
+  });
+
+  it("rises when held value rises", () => {
+    expect(spendableCap(35.5, 100)).toBeGreaterThan(spendableCap(35.5, 94.5));
   });
 });

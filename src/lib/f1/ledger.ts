@@ -188,7 +188,79 @@ export function backmarkerPayoutEntry(
   };
 }
 
-/** Spare cap: the balance not already committed to the current roster. */
-export function spareCap(balance: number, rosterValue: number): number {
-  return round1(balance - rosterValue);
+/**
+ * What a member can actually spend on a roster.
+ *
+ * The ledger balance is the *bank*: buying a roster deducts its cost, so after
+ * buying in, the balance is what is left over. The roster itself is still an
+ * asset — swapping a competitor sells it back at its current price — so total
+ * spending power is the bank plus the value of what is currently held.
+ *
+ * Validating a roster against the bank alone double-counts the purchase and
+ * makes every held roster look unaffordable the moment it is bought.
+ */
+export function spendableCap(balance: number, heldRosterValue: number): number {
+  return round1(balance + heldRosterValue);
+}
+
+/** The uncommitted portion — what is free for bets and chips. */
+export function bankBalance(balance: number): number {
+  return round1(balance);
+}
+
+export interface TransferSummary {
+  /** Competitors leaving the roster. */
+  out: string[];
+  /** Competitors joining it. */
+  in: string[];
+  changes: number;
+  freeRemaining: number;
+  chargeable: number;
+  fee: number;
+}
+
+/**
+ * Summarises what a proposed roster would cost in transfers.
+ *
+ * Counts incoming picks rather than the total churn: swapping one driver for
+ * another is one transfer, not two. Counting both halves would silently double
+ * every fee.
+ *
+ * `changesAlreadyMade` carries transfers already used this round, so the free
+ * allowance is consumed across separate edits rather than resetting each time
+ * the roster is saved — otherwise saving twice would grant four free changes.
+ */
+export function summariseTransfers(
+  previousDrivers: readonly string[],
+  previousConstructors: readonly string[],
+  nextDrivers: readonly string[],
+  nextConstructors: readonly string[],
+  changesAlreadyMade = 0,
+): TransferSummary {
+  // A roster being filled for the first time is not a transfer.
+  const isFirstRoster =
+    previousDrivers.length === 0 && previousConstructors.length === 0;
+
+  const out = [
+    ...previousDrivers.filter((id) => !nextDrivers.includes(id)),
+    ...previousConstructors.filter((id) => !nextConstructors.includes(id)),
+  ];
+  const incoming = [
+    ...nextDrivers.filter((id) => !previousDrivers.includes(id)),
+    ...nextConstructors.filter((id) => !previousConstructors.includes(id)),
+  ];
+
+  const changes = isFirstRoster ? 0 : incoming.length;
+  const alreadyChargeableFree = Math.min(changesAlreadyMade, FREE_CHANGES_PER_ROUND);
+  const freeRemaining = Math.max(0, FREE_CHANGES_PER_ROUND - alreadyChargeableFree);
+  const chargeable = Math.max(0, changes - freeRemaining);
+
+  return {
+    out,
+    in: incoming,
+    changes,
+    freeRemaining,
+    chargeable,
+    fee: round1(chargeable * EXTRA_CHANGE_FEE),
+  };
 }
