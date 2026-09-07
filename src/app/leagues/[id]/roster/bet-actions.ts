@@ -40,7 +40,10 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
 
   const { data: membership } = await supabase
     .from("league_members")
-    .select("id, leagues(season)")
+    // The FK is named explicitly because duel_fixtures references both
+    // leagues and league_members, so PostgREST sees a second relationship
+    // between them and refuses an unqualified embed.
+    .select("id, leagues!league_members_league_id_fkey(season)")
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)
     .maybeSingle();

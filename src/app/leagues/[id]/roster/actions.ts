@@ -136,7 +136,10 @@ export async function saveRoster(
   // coming back is itself the authorisation check.
   const { data: membership } = await supabase
     .from("league_members")
-    .select("id, leagues(id, season, starting_cost_cap)")
+    // The FK is named explicitly because duel_fixtures references both
+    // leagues and league_members, so PostgREST sees a second relationship
+    // between them and refuses an unqualified embed.
+    .select("id, leagues!league_members_league_id_fkey(id, season, starting_cost_cap)")
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)
     .maybeSingle();

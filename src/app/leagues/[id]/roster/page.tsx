@@ -49,7 +49,10 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
   const { data: membership } = await supabase
     .from("league_members")
-    .select("id, leagues(id, name, season, starting_cost_cap)")
+    // The FK is named explicitly because duel_fixtures references both
+    // leagues and league_members, so PostgREST sees a second relationship
+    // between them and refuses an unqualified embed.
+    .select("id, leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap)")
     .eq("league_id", id)
     .eq("profile_id", user.id)
     .maybeSingle();

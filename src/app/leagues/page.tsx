@@ -20,7 +20,10 @@ export default async function LeaguesPage() {
   const supabase = await createServerSupabase();
   const { data } = await supabase
     .from("league_members")
-    .select("id, leagues(id, name, season, mode, invite_code)")
+    // The FK is named explicitly because duel_fixtures references both
+    // leagues and league_members, so PostgREST sees a second relationship
+    // between them and refuses an unqualified embed.
+    .select("id, leagues!league_members_league_id_fkey(id, name, season, mode, invite_code)")
     .eq("profile_id", user.id);
 
   const memberships = (data ?? []) as unknown as MembershipRow[];
