@@ -16,6 +16,14 @@ on:
         required: false
         type: string
 
+# Two ingestions must never run at once. Pit stops, overtakes and safety-car
+# events are replaced per round by deleting and reinserting, so overlapping runs
+# could interleave on the same round and leave it empty. Queued rather than
+# cancelled, so a manual run does not abort a scheduled one mid-write.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
