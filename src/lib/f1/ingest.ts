@@ -360,14 +360,18 @@ export async function ingestRound(
   }
 
   // --- Pit stops ----------------------------------------------------------
-  // No natural key, so the round is cleared before reinserting.
+  // These tables have no natural key, so a round is cleared and reinserted.
+  // The fetch therefore happens FIRST: deleting before the data is in hand
+  // means a failed fetch (a rate-limit 429, say) destroys the existing rows
+  // with nothing to replace them, which is exactly what happened to 2026 R13
+  // during the first backfill.
+  const pitStopsResponse = await jolpica.getPitStops(season, round);
+  const pitStopRows = pitStopsResponse?.MRData.RaceTable.Races[0]?.PitStops;
+
   assertOk(
     (await supabase.from("pit_stops").delete().eq("season", season).eq("round", round)).error,
     "Failed to clear pit stops",
   );
-
-  const pitStopsResponse = await jolpica.getPitStops(season, round);
-  const pitStopRows = pitStopsResponse?.MRData.RaceTable.Races[0]?.PitStops;
 
   if (pitStopRows?.length) {
     await storeRaw(supabase, "jolpica", "pitstops", { season, round }, pitStopsResponse);
@@ -389,18 +393,22 @@ export async function ingestRound(
   }
 
   // --- OpenF1-only data ---------------------------------------------------
-  assertOk(
-    (await supabase.from("overtakes").delete().eq("season", season).eq("round", round)).error,
-    "Failed to clear overtakes",
-  );
-  assertOk(
-    (await supabase.from("safety_car_events").delete().eq("season", season).eq("round", round))
-      .error,
-    "Failed to clear safety car events",
-  );
-
+  // Same rule as above: fetch everything before deleting anything.
   if (sessionKey !== null) {
     const safetyCarRaw = await openf1.getSafetyCarMessages(sessionKey);
+    const openF1PitRaw = await openf1.getPitStops(sessionKey);
+    const overtakeRaw = await openf1.getOvertakes(sessionKey);
+
+    assertOk(
+      (await supabase.from("overtakes").delete().eq("season", season).eq("round", round)).error,
+      "Failed to clear overtakes",
+    );
+    assertOk(
+      (await supabase.from("safety_car_events").delete().eq("season", season).eq("round", round))
+        .error,
+      "Failed to clear safety car events",
+    );
+
     await storeRaw(supabase, "openf1", "race_control", { session_key: sessionKey }, safetyCarRaw);
     const safetyCarEvents = toSafetyCarEvents(safetyCarRaw);
 
@@ -423,11 +431,9 @@ export async function ingestRound(
     }
     counts.safety_car_events = safetyCarEvents.length;
 
-    const openF1PitRaw = await openf1.getPitStops(sessionKey);
     await storeRaw(supabase, "openf1", "pit", { session_key: sessionKey }, openF1PitRaw);
     const openF1Stops = toOpenF1PitStops(openF1PitRaw);
 
-    const overtakeRaw = await openf1.getOvertakes(sessionKey);
     await storeRaw(supabase, "openf1", "overtakes", { session_key: sessionKey }, overtakeRaw);
 
     const allOvertakes = toOvertakes(overtakeRaw);

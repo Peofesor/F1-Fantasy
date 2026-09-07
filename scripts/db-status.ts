@@ -64,6 +64,29 @@ async function main(): Promise<void> {
       }`,
     );
   }
+
+  // Every race has pit stops, and jolpica always publishes them, so a round
+  // with none means ingestion left it incomplete rather than the data not
+  // existing. Overtakes are deliberately not checked this way: OpenF1's
+  // coverage is genuinely patchy, so zero there is often legitimate.
+  const incomplete: string[] = [];
+  for (const round of rounds) {
+    const { count } = await supabase
+      .from("pit_stops")
+      .select("*", { count: "exact", head: true })
+      .eq("season", round.season)
+      .eq("round", round.round);
+    if ((count ?? 0) === 0) {
+      incomplete.push(`${round.season} R${String(round.round).padStart(2, "0")} ${round.race_name}`);
+    }
+  }
+
+  if (incomplete.length === 0) {
+    console.log("\nIntegrity: every round has pit stop data.");
+  } else {
+    console.log(`\nIntegrity: ${incomplete.length} round(s) missing pit stops — re-ingest these:`);
+    for (const round of incomplete) console.log(`  ${round}`);
+  }
 }
 
 main().catch((error) => {
