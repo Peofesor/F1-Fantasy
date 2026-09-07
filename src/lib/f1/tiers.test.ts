@@ -6,7 +6,7 @@ import {
   rollingWindowPoints,
   tierSwaps,
   type RoundPoints,
-  type Tier,
+
 } from "./tiers";
 
 function points(
