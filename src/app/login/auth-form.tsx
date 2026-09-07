@@ -15,19 +15,25 @@ export function AuthForm() {
 
   return (
     <div className="space-y-4">
+      {/*
+        Labels deliberately differ from the submit button below. Naming the tab
+        the same as the button made an already-selected tab look broken: you
+        click "Create account", nothing changes, because it was already chosen.
+      */}
       <div className="grid grid-cols-2 rounded-lg border border-zinc-300 p-1 text-sm dark:border-zinc-700">
         {(["signin", "signup"] as const).map((option) => (
           <button
             key={option}
             type="button"
+            aria-pressed={mode === option}
             onClick={() => setMode(option)}
             className={`rounded-md py-1.5 transition ${
               mode === option
                 ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "text-zinc-600 dark:text-zinc-400"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             }`}
           >
-            {option === "signin" ? "Sign in" : "Create account"}
+            {option === "signin" ? "I have an account" : "I'm new here"}
           </button>
         ))}
       </div>
