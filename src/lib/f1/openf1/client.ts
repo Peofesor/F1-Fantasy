@@ -69,6 +69,11 @@ async function fetchJson(
   );
 
   if (!response.ok) {
+    // OpenF1 answers "no matching data" with 404 and {"detail":"No results
+    // found."} rather than an empty array. A race with no safety car is a
+    // perfectly normal race, so this is an empty result, not a failure.
+    if (response.status === 404) return [];
+
     throw new OpenF1Error(
       `OpenF1 request failed: ${response.status} ${response.statusText}`,
       response.status,

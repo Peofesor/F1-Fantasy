@@ -63,21 +63,54 @@ export class JolpicaError extends Error {
   }
 }
 
+/**
+ * Waits out a 429 and retries.
+ *
+ * The per-second gap above only protects the burst ceiling; the binding limit
+ * is 500 requests per hour, which a multi-season backfill will exhaust (roughly
+ * six requests per round means the budget runs out around round 80). When that
+ * happens the only correct response is to wait, so retries honour `Retry-After`
+ * when jolpica sends it and otherwise back off exponentially.
+ */
+const MAX_RETRIES = 5;
+const DEFAULT_BACKOFF_MS = 60_000;
+
+function retryDelayMs(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return seconds * 1000;
+    const date = Date.parse(retryAfter);
+    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  }
+  return DEFAULT_BACKOFF_MS * 2 ** attempt;
+}
+
 async function fetchJson(path: string): Promise<unknown> {
   const url = `${BASE_URL}/${path}`;
-  const response = await rateLimited(() =>
-    fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" } }),
-  );
 
-  if (!response.ok) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await rateLimited(() =>
+      fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" } }),
+    );
+
+    if (response.ok) return response.json();
+
+    if (response.status === 429 && attempt < MAX_RETRIES) {
+      const delay = retryDelayMs(response, attempt);
+      console.warn(
+        `jolpica rate limit hit; waiting ${Math.round(delay / 1000)}s before retry ${attempt + 1}/${MAX_RETRIES}`,
+      );
+      await sleep(delay);
+      continue;
+    }
+
     throw new JolpicaError(
       `jolpica request failed: ${response.status} ${response.statusText}`,
       response.status,
       url,
     );
   }
-
-  return response.json();
 }
 
 /**

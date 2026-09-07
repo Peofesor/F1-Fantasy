@@ -121,6 +121,13 @@ export function toRaceResults(results: JolpicaRaceResult[]): RaceResultEntry[] {
   });
 }
 
+/** Absent for anyone on zero points, who is unranked rather than joint-last. */
+function standingPosition(position: string | undefined): number | null {
+  if (position === undefined || position.trim() === "") return null;
+  const parsed = Number(position);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function toDriverStandings(
   standings: JolpicaDriverStanding[],
 ): StandingEntry[] {
@@ -130,7 +137,7 @@ export function toDriverStandings(
     constructorId:
       standing.Constructors[standing.Constructors.length - 1]?.constructorId ??
       "",
-    position: Number(standing.position),
+    position: standingPosition(standing.position),
     points: Number(standing.points),
     wins: Number(standing.wins),
   }));
@@ -142,7 +149,7 @@ export function toConstructorStandings(
   return standings.map((standing) => ({
     driverId: null,
     constructorId: standing.Constructor.constructorId,
-    position: Number(standing.position),
+    position: standingPosition(standing.position),
     points: Number(standing.points),
     wins: Number(standing.wins),
   }));

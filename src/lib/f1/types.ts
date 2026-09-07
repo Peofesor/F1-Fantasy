@@ -72,7 +72,15 @@ export interface StandingEntry {
   driverId: string | null;
   /** Always set: a driver's constructor, or the constructor itself. */
   constructorId: string;
-  position: number;
+  /**
+   * Championship position, or null when unranked.
+   *
+   * Anyone on zero points is unranked rather than being given a joint last
+   * place. That is the whole field before the season's first points are scored,
+   * which matters for tier assignment: standings cannot order drivers at round
+   * one, so the previous season's final standings have to seed it.
+   */
+  position: number | null;
   points: number;
   wins: number;
 }

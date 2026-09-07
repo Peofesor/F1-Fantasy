@@ -55,8 +55,12 @@ export const raceResultSchema = z.object({
     .optional(),
 });
 
+// `position` is absent entirely for anyone on zero points -- such entries carry
+// positionText "-" instead. That is every driver before the season's first
+// points are scored, so it must not be treated as a malformed response.
 export const driverStandingSchema = z.object({
-  position: z.string(),
+  position: z.string().optional(),
+  positionText: z.string().optional(),
   points: z.string(),
   wins: z.string(),
   Driver: driverSchema,
@@ -64,7 +68,8 @@ export const driverStandingSchema = z.object({
 });
 
 export const constructorStandingSchema = z.object({
-  position: z.string(),
+  position: z.string().optional(),
+  positionText: z.string().optional(),
   points: z.string(),
   wins: z.string(),
   Constructor: constructorSchema,

@@ -5,6 +5,7 @@ import {
   highestSessionReached,
   lapOneLeader,
   parsePitLaneSeconds,
+  toDriverStandings,
   toQualifyingEntries,
   toRaceResults,
 } from "./transform";
@@ -151,6 +152,51 @@ describe("toRaceResults", () => {
 
   it("leaves fastest lap null when absent", () => {
     expect(toRaceResults([raceResult({})])[0].fastestLapRank).toBeNull();
+  });
+});
+
+describe("toDriverStandings", () => {
+  const standing = (overrides: Record<string, unknown> = {}) =>
+    ({
+      points: "0",
+      wins: "0",
+      Driver: {
+        driverId: "hadjar",
+        givenName: "Isack",
+        familyName: "Hadjar",
+        nationality: "French",
+      },
+      Constructors: [
+        { constructorId: "rb", name: "RB F1 Team", nationality: "Italian" },
+      ],
+      ...overrides,
+    }) as Parameters<typeof toDriverStandings>[0][number];
+
+  it("treats a driver on zero points as unranked, not joint-last", () => {
+    // jolpica omits `position` and sends positionText "-" for these entries.
+    const [entry] = toDriverStandings([standing({ positionText: "-" })]);
+    expect(entry.position).toBeNull();
+  });
+
+  it("reads a real position when one is given", () => {
+    const [entry] = toDriverStandings([
+      standing({ position: "4", positionText: "4", points: "58" }),
+    ]);
+    expect(entry.position).toBe(4);
+    expect(entry.points).toBe(58);
+  });
+
+  it("takes the current constructor when a driver switched mid-season", () => {
+    const [entry] = toDriverStandings([
+      standing({
+        position: "9",
+        Constructors: [
+          { constructorId: "sauber", name: "Sauber", nationality: "Swiss" },
+          { constructorId: "williams", name: "Williams", nationality: "British" },
+        ],
+      }),
+    ]);
+    expect(entry.constructorId).toBe("williams");
   });
 });
 
