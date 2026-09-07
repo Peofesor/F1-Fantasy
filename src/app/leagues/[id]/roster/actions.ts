@@ -5,8 +5,75 @@ import { revalidatePath } from "next/cache";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { loadRoundContext } from "@/lib/f1/round-context";
 import { validateRoster, type RosterSelection } from "@/lib/f1/roster";
+import { rosterChangeEntries, transferFeeEntries } from "@/lib/f1/ledger";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SaveState = { error: string } | { ok: true; savedAt: string } | null;
+
+/**
+ * Writes the ledger entries for a roster change.
+ *
+ * Uses the service-role client deliberately. `cost_cap_entries` grants no
+ * INSERT to `authenticated` — a member able to write their own ledger could
+ * credit themselves any balance. Every value here is computed server-side from
+ * database prices and the roster diff, never from the submitted form, so
+ * nothing the caller controls reaches the amounts.
+ */
+async function recordRosterLedger(input: {
+  memberId: string;
+  season: number;
+  round: number;
+  previousDrivers: string[];
+  previousConstructors: string[];
+  nextDrivers: string[];
+  nextConstructors: string[];
+  driverPrices: ReadonlyMap<string, number>;
+  constructorPrices: ReadonlyMap<string, number>;
+}): Promise<void> {
+  const entries = [
+    ...rosterChangeEntries(
+      input.memberId,
+      input.season,
+      input.round,
+      input.previousDrivers,
+      input.nextDrivers,
+      input.driverPrices,
+      "driver",
+    ),
+    ...rosterChangeEntries(
+      input.memberId,
+      input.season,
+      input.round,
+      input.previousConstructors,
+      input.nextConstructors,
+      input.constructorPrices,
+      "constructor",
+    ),
+  ];
+
+  // The first roster of a round is not a transfer; only later edits are.
+  const changeCount = input.previousDrivers.length + input.previousConstructors.length === 0
+    ? 0
+    : entries.filter((entry) => entry.reason.endsWith("_purchase")).length;
+
+  entries.push(
+    ...transferFeeEntries(input.memberId, input.season, input.round, changeCount),
+  );
+
+  if (entries.length === 0) return;
+
+  const admin = createAdminClient();
+  await admin.from("cost_cap_entries").insert(
+    entries.map((entry) => ({
+      member_id: entry.memberId,
+      season: entry.season,
+      round: entry.round,
+      amount: entry.amount,
+      reason: entry.reason,
+      note: entry.note ?? null,
+    })),
+  );
+}
 
 interface SlotRow {
   roster_id: string;
@@ -101,6 +168,19 @@ export async function saveRoster(
   if (rosterError) return { error: rosterError.message };
   if (roster.locked_at) return { error: "This round has locked; the roster can no longer change." };
 
+  // Read before replacing, so the ledger can record what actually changed.
+  const { data: previousSlots } = await supabase
+    .from("roster_slots")
+    .select("driver_id, constructor_id")
+    .eq("roster_id", roster.id);
+
+  const previousDrivers = (previousSlots ?? [])
+    .map((slot) => slot.driver_id)
+    .filter((id): id is string => Boolean(id));
+  const previousConstructors = (previousSlots ?? [])
+    .map((slot) => slot.constructor_id)
+    .filter((id): id is string => Boolean(id));
+
   const slots: SlotRow[] = [
     ...selection.top.map((driverId, index) => ({
       roster_id: roster.id,
@@ -155,6 +235,18 @@ export async function saveRoster(
 
   const { error: insertError } = await supabase.from("roster_slots").insert(slots);
   if (insertError) return { error: insertError.message };
+
+  await recordRosterLedger({
+    memberId: membership.id,
+    season: context.season,
+    round: context.round,
+    previousDrivers,
+    previousConstructors,
+    nextDrivers: [...selection.top, ...selection.mid, selection.backmarker!],
+    nextConstructors: [...selection.constructors, selection.reverseConstructor!],
+    driverPrices: context.driverPrices,
+    constructorPrices: context.constructorPrices,
+  });
 
   revalidatePath(`/leagues/${leagueId}/roster`);
   return { ok: true, savedAt: new Date().toISOString() };

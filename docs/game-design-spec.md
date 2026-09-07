@@ -159,9 +159,20 @@ All other chips follow a shared rule: **1 free use per season by default; additi
 
 ## 7. Roster changes (transfers)
 
-- A small free-changes allowance applies each week (e.g. 1 free change), consistent with how real F1 Fantasy handles transfers.
-- Changes beyond the free allowance cost a small amount of cost cap each.
+- **2 free changes per round**, matching the official game. One would make any reaction to a price move or a mid-season driver swap punitive; unlimited would make the cap irrelevant, since you could always chase the best-value picks.
+- **4.0 cost cap per change beyond the allowance** — the price of the cheapest possible driver, so an extra transfer costs about as much as a backmarker and three or four cost a real upgrade. The official game charges points; charging the cap keeps every cost in this game denominated in one currency (§2).
+- A roster's first submission in a round is not a transfer — only later edits are.
 - The Wildcard chip (§6) removes this cost entirely for one week when used.
+
+### Ledger mechanics
+
+Nine reasons move the cap, and each writes its own entry so the balance is always explainable:
+
+- **Opening balance** is granted by a database trigger on joining, not by application code. It is atomic with the membership row, so a member can never exist without a balance, and the amount is read from the league rather than supplied by the caller. `cost_cap_entries` grants no INSERT to `authenticated` at all — a member who could write their own ledger could simply credit themselves.
+- **A swap records a sale and a purchase**, not a single net figure, so the ledger reads like what happened rather than hiding which competitor each half belonged to.
+- **A sale returns the competitor's current price**, not what was paid. This is what makes holding a riser profitable and dumping a faller costly.
+- **Price drift is applied symmetrically** — rises credit, falls charge. A one-way ratchet would remove any downside to a pick whose value craters, which is most of what makes pricing a real decision. Only competitors held across both rounds drift; anything bought or sold is already accounted for by its own entry.
+- **Drift and payouts are replaced on re-scoring**, not appended, so a stewards' correction cannot credit a backmarker payout twice. Verified against the real Monza round: re-scoring left the balance unchanged at 139.8.
 
 ## 8. Betting (Wetten)
 

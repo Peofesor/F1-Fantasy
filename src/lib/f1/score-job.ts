@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { rankConstructorsForRace } from "./scoring";
 import { resolveDuel, scoreRoster, type RoundFacts } from "./round-scoring";
+import { backmarkerPayoutEntry, priceDriftEntries, type LedgerEntry } from "./ledger";
 import type { DriverRaceInput } from "./scoring";
 import type { FinishClassification } from "./types";
 import type { RosterSelection } from "./roster";
@@ -20,6 +21,7 @@ export interface ScoreReport {
   rostersScored: number;
   duelsResolved: number;
   membersWithoutRoster: number;
+  ledgerEntries: number;
 }
 
 interface SlotRow {
@@ -40,6 +42,41 @@ function selectionFromSlots(slots: SlotRow[]): RosterSelection {
     constructors: of("constructor").map((s) => s.constructor_id ?? "").filter(Boolean),
     reverseConstructor: of("constructor_reverse")[0]?.constructor_id ?? null,
   };
+}
+
+/**
+ * Loads a round's price list.
+ *
+ * Written out per table rather than parameterised: supabase-js parses the
+ * select string at the type level, and a template literal defeats that,
+ * collapsing the row type to a parser error.
+ */
+async function loadDriverPrices(
+  supabase: SupabaseClient,
+  season: number,
+  round: number,
+): Promise<Map<string, number>> {
+  if (round < 1) return new Map();
+  const { data } = await supabase
+    .from("driver_prices")
+    .select("driver_id, price")
+    .eq("season", season)
+    .eq("round", round);
+  return new Map((data ?? []).map((row) => [row.driver_id, Number(row.price)]));
+}
+
+async function loadConstructorPrices(
+  supabase: SupabaseClient,
+  season: number,
+  round: number,
+): Promise<Map<string, number>> {
+  if (round < 1) return new Map();
+  const { data } = await supabase
+    .from("constructor_prices")
+    .select("constructor_id, price")
+    .eq("season", season)
+    .eq("round", round);
+  return new Map((data ?? []).map((row) => [row.constructor_id, Number(row.price)]));
 }
 
 /** Assembles every fact the scoring engine needs for one round. */
@@ -135,12 +172,23 @@ export async function scoreRound(
 
   if (error) throw new Error(`Could not read rosters: ${error.message}`);
 
+  // Prices for this round and the one before, so held value can be drifted.
+  const [currentPrices, previousPrices, currentConstructorPrices, previousConstructorPrices] =
+    await Promise.all([
+      loadDriverPrices(supabase, season, round),
+      loadDriverPrices(supabase, season, round - 1),
+      loadConstructorPrices(supabase, season, round),
+      loadConstructorPrices(supabase, season, round - 1),
+    ]);
+
   const pointsByMember = new Map<string, number>();
   const scoreRows: { member_id: string; season: number; round: number; points: number; duel_points: number }[] = [];
+  const ledgerEntries: LedgerEntry[] = [];
 
   for (const roster of rosters ?? []) {
     const slots = (roster.roster_slots ?? []) as unknown as SlotRow[];
-    const score = scoreRoster(selectionFromSlots(slots), facts);
+    const selection = selectionFromSlots(slots);
+    const score = scoreRoster(selection, facts);
     pointsByMember.set(roster.member_id, score.points);
     scoreRows.push({
       member_id: roster.member_id,
@@ -149,6 +197,39 @@ export async function scoreRound(
       points: score.points,
       duel_points: 0,
     });
+
+    // The backmarker slot pays cost cap instead of scoring (spec §4).
+    if (selection.backmarker) {
+      const payout = backmarkerPayoutEntry(
+        roster.member_id,
+        season,
+        round,
+        score.budget,
+        selection.backmarker,
+      );
+      if (payout) ledgerEntries.push(payout);
+    }
+
+    // Value drift on what was held. Only competitors priced in both rounds
+    // drift; anything bought or sold is already accounted for by its own entry.
+    ledgerEntries.push(
+      ...priceDriftEntries(
+        roster.member_id,
+        season,
+        round,
+        [...selection.top, ...selection.mid, ...(selection.backmarker ? [selection.backmarker] : [])],
+        previousPrices,
+        currentPrices,
+      ),
+      ...priceDriftEntries(
+        roster.member_id,
+        season,
+        round,
+        [...selection.constructors, ...(selection.reverseConstructor ? [selection.reverseConstructor] : [])],
+        previousConstructorPrices,
+        currentConstructorPrices,
+      ),
+    );
   }
 
   // Duel resolution. Free-for-all leagues have no fixtures, so this is a no-op
@@ -193,11 +274,39 @@ export async function scoreRound(
     if (writeError) throw new Error(`Could not write scores: ${writeError.message}`);
   }
 
+  // Ledger entries for this round are replaced rather than appended to, so
+  // re-scoring after a correction does not credit a payout twice. Only the
+  // reasons this job owns are cleared; purchases and fees written when the
+  // roster was picked must survive.
+  if (ledgerEntries.length) {
+    const memberIds = [...new Set(ledgerEntries.map((entry) => entry.memberId))];
+    await supabase
+      .from("cost_cap_entries")
+      .delete()
+      .eq("season", season)
+      .eq("round", round)
+      .in("member_id", memberIds)
+      .in("reason", ["price_change", "backmarker_payout"]);
+
+    const { error: ledgerError } = await supabase.from("cost_cap_entries").insert(
+      ledgerEntries.map((entry) => ({
+        member_id: entry.memberId,
+        season: entry.season,
+        round: entry.round,
+        amount: entry.amount,
+        reason: entry.reason,
+        note: entry.note ?? null,
+      })),
+    );
+    if (ledgerError) throw new Error(`Could not write ledger: ${ledgerError.message}`);
+  }
+
   return {
     season,
     round,
     rostersScored: rosters?.length ?? 0,
     duelsResolved,
     membersWithoutRoster,
+    ledgerEntries: ledgerEntries.length,
   };
 }
