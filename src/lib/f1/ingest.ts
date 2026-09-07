@@ -139,12 +139,17 @@ async function upsertParticipants(
   }
 }
 
+/** One fetch of a season's race sessions serves every round in that season. */
+const sessionsBySeason = new Map<number, Awaited<ReturnType<typeof openf1.getRaceSessions>>>();
+
 /**
- * Resolves the OpenF1 session for a round.
+ * Resolves the OpenF1 session for a round by race date.
  *
- * OpenF1 has no round numbers, so sessions are found by year and country and
- * then disambiguated by date — necessary because one country can host two
- * events in a season (Italy: Imola and Monza).
+ * Matching on date rather than country is deliberate. The two APIs disagree on
+ * country names -- jolpica says "UAE", "UK", "USA" where OpenF1 says "United
+ * Arab Emirates", "United Kingdom", "United States" -- which silently cost 17
+ * rounds their overtake and safety-car data on the first backfill. Race dates
+ * are unambiguous and need no mapping table, and no two Grands Prix share one.
  */
 async function resolveOpenF1Session(
   race: JolpicaRace,
@@ -154,13 +159,18 @@ async function resolveOpenF1Session(
     return { sessionKey: null, warning: "OpenF1 has no data before 2023" };
   }
 
-  const sessions = await openf1.getRaceSessions(season, race.Circuit.Location.country);
+  let sessions = sessionsBySeason.get(season);
+  if (!sessions) {
+    sessions = await openf1.getRaceSessions(season);
+    sessionsBySeason.set(season, sessions);
+  }
+
   const session = sessions.find((candidate) => candidate.date_start.startsWith(race.date));
 
   if (!session) {
     return {
       sessionKey: null,
-      warning: `No OpenF1 race session for ${race.Circuit.Location.country} on ${race.date}`,
+      warning: `No OpenF1 race session dated ${race.date} (${race.Circuit.Location.country})`,
     };
   }
 

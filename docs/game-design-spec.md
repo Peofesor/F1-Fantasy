@@ -122,7 +122,9 @@ All other chips follow a shared rule: **1 free use per season by default; additi
 
 Three markets can't settle against the figures shown on the F1 broadcast, because the underlying stats aren't available from any free source. Each settles against a stated house definition instead (verified against real race data during pipeline development — see §11):
 
-- **Most overtakes** — settles on our own ingested OpenF1 overtake feed, with position changes caused by the overtaken car pitting filtered out. This is stated in the UI when the bet is placed. Note the absolute count runs roughly an order of magnitude above the broadcast figure (OpenF1 logs every position change, and a multi-car pass counts once per car); the *ranking* of drivers is what the market settles on and that remains meaningful.
+- **Most overtakes** — settles on our own ingested OpenF1 overtake feed, with position changes caused by the overtaken car pitting filtered out. This is stated in the UI when the bet is placed.
+
+  Measured across all 39 ingested races 2023–2026, on-track counts run at a median of **118–158 per race depending on season** (full range 66–430), against a broadcast figure that is typically 30–60. OpenF1 logs every position change and counts a multi-car pass once per car, so the count is consistently several times higher — this is systematic across every season, not a quirk of one chaotic race. The *ranking* of drivers is what the market settles on and that remains sound; the absolute number should not be presented to players as "the" overtake count without that caveat.
 - **Fastest pit stop** — settles on pit *lane* time, not the ~2s stationary time quoted on TV. Neither jolpica nor OpenF1 exposes stationary time (OpenF1's `stop_duration` field is null across every session checked, 2024 and 2026 alike). Stops taken during a red-flag suspension legitimately record in the tens of minutes; since the market takes the minimum, those exclude themselves.
 - **Safety car (yes/no)** — available only from OpenF1's race-control feed. Full and virtual safety cars are distinguished at ingestion.
 

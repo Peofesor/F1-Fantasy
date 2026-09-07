@@ -4,7 +4,9 @@
  *   npm run backfill              2023 to the current season (the OpenF1 overlap)
  *   npm run backfill -- 2026      a single season
  *   npm run backfill -- 2023 2024 an inclusive range
- *   npm run backfill -- 2023 2026 --force   re-ingest rounds already stored
+ *   npm run backfill -- 2023 2026 --force    re-ingest rounds already stored
+ *   npm run backfill -- 2023 2026 --relink   re-ingest only rounds missing an
+ *                                            OpenF1 session link
  *
  * Rounds already present are skipped unless --force is given. That is not just
  * a speed optimisation: jolpica allows 500 requests an hour and each round costs
@@ -26,11 +28,20 @@ loadLocalEnv();
 /** OpenF1 holds nothing earlier; jolpica goes back to 1950 but we can't pair it. */
 const EARLIEST_SEASON = 2023;
 
-/** (season, round) pairs already ingested, as "season:round" keys. */
+/**
+ * (season, round) pairs already ingested, as "season:round" keys.
+ *
+ * With `completeOnly`, rounds that ingested but failed to link an OpenF1
+ * session are treated as missing, so a re-run repairs them. That is how the
+ * rounds stranded by the country-name mismatch get their overtake and
+ * safety-car data.
+ */
 async function existingRounds(
   supabase: ReturnType<typeof createAdminClient>,
+  completeOnly: boolean,
 ): Promise<Set<string>> {
-  const { data, error } = await supabase.from("rounds").select("season, round");
+  const query = supabase.from("rounds").select("season, round, openf1_session_key");
+  const { data, error } = completeOnly ? await query.not("openf1_session_key", "is", null) : await query;
   if (error) throw new Error(`Could not read existing rounds: ${error.message}`);
   return new Set((data ?? []).map((row) => `${row.season}:${row.round}`));
 }
@@ -38,6 +49,7 @@ async function existingRounds(
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const force = args.includes("--force");
+  const relink = args.includes("--relink");
   const positional = args.filter((arg) => !arg.startsWith("--"));
 
   const currentSeason = new Date().getFullYear();
@@ -45,7 +57,9 @@ async function main(): Promise<void> {
   const to = Number(positional[1] ?? positional[0] ?? currentSeason);
 
   const supabase = createAdminClient();
-  const alreadyStored = force ? new Set<string>() : await existingRounds(supabase);
+  const alreadyStored = force
+    ? new Set<string>()
+    : await existingRounds(supabase, relink);
   const failures: string[] = [];
   let ingested = 0;
   let skipped = 0;
