@@ -1,6 +1,8 @@
 # F1 Fantasy — Game Design Spec
 
-Status: design settled, not yet implemented. Derived from handwritten idea notes (transcribed 2026-09-07) plus a design-review session that resolved every open question and ambiguity from those notes.
+Status: **implemented**. Derived from handwritten idea notes (transcribed 2026-09-07), a design-review session that resolved every open question in them, and a build that validated each mechanic against four real ingested seasons (2023-2026).
+
+Balance numbers throughout were chosen with reasoning recorded alongside them. They are single constants and are expected to change once the game is actually played; where a run against real data suggested one might be wrong, that is noted at the point of the decision.
 
 ## 1. Scope & audience
 
