@@ -46,7 +46,7 @@ Total roster: **7 drivers + 3 constructors.**
 ### Drivers (7 total)
 - **3 "top" slots** — must be filled by drivers in the top bracket.
 - **3 "mid" slots** — must be filled by drivers in the mid bracket.
-- **1 backmarker slot** — a free pick, any driver, no tier restriction. Scored via **reverse points** (worse finishing position = more points, e.g. mirroring "20 points for P20").
+- **1 backmarker slot** — a free pick, any driver, no tier restriction. It **scores no points at all**: instead it generates **cost cap**, scaled by finishing position, so a worse finish pays more. It is still budget-costed to fill, which is what makes choosing *which* backmarker a real decision rather than free upside.
 
 #### Bracket definition
 
@@ -89,6 +89,20 @@ The rolling window removes the round-one special case rather than patching it, w
 - Prices are inspired by/based on the real official F1 Fantasy game's pricing as a sensible, pre-balanced starting point.
 - Prices are **dynamic**, driven by current championship standings, recalculated after every race (same cadence as tier recalculation).
 - A driver's price affects your cost cap (see §2): owning a driver whose price rises grows your cap; a price drop shrinks it.
+
+## 5a. Scoring
+
+Normal driver scoring **adopts the official F1 Fantasy table** documented in §10 — qualifying 10→1 for P1–P10, race points 25/18/15/12/10/8/6/4/2/1, ±1 per position gained or lost against the grid, +10 fastest lap, +10 Driver of the Day, −20 for a DNF, −5 for a qualifying disqualification or no time set. It is already balanced against real F1 outcomes and familiar to anyone who has played the official game.
+
+**Overtakes are divided by 3** (rounded down) rather than scored 1:1. This is the one deliberate deviation, and it is forced by our data source:
+
+- Per-driver on-track overtakes measured across 276 driver-races in 2026: **median 7, 90th percentile 16, maximum 43**. At 1 point each, a single race produced more overtake points than the 25 for winning it, making overtakes the dominant axis and rewarding a driver who starts last and carves through over one who wins.
+- The gap is not detection churn. A "position held" filter — discarding a pass where the overtaken car retakes the place shortly after — removes only **13% (10s window) to 20% (30s)**. It is applied anyway since it removes genuine noise cheaply, but it cannot substitute for scaling.
+- The cause is that OpenF1 counts a broader class of events than the broadcast statistic: passes on lapped cars, pit-cycle position changes, and moves the official stat omits. Dividing by 3 puts the median at ~2 and the maximum at ~14, restoring a race win as the most valuable single outcome.
+
+**The reverse-scored constructor is scored per race**, not on championship standing: constructors are ranked by their drivers' combined finishing positions that weekend, and the worst-placed team pays the most. Season standings barely move, so a standings-based version would pay nearly the same number every week — a slot that costs budget but involves no live outcome.
+
+**The backmarker slot pays cost cap rather than points** (see §4). A DNF pays nothing, in either the backmarker or reverse-constructor slot: paying maximum for a retirement would make "whoever crashes most" the optimal pick.
 
 ## 6. Chips
 
