@@ -44,14 +44,31 @@ Roster/budget mode: **Budget only.** Draft mode is fully out of scope — no dra
 Total roster: **7 drivers + 3 constructors.**
 
 ### Drivers (7 total)
-- **3 "top" slots** — must be filled by drivers currently ranked in the top bracket of the individual driver championship standings.
-- **3 "mid" slots** — must be filled by drivers currently ranked in the middle bracket of the standings.
+- **3 "top" slots** — must be filled by drivers in the top bracket.
+- **3 "mid" slots** — must be filled by drivers in the mid bracket.
 - **1 backmarker slot** — a free pick, any driver, no tier restriction. Scored via **reverse points** (worse finishing position = more points, e.g. mirroring "20 points for P20").
 
-Tiers (top/mid) are based on **individual driver championship standings**, not constructor/team standings — this was a deliberate choice to make automatic tier-tracking (below) unambiguous, since team-based tiers would require an arbitrary rule for which of a team's two drivers to use on a swap.
+#### Bracket definition
+
+- **Top bracket: the top 8 drivers** by the tier ordering below. **Mid bracket: everyone else.** The backmarker slot is unrestricted, so only these two brackets are enforced.
+- Tiers are based on **individual driver points**, not constructor standings. Two reasons, both measured against 2023–2026 data:
+  - "Drivers of the top 4 teams" is not reliably 8 people — it was **9 in 2026**, because a top-4 team ran three different drivers across the season. Mid-season driver swaps are routine, so a team-based bracket has a wobbling size, which breaks a roster rule requiring exactly 3 from it.
+  - Team-based tiers make 1-for-1 auto-swap ambiguous: when a team leaves the top 4 and another enters, there is no principled answer to *which* of the incoming team's two drivers replaces yours.
+  - The two definitions agree on 7–8 of 8 drivers anyway (identical in 2024 and 2026), so little intuition is lost.
+
+#### Tier ordering: rolling 5-race window
+
+Tier position comes from **points scored in the last 5 race weekends**, carried across the season boundary — not from current-season championship standings.
+
+This exists because current-season standings cannot rank anyone at round one: every driver is on zero points and formally unranked (jolpica omits `position` entirely for them). Measured on 2025, current-season standings are also near-noise early — the top 6 after round 1 matched the season-final top 6 only **3/6**, reaching 6/6 only by round 8. Recomputing tiers from that would churn rosters on noise, and with auto-swap it would do so without player consent.
+
+The rolling window removes the round-one special case rather than patching it, weights recent form, and is explainable in a line: *your tier reflects the last 5 race weekends.*
+
+- **Rookies and returning drivers** (no history in the window — about 3 per season, e.g. 2026's Lindblad, Bottas and Pérez) seed from **their team's previous constructor standing**. A rookie in a fast car is not a backmarker, and seeding them to the bottom would let players buy a quick car at backmarker prices.
+- **Drivers on zero points** sort below all scoring drivers, tie-broken by their seed position.
 
 #### Tier dynamics (top/mid slots only)
-- Driver prices and standings-based tier membership recalculate **after every race**.
+- Driver prices and tier membership recalculate **after every race**.
 - The top and mid slots are true "buckets": if a driver you own falls out of their bucket, they are **automatically swapped 1-for-1** with whoever displaced them into that bucket. No player action needed, and the roster is never left in an "invalid" state.
 - The backmarker slot has no bucket and is exempt from auto-swap — it's simply a free, standing choice. Reverse scoring already discourages picking a genuinely strong driver here, so no tier restriction is needed to keep the slot meaningful.
 
