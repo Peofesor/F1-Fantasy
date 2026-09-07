@@ -127,6 +127,14 @@ Normal driver scoring **adopts the official F1 Fantasy table** documented in §1
 
 Consequence worth watching in playtesting: because a constructor sums two drivers, its slots carry roughly **double a driver slot's variance**. Scoring the real 2026 Monza race — 7 retirements — produced constructor slots at −31 and −17, and a premium roster costing 114.0 scored *less* (34) than a cheaper one at 130.2 (41). Attrition races swing heavily on constructor picks.
 
+### Standings
+
+- **Duel leagues rank on match points**, with cumulative fantasy points as the tiebreak — a fairer split than an arbitrary one, and it needs no extra data.
+- **Free-for-all leagues rank on cumulative fantasy points** directly.
+- **Members who have not scored still appear**, on zero. A table that omits them hides who is actually in the league.
+
+Measured over three real 2026 races (R11–R13) with three fixed rosters, totals came out at **353, 5 and −73**. Two things follow. Scores swing enormously between strategies over just three races, and a season total can go **deeply negative** — driven by the constructor variance noted above, since a poor pair of constructors compounds every attrition race. Worth watching in playtesting: if negative totals feel punishing rather than dramatic, the lever is a floor on constructor scores rather than a change to driver scoring.
+
 ### Decisions on scoring edge cases
 
 - **A member who fields no roster scores zero.** No separate forfeit rule: zero already loses to anyone who picked, and a penalty on top would punish the same omission twice. They still get a `round_scores` row so the standings show the zero rather than the member vanishing from that round.

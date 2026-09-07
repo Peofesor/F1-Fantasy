@@ -3,6 +3,9 @@ import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { SchedulePanel } from "./schedule-panel";
+import { Standings } from "./standings";
+import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
+import { ledgerBalance } from "@/lib/f1/ledger";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +41,34 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   }));
 
   const nameByMemberId = new Map((roster ?? []).map((member) => [member.id, member.name]));
+  const memberIds = (roster ?? []).map((member) => member.id);
+  const selfMemberId = roster?.find((member) => member.isSelf)?.id;
+
+  const { data: scoreRows } = await supabase
+    .from("round_scores")
+    .select("member_id, round, points, duel_points")
+    .eq("season", league.season);
+
+  const standings = buildStandings(
+    memberIds,
+    (scoreRows ?? [])
+      .filter((row) => memberIds.includes(row.member_id))
+      .map((row) => ({
+        memberId: row.member_id,
+        round: row.round,
+        points: Number(row.points),
+        duelPoints: Number(row.duel_points),
+      })),
+    league.mode as LeagueMode,
+  );
+
+  // Own ledger only — the read policy keeps another member's spare cap private,
+  // since it would reveal their betting capacity.
+  const { data: ledgerRows } = selfMemberId
+    ? await supabase.from("cost_cap_entries").select("amount").eq("member_id", selfMemberId)
+    : { data: [] };
+
+  const capBalance = ledgerBalance(ledgerRows ?? []);
 
   const { data: fixtureRows } =
     league.mode === "duel"
@@ -67,12 +98,24 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         </p>
       </header>
 
+      <div className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <span className="text-sm text-zinc-500">Your cost cap</span>
+        <span className="tabular-nums text-lg font-semibold">{capBalance.toFixed(1)}</span>
+      </div>
+
       <Link
         href={`/leagues/${league.id}/roster`}
         className="block rounded-xl bg-zinc-900 px-4 py-3 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
       >
         Build your roster
       </Link>
+
+      <Standings
+        rows={standings}
+        names={nameByMemberId}
+        mode={league.mode as LeagueMode}
+        currentMemberId={selfMemberId}
+      />
 
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">Members</h2>
