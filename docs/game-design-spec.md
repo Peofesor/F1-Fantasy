@@ -200,6 +200,19 @@ Ergast is dead (shut down end of 2024, returns 404). Do not build against it.
 
 Backfill target is **2023 onward** — where both sources overlap. Pre-2026 races are useful for testing the scoring engine mechanically, but the 2026 regulation overhaul makes them less representative for balancing prices.
 
+### League and roster data model
+
+- **Rosters are snapshotted per round**, not stored as one mutable row per player. Scoring a past race requires the roster exactly as it stood when that round locked, and rule changes during balancing mean history gets recomputed — which a mutable roster would make impossible.
+- **Cost cap is an append-only ledger**, not a running balance column; the balance is the sum of entries. Slower to read, but it answers "why is my cap this number?" when the figure moves for nine different reasons (purchases, sales, price drift, transfer fees, chip purchases, bet stakes and payouts, backmarker payouts, and the opening balance).
+- **Roster slot shape is enforced by database constraints**, not application code: a driver cannot occupy a constructor slot, the backmarker and reverse-constructor slots accept only index 1, normal constructors cap at 2, and the same driver cannot fill two slots. A malformed roster cannot reach the database by any path.
+- **Rosters become visible to other league members only once the round locks**, so picks cannot be copied before the deadline. Enforced in row-level security, not in the UI.
+- **The cost cap ledger is private to its owner.** A rival knowing your spare cap would reveal your betting capacity.
+- **Deleting an account is blocked while it owns a league** (`on delete restrict` on `leagues.owner_id`). This is deliberate — cascading would destroy a shared league and every other member's history — but it means account deletion needs an ownership-transfer step, which does not exist yet.
+
+Verified against the live database with 12 constraint tests covering occupant/slot-type mismatches, index bounds, duplicate picks, negative prices, duplicate rosters, self-duels, and invalid enum values.
+
+**Not yet populated: driver and constructor prices.** No upstream source publishes F1 Fantasy prices — neither jolpica nor OpenF1 — so the tables exist but the numbers must come from our own model or by hand. This blocks any roster being priced.
+
 ### Ingestion design
 
 - Scheduled via Supabase `pg_cron`, polling daily. Results land within ~24h of a race, so daily is sufficient; running it next to the database avoids Vercel's free-tier cron restrictions.
