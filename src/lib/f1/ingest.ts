@@ -37,6 +37,23 @@ export interface IngestReport {
   warnings: string[];
 }
 
+/**
+ * Combines jolpica's separate date and time fields into an instant.
+ *
+ * Times are UTC and already carry a trailing Z. A session with a date but no
+ * time is treated as midnight UTC, which locks earlier rather than later —
+ * the safe direction, since locking late would leave rosters editable once
+ * results were partly known.
+ */
+export function sessionInstant(
+  session: { date: string; time?: string } | undefined,
+): string | null {
+  if (!session?.date) return null;
+  const time = session.time ?? "00:00:00Z";
+  const instant = new Date(`${session.date}T${time.endsWith("Z") ? time : `${time}Z`}`);
+  return Number.isFinite(instant.getTime()) ? instant.toISOString() : null;
+}
+
 function hashPayload(payload: unknown): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
@@ -216,6 +233,10 @@ export async function ingestRound(
           locality: race.Circuit.Location.locality,
           race_date: race.date,
           race_time: race.time ? race.time.replace("Z", "") : null,
+          // The roster lock deadline. On a sprint weekend the sprint runs
+          // before the main race but after qualifying, so qualifying remains
+          // the earliest point at which the grid starts being decided.
+          qualifying_at: sessionInstant(race.Qualifying),
           openf1_session_key: sessionKey,
         },
         { onConflict: "season,round" },

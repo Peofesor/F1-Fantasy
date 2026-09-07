@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
+import { SchedulePanel } from "./schedule-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   // absence of a row is the authorisation check.
   const { data: league } = await supabase
     .from("leagues")
-    .select("id, name, season, mode, invite_code, starting_cost_cap")
+    .select("id, name, season, mode, invite_code, starting_cost_cap, owner_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -34,6 +35,23 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     name:
       (member.profiles as unknown as { display_name: string } | null)?.display_name ??
       "Unknown",
+  }));
+
+  const nameByMemberId = new Map((roster ?? []).map((member) => [member.id, member.name]));
+
+  const { data: fixtureRows } =
+    league.mode === "duel"
+      ? await supabase
+          .from("duel_fixtures")
+          .select("round, home_member_id, away_member_id")
+          .eq("league_id", id)
+          .order("round")
+      : { data: [] };
+
+  const fixtures = (fixtureRows ?? []).map((fixture) => ({
+    round: fixture.round,
+    home: nameByMemberId.get(fixture.home_member_id) ?? "Unknown",
+    away: nameByMemberId.get(fixture.away_member_id) ?? "Unknown",
   }));
 
   return (
@@ -67,6 +85,14 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           ))}
         </ul>
       </section>
+
+      {league.mode === "duel" && (
+        <SchedulePanel
+          leagueId={league.id}
+          isOwner={league.owner_id === user.id}
+          fixtures={fixtures}
+        />
+      )}
 
       <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
         <h2 className="text-sm font-semibold">Invite</h2>
