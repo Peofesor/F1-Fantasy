@@ -22,7 +22,30 @@ export interface PickOption {
   headshotUrl?: string;
   /** Six-digit hex without the hash. */
   colour?: string;
+  /** Points over the rolling window — the signal behind price and tier. */
+  form: number;
 }
+
+type SortField = "price" | "form" | "name";
+
+const SORT_LABELS: Record<SortField, string> = {
+  price: "Price",
+  form: "Form",
+  name: "Name",
+};
+
+/**
+ * Default direction per field.
+ *
+ * Price and form open descending because the expensive and in-form options are
+ * what you scan for first; name opens ascending because a reverse alphabet is
+ * never what anyone wants.
+ */
+const DEFAULT_DESCENDING: Record<SortField, boolean> = {
+  price: true,
+  form: true,
+  name: false,
+};
 
 interface Props {
   leagueId: string;
@@ -386,24 +409,70 @@ function ChooserSheet({
   // what is left plus whatever this slot currently holds.
   const budget = remaining + currentPrice;
 
+  const [sortField, setSortField] = useState<SortField>("price");
+  const [descending, setDescending] = useState(DEFAULT_DESCENDING.price);
+
+  const sorted = useMemo(() => {
+    const direction = descending ? -1 : 1;
+    return [...options].sort((a, b) => {
+      if (sortField === "name") return direction * a.name.localeCompare(b.name);
+      const delta = sortField === "price" ? a.price - b.price : a.form - b.form;
+      // Ties fall back to name so the order never depends on input order.
+      return delta === 0 ? a.name.localeCompare(b.name) : direction * delta;
+    });
+  }, [options, sortField, descending]);
+
+  /** Tapping the active field flips direction; tapping another switches to it. */
+  function chooseSort(field: SortField) {
+    if (field === sortField) setDescending((current) => !current);
+    else {
+      setSortField(field);
+      setDescending(DEFAULT_DESCENDING[field]);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-950">
-      <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
-        <div>
-          <h2 className="text-sm font-semibold">Choose a {slot.label.toLowerCase()}</h2>
-          <p className="text-xs text-zinc-500">{budget.toFixed(1)} available for this slot</p>
+      <header className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Choose a {slot.label.toLowerCase()}</h2>
+            <p className="text-xs text-zinc-500">{budget.toFixed(1)} available for this slot</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          >
+            Cancel
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-        >
-          Cancel
-        </button>
+
+        <div className="mt-3 flex gap-1.5">
+          {(Object.keys(SORT_LABELS) as SortField[]).map((field) => {
+            const active = field === sortField;
+            return (
+              <button
+                key={field}
+                type="button"
+                onClick={() => chooseSort(field)}
+                aria-pressed={active}
+                className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition ${
+                  active
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+                }`}
+              >
+                {SORT_LABELS[field]}
+                {active && <span aria-hidden>{descending ? "↓" : "↑"}</span>}
+              </button>
+            );
+          })}
+        </div>
       </header>
 
       <ul className="flex-1 overflow-y-auto p-2">
-        {options.map((option) => {
+        {sorted.map((option) => {
           const affordable = option.price <= budget;
           return (
             <li key={option.id}>
@@ -432,7 +501,11 @@ function ChooserSheet({
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{option.name}</span>
-                  <span className="block truncate text-xs text-zinc-500">{option.subtitle}</span>
+                  <span className="block truncate text-xs text-zinc-500">
+                    {option.subtitle}
+                    {option.subtitle ? " · " : ""}
+                    {option.form.toFixed(0)} pts last 5
+                  </span>
                 </span>
                 <span className="shrink-0 tabular-nums text-sm">{option.price.toFixed(1)}</span>
               </button>

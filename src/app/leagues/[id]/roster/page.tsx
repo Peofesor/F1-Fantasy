@@ -122,6 +122,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
       tier: context.tiers.get(driverId) ?? "mid",
       headshotUrl: context.driverHeadshots.get(driverId),
       colour: context.driverColours.get(driverId),
+      form: context.driverForm.get(driverId) ?? 0,
     }))
     .sort((a, b) => b.price - a.price);
 
@@ -132,6 +133,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
       subtitle: "",
       price,
       tier: "mid" as const,
+      form: context.constructorForm.get(constructorId) ?? 0,
     }))
     .sort((a, b) => b.price - a.price);
 

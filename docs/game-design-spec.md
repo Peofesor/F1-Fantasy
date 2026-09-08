@@ -317,6 +317,8 @@ The picker is slot-first, not a list: seven driver cards and three constructor c
 
 Affordability inside a chooser is judged against remaining cap **plus whatever that slot currently holds**, because swapping refunds the outgoing pick — the same bank-plus-held-value rule as the cap itself.
 
+The chooser sorts by price, form or name, ascending or descending; tapping the active field flips direction. Price and form default to descending because the expensive and in-form options are what gets scanned first. Form is points over the rolling 5-race window — the same signal behind price and tier, so sorting by it shows what the price is actually reacting to rather than a second opinion.
+
 Driver portraits and team colours come from OpenF1 and are stored on the driver rather than fetched at render time: a page load must not depend on an API limited to 30 requests a minute. jolpica carries neither.
 
 ### Calendar versus results

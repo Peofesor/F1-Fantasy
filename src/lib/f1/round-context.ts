@@ -25,6 +25,12 @@ export interface RoundContext {
   /** Portrait and team colour, used by the slot picker. */
   driverHeadshots: Map<string, string>;
   driverColours: Map<string, string>;
+  /**
+   * Points over the rolling window — the same signal that sets price and tier.
+   * Surfaced so the picker can sort on form, not just on cost.
+   */
+  driverForm: Map<string, number>;
+  constructorForm: Map<string, number>;
   constructorNames: Map<string, string>;
 }
 
@@ -129,6 +135,19 @@ export async function loadRoundContext(
     round: round.round,
   });
 
+  // A constructor's form is its drivers' combined points, matching how the
+  // price job values it.
+  const constructorPoints: RoundPoints[] = resultRows.map((row) => ({
+    season: row.season,
+    round: row.round,
+    driverId: row.constructor_id,
+    points: Number(row.points),
+  }));
+  const constructorFormMap = rollingWindowPoints(constructorPoints, {
+    season: round.season,
+    round: round.round,
+  });
+
   const driverIds = [...driverTeams.keys()];
 
   return {
@@ -162,6 +181,8 @@ export async function loadRoundContext(
         .filter((row) => row.team_colour)
         .map((row) => [row.driver_id, row.team_colour as string]),
     ),
+    driverForm: form,
+    constructorForm: constructorFormMap,
     constructorNames: new Map(
       (constructors.data ?? []).map((row) => [row.constructor_id, row.name]),
     ),
