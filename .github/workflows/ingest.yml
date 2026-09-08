@@ -77,6 +77,15 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run score -- "$(date -u +%Y)"
 
+      # A team persists until its owner changes it. Runs last because it targets
+      # the NEXT open round, whereas scoring targets the one just completed —
+      # they act on different rounds, so nothing here depends on the order.
+      - name: Carry rosters into the next round
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run carry-forward -- "$(date -u +%Y)"
+
       - name: Report coverage
         if: always()
         env:

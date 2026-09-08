@@ -311,6 +311,22 @@ Populated across all 83 ingested rounds: 1,863 driver prices and 843 constructor
 
 Measured behaviour: prices span the full 4.0–28.0 band, and the median round-to-round change is 0.9 with a maximum of 3.9 — so a member's cost cap drifts steadily rather than lurching.
 
+### Your team persists between rounds
+
+A roster carries into the next round automatically, and money does not move when it does: the drivers were bought when first picked, and price drift is credited separately by scoring, so re-recording a purchase would charge for them twice. The carried roster is revalued at the new round prices and gets a fresh transfer allowance.
+
+This is what makes the transfer rules mean anything. Without it every round began with an empty grid — so nobody was transferring, they were rebuilding, the fee never triggered, and a member who did not open the app scored zero rather than fielding the team they already had.
+
+**Auto-swap happens here.** If a carried driver has left their slot bracket, they are replaced by the cheapest eligible driver not already on the roster. Cheapest rather than best on purpose: the swap is involuntary, so it must not silently spend cap the member has not got.
+
+### Chips that change what is permitted
+
+Five chips change scoring; three change what a member may do, and are enforced when the roster is saved rather than when it is scored:
+
+- **Wildcard** makes every change free for the round.
+- **Unlimited Cost Cap** lifts the spending limit. Tier rules still apply — it buys budget, not a free hand.
+- **Final Fix** permits exactly one slot change after the round has locked. A flag on the roster records that it has been spent, since the play record alone would let a member keep editing a locked roster one slot at a time.
+
 ### Roster picker
 
 The picker is slot-first, not a list: seven driver cards and three constructor cards, each showing a plus when empty. Tapping one opens a chooser filtered to what may legally fill it, so the bracket rules are visible while picking rather than only enforced afterwards. Options that cannot be afforded are listed but disabled, since knowing what is out of reach is part of the decision.

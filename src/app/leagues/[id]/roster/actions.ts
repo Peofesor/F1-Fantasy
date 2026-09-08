@@ -166,19 +166,44 @@ export async function saveRoster(
 
   const balance = ledgerBalance(ledgerRows ?? []);
 
+  // Three chips change what is permitted rather than how anything scores, so
+  // they have to be read here rather than at scoring time.
+  const { data: chipsInPlay } = await supabase
+    .from("chip_plays")
+    .select("chip_id")
+    .eq("member_id", membership.id)
+    .eq("season", context.season)
+    .eq("round", context.round);
+
+  const played = new Set((chipsInPlay ?? []).map((row) => row.chip_id));
+  const wildcardPlayed = played.has("wildcard");
+  const unlimitedCapPlayed = played.has("unlimited_cap");
+  const finalFixPlayed = played.has("final_fix");
+
   // The existing roster is read before anything is written, because its value
   // is part of what the member can spend and its slots are what the ledger
   // diffs against.
   const { data: existingRoster } = await supabase
     .from("rosters")
-    .select("id, locked_at, transfers_used")
+    .select("id, locked_at, transfers_used, final_fix_used")
     .eq("member_id", membership.id)
     .eq("season", context.season)
     .eq("round", context.round)
     .maybeSingle();
 
-  if (existingRoster?.locked_at) {
+  // Whether the round has locked, from the same clock the database uses.
+  const { data: roundLocked } = await supabase.rpc("is_round_locked", {
+    target_season: context.season,
+    target_round: context.round,
+  });
+
+  const locked = Boolean(existingRoster?.locked_at) || roundLocked === true;
+
+  if (locked && !finalFixPlayed) {
     return { error: "This round has locked; the roster can no longer change." };
+  }
+  if (locked && existingRoster?.final_fix_used) {
+    return { error: "Final Fix has already been used on this roster." };
   }
 
   const { data: previousSlots } = existingRoster
@@ -206,7 +231,11 @@ export async function saveRoster(
       0,
     );
 
-  const costCap = spendableCap(balance, heldValue);
+  // Unlimited Cost Cap removes the spending limit for the round. Tier rules
+  // still apply — it buys budget, not a free hand.
+  const costCap = unlimitedCapPlayed
+    ? Number.MAX_SAFE_INTEGER
+    : spendableCap(balance, heldValue);
 
   const selection = parseSelection(formData);
   const validation = validateRoster(selection, {
@@ -240,13 +269,27 @@ export async function saveRoster(
     roster.transfers_used,
   );
 
-  // The fee comes out of the same cap the roster is bought from, so a roster
-  // that fits exactly but leaves nothing for the fee is not affordable.
-  if (validation.cost + transfers.fee > costCap) {
+  if (locked && transfers.changes !== 1) {
     return {
       error:
-        `That needs ${(validation.cost + transfers.fee).toFixed(1)} including a ` +
-        `${transfers.fee.toFixed(1)} transfer fee, but your cap is ${costCap.toFixed(1)}.`,
+        transfers.changes === 0
+          ? "Nothing changed. Final Fix swaps one slot after qualifying."
+          : "Final Fix allows one change only — you have changed " +
+            `${transfers.changes}.`,
+    };
+  }
+
+  // Wildcard makes every change free for the round, which is the whole chip.
+  const chargeableChanges = wildcardPlayed ? 0 : transfers.chargeable;
+
+  // The fee comes out of the same cap the roster is bought from, so a roster
+  // that fits exactly but leaves nothing for the fee is not affordable.
+  const fee = wildcardPlayed ? 0 : transfers.fee;
+  if (validation.cost + fee > costCap) {
+    return {
+      error:
+        `That needs ${(validation.cost + fee).toFixed(1)} including a ` +
+        `${fee.toFixed(1)} transfer fee, but your cap is ${costCap.toFixed(1)}.`,
     };
   }
 
@@ -313,16 +356,19 @@ export async function saveRoster(
     previousConstructors,
     nextDrivers,
     nextConstructors,
-    chargeableChanges: transfers.chargeable,
+    chargeableChanges,
     driverPrices: context.driverPrices,
     constructorPrices: context.constructorPrices,
   });
 
   // Consumed allowance persists, so a second save this round does not reset it.
-  if (transfers.changes > 0) {
+  if (transfers.changes > 0 || locked) {
     await supabase
       .from("rosters")
-      .update({ transfers_used: roster.transfers_used + transfers.changes })
+      .update({
+        transfers_used: roster.transfers_used + transfers.changes,
+        ...(locked ? { final_fix_used: true } : {}),
+      })
       .eq("id", roster.id);
   }
 

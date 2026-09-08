@@ -18,6 +18,7 @@
     "calendar": "tsx scripts/calendar.ts",
     "session-times": "tsx scripts/session-times.ts",
     "score": "tsx scripts/score.ts",
+    "carry-forward": "tsx scripts/carry-forward.ts",
     "db:status": "tsx scripts/db-status.ts",
     "db:link": "supabase link --project-ref cffgnedqsxfrgruevkvl",
     "db:push": "supabase db push",
