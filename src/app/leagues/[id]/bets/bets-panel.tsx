@@ -10,7 +10,7 @@ import {
   type BetTiming,
   type MarketId,
 } from "@/lib/f1/betting";
-import { placeBet, type BetState } from "./bet-actions";
+import { cancelBet, placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
   marketId: MarketId;
@@ -31,6 +31,7 @@ export function BetsPanel({
   constructors,
   nationalities,
   locked,
+  timing,
 }: {
   leagueId: string;
   round: number;
@@ -40,11 +41,13 @@ export function BetsPanel({
   constructors: { id: string; name: string }[];
   nationalities: string[];
   locked: boolean;
+  /** Which odds window a bet placed now falls in, decided by the clock. */
+  timing: BetTiming;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
+  const [cancelState, cancelAction] = useActionState<BetState, FormData>(cancelBet, null);
   const [marketId, setMarketId] = useState<MarketId>("race_winner");
   const [stake, setStake] = useState(5);
-  const [timing, setTiming] = useState<BetTiming>("pre_race");
 
   const market = MARKET_LIST.find((entry) => entry.id === marketId)!;
   const placed = new Set(bets.map((bet) => bet.marketId));
@@ -98,12 +101,38 @@ export function BetsPanel({
                       : "text-zinc-500"
                 }`}
               >
-                {bet.outcome ?? (bet.timing === "pre_qualifying" ? `open · ${PRE_QUALIFYING_BONUS}x` : "open")}
+                {bet.outcome ??
+                  (bet.timing === "pre_qualifying" ? `open · ${PRE_QUALIFYING_BONUS}×` : "open")}
                 {bet.returned ? ` +${bet.returned}` : ""}
               </span>
+
+              {/* An open bet can be taken back until the race starts; the
+                  stake comes straight back to the bank. */}
+              {bet.outcome === null && !locked && (
+                <form action={cancelAction} className="shrink-0">
+                  <input type="hidden" name="leagueId" value={leagueId} />
+                  <input type="hidden" name="marketId" value={bet.marketId} />
+                  <input type="hidden" name="round" value={round} />
+                  <button className="text-xs text-zinc-500 underline underline-offset-2">
+                    Withdraw
+                  </button>
+                </form>
+              )}
             </li>
           ))}
         </ul>
+      )}
+
+      {cancelState && (
+        <p
+          className={`mt-2 rounded-lg px-3 py-2 text-xs ${
+            "error" in cancelState
+              ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
+              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          }`}
+        >
+          {"error" in cancelState ? cancelState.error : cancelState.message}
+        </p>
       )}
 
       {locked ? (
@@ -157,17 +186,23 @@ export function BetsPanel({
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
             </label>
-            <select
-              name="timing"
-              value={timing}
-              onChange={(event) => setTiming(event.target.value as BetTiming)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <option value="pre_race">After qualifying — normal odds</option>
-              <option value="pre_qualifying">
-                Before qualifying — {PRE_QUALIFYING_BONUS}x odds
-              </option>
-            </select>
+            {/* The window follows the clock, so it is reported rather than
+                offered: letting it be chosen would either be a lie or a
+                loophole. The server decides it again on submit. */}
+            <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+              {timing === "pre_qualifying" ? (
+                <>
+                  Qualifying has not run, so this pays{" "}
+                  <strong>{PRE_QUALIFYING_BONUS}× the listed odds</strong> — you are calling it
+                  without knowing the grid.
+                </>
+              ) : (
+                <>
+                  Qualifying has run, so this pays the <strong>listed odds</strong>. Betting
+                  closes when the race starts.
+                </>
+              )}
+            </p>
           </div>
 
           <p className="text-xs text-zinc-500">

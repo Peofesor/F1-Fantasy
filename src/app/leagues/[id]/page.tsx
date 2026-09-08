@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
+import { DeadlineCard } from "./deadline-card";
 import { LeagueNav } from "./league-nav";
+import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
 import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
@@ -71,6 +73,34 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
   const capBalance = ledgerBalance(ledgerRows ?? []);
 
+  // The next round a member can still act on, with the two deadlines that
+  // apply to it: qualifying closes the roster, the race start closes betting.
+  const next = await currentRound(supabase, league.season);
+
+  const { data: nextRound } = next
+    ? await supabase
+        .from("rounds")
+        .select("race_name, qualifying_at, race_date, race_time")
+        .eq("season", next.season)
+        .eq("round", next.round)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: savedRoster } = next && selfMemberId
+    ? await supabase
+        .from("rosters")
+        .select("id")
+        .eq("member_id", selfMemberId)
+        .eq("season", next.season)
+        .eq("round", next.round)
+        .maybeSingle()
+    : { data: null };
+
+  // race_time is nullable on rounds the calendar has not fully published.
+  const raceAt = nextRound?.race_date
+    ? new Date(`${nextRound.race_date}T${nextRound.race_time ?? "00:00:00"}Z`).toISOString()
+    : null;
+
   const { data: fixtureRows } =
     league.mode === "duel"
       ? await supabase
@@ -96,6 +126,17 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           {Number(league.starting_cost_cap).toFixed(0)}
         </p>
       </header>
+
+      {next && nextRound && (
+        <DeadlineCard
+          leagueId={league.id}
+          raceName={nextRound.race_name}
+          round={next.round}
+          qualifyingAt={nextRound.qualifying_at}
+          raceAt={raceAt}
+          rosterSaved={Boolean(savedRoster)}
+        />
+      )}
 
       <div className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <span className="text-sm text-zinc-500">Your cost cap</span>

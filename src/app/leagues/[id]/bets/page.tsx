@@ -55,6 +55,13 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     .eq("round", round.round)
     .maybeSingle();
 
+  // Which odds window a bet placed now falls in — decided by the database from
+  // the qualifying time, and decided again when the bet is actually submitted.
+  const { data: timingValue } = await supabase.rpc("current_bet_timing", {
+    target_season: round.season,
+    target_round: round.round,
+  });
+
   const nationalities = [...new Set([...round.driverNationalities.values()])].sort();
 
   return (
@@ -82,6 +89,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         }))}
         nationalities={nationalities}
         locked={Boolean(roster?.locked_at)}
+        timing={(timingValue ?? "pre_qualifying") as BetTiming}
       />
     </main>
   );
