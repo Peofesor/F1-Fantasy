@@ -37,15 +37,22 @@ export const HOUSE_MARGIN = 0.9;
 export const MAX_ODDS = 12;
 
 /**
- * The smallest profit offered.
+ * The smallest profit offered. Below this, the selection is not offered at all.
  *
- * Deliberately far below anything worth betting on. A floor set where a bet
- * stops being interesting (0.05) would round *up* a fair price of 0.048, and a
- * floor that pays more than the outcome is worth is the whole bug this pricing
- * exists to fix. A price this small is its own warning: it says plainly that
- * the outcome is close to certain and the bet is pointless.
+ * There is no price at which a near-certainty can be sold. Expected value is
+ * `rate × (1 + odds)`, so once a selection comes in more often than
+ * HOUSE_MARGIN, every positive price pays more than the outcome is worth —
+ * and clamping the negative fair price up to a floor is exactly how the house
+ * loses money. Ten-from-ten selections were being offered at 0.01 for an
+ * expected 1.01 per unit staked: Hamilton in the top six, Antonelli into Q3,
+ * Stroll retiring, a safety car appearing. Free money, in the four safest bets
+ * on the board.
+ *
+ * So a selection that likely is withdrawn rather than shaded. That is honest in
+ * a way a token price is not — "we won't take that bet" says what 0.01x only
+ * hints at.
  */
-export const MIN_ODDS = 0.01;
+export const MIN_ODDS = 0.05;
 
 /**
  * Smoothing applied to a hit rate before it becomes a price.
@@ -84,25 +91,56 @@ export interface MarketRecord {
 export const ODDS_WINDOW_RACES = 10;
 
 /**
- * Turns a record into the price offered on it.
+ * Turns a record into the price offered on it, or null if it cannot be offered.
  *
  * A selection with no history at all falls back to the market's listed odds,
  * which is the best guess available before anyone has raced.
  */
-export function oddsFor(marketId: MarketId, record: MarketRecord | undefined): number {
+export function oddsFor(marketId: MarketId, record: MarketRecord | undefined): number | null {
   const listed = MARKETS[marketId].odds;
   if (!record || record.total === 0) return listed;
 
-  const rate = (record.won + SMOOTHING) / (record.total + SMOOTHING * 2);
-  // Fair profit on a unit stake: what the win pays beyond returning the stake.
-  const fair = 1 / rate - 1;
-  const offered = fair * HOUSE_MARGIN;
+  const observed = record.won / record.total;
+
+  // Smoothing is for a record too short to trust — a driver two races into a
+  // season, not one with a full window behind them. Applying it to a complete
+  // window taxed the long shots for nothing: a genuine 10% pick was priced as
+  // 17% and returned 0.54 per unit staked against the intended 0.9.
+  const smoothed =
+    record.total >= ODDS_WINDOW_RACES
+      ? observed
+      : (record.won + SMOOTHING) / (record.total + SMOOTHING * 2);
+
+  // Smoothing pulls toward even money, which cuts both ways and only one of
+  // them is safe. On a long shot it raises the assumed rate and shortens the
+  // price, which protects the house. On a near-certainty it *lowers* the
+  // assumed rate and lengthens the price, which is the house paying for its own
+  // caution: four sprints from four became a notional five from six and was
+  // offered at 0.08 on an outcome that had never once failed — an expected 1.08
+  // per unit staked.
+  //
+  // Taking whichever rate is higher keeps the protection and drops the gift.
+  // Since the price is HOUSE_MARGIN / rate - 1, a rate at or above the observed
+  // one can never return more than HOUSE_MARGIN, whatever the record. That
+  // holds for every market and every selection, which is what makes it worth
+  // stating as a rule rather than checking case by case.
+  const rate = Math.max(observed, smoothed);
+
+  // The margin applies to the whole return, not only to the profit on top of
+  // the stake. Taking it off the profit alone left the edge depending on how
+  // likely the outcome was: a 70% pick returned 1.015 per unit staked and a
+  // near-certainty 1.08, so the safest bets on the board were the profitable
+  // ones. Priced against the full return, expected value is HOUSE_MARGIN
+  // wherever you bet, which is what a house edge is supposed to mean.
+  const offered = HOUSE_MARGIN / rate - 1;
 
   // Rounded down, and finely: at 0.1 steps a fair price of 0.075 became 0.1,
   // a third more than it was worth, which is enough to make a near-certain
-  // outcome pay. Rounding is never allowed to move in the player's favour.
-  const capped = Math.min(MAX_ODDS, Math.max(MIN_ODDS, offered));
-  return Math.floor(capped * 100) / 100;
+  // outcome pay. Rounding is never allowed to move in the player's favour, so
+  // the floor is checked after rounding rather than before — rounding a 0.048
+  // up to the floor would reintroduce the same bug in miniature.
+  const price = Math.floor(Math.min(MAX_ODDS, offered) * 100) / 100;
+  return price < MIN_ODDS ? null : price;
 }
 
 /**

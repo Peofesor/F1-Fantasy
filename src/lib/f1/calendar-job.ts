@@ -46,6 +46,9 @@ export async function ingestCalendar(
     race_date: race.date,
     race_time: race.time ? race.time.replace("Z", "") : null,
     qualifying_at: sessionInstant(race.Qualifying),
+    // Known from the schedule, so the sprint markets can be hidden on a weekend
+    // that has no sprint instead of being offered and later voided.
+    has_sprint: Boolean(race.Sprint),
   }));
 
   // Upsert without touching openf1_session_key: results ingestion owns that

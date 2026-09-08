@@ -23,6 +23,13 @@ export interface RoundContext {
   season: number;
   round: number;
   raceName: string;
+  /**
+   * Whether the weekend has a sprint, from the published schedule.
+   *
+   * Null on a round ingested before the calendar carried it. The sprint markets
+   * are hidden unless this is explicitly true, so not knowing behaves as no.
+   */
+  hasSprint: boolean | null;
   tiers: Map<string, Tier>;
   /** Constructor brackets, derived the same way as driver ones. */
   constructorTiers: Map<string, Tier>;
@@ -65,10 +72,10 @@ export interface RoundContext {
 export async function currentRound(
   supabase: SupabaseClient,
   season: number,
-): Promise<{ season: number; round: number; race_name: string } | null> {
+): Promise<{ season: number; round: number; race_name: string; has_sprint: boolean | null } | null> {
   const { data: upcoming } = await supabase
     .from("rounds")
-    .select("season, round, race_name")
+    .select("season, round, race_name, has_sprint")
     .eq("season", season)
     .gt("qualifying_at", new Date().toISOString())
     .order("round", { ascending: true })
@@ -79,7 +86,7 @@ export async function currentRound(
 
   const { data: latest } = await supabase
     .from("rounds")
-    .select("season, round, race_name")
+    .select("season, round, race_name, has_sprint")
     .eq("season", season)
     .order("round", { ascending: false })
     .limit(1)
@@ -211,6 +218,7 @@ export async function loadRoundContext(
     season: round.season,
     round: round.round,
     raceName: round.race_name,
+    hasSprint: round.has_sprint,
     tiers: assignTiers(driverIds, form, seeds),
     constructorTiers: assignTiers(
       [...new Set(seasonRows.map((row) => row.constructor_id))],

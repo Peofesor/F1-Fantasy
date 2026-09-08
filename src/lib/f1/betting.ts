@@ -47,6 +47,14 @@ export interface MarketDefinition {
    * confusing, and looks broken rather than generous.
    */
   available: boolean;
+  /**
+   * True for a market that only exists on a sprint weekend.
+   *
+   * Separate from `available`, which is a property of the market itself and the
+   * same every round. This one depends on which round is being bet on, so it is
+   * a flag here and a filter at the point of offering.
+   */
+  sprintOnly?: boolean;
 }
 
 /**
@@ -72,9 +80,27 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
   winner_nationality: { id: "winner_nationality", name: "Winner's nationality", selection: "nationality", odds: 3, description: "Nationality of the race winner.", available: true },
   most_overtakes: { id: "most_overtakes", name: "Most overtakes", selection: "driver", odds: 5, description: "Makes the most on-track passes (house count).", available: true },
   safety_car: { id: "safety_car", name: "Safety car", selection: "yes_no", odds: 1.6, description: "A safety car is deployed.", available: true },
-  sprint_winner: { id: "sprint_winner", name: "Sprint winner", selection: "driver", odds: 4, description: "Wins the sprint. Sprint weekends only.", available: true },
-  sprint_points: { id: "sprint_points", name: "Sprint points", selection: "driver", odds: 1.5, description: "Finishes the sprint in the top 8. Sprint weekends only.", available: true },
-  reached_q2: { id: "reached_q2", name: "Reaches Q2", selection: "driver", odds: 1.4, description: "Survives the first qualifying cut.", available: true },
+  sprint_winner: { id: "sprint_winner", name: "Sprint winner", selection: "driver", odds: 4, description: "Wins the sprint.", available: true, sprintOnly: true },
+  sprint_points: { id: "sprint_points", name: "Sprint points", selection: "driver", odds: 1.5, description: "Finishes the sprint in the top 8.", available: true, sprintOnly: true },
+  reached_q2: {
+    id: "reached_q2",
+    name: "Reaches Q2",
+    selection: "driver",
+    odds: 1.4,
+    description: "Survives the first qualifying cut.",
+    // Withdrawn, for two reasons that point the same way.
+    //
+    // It is the exact complement of "Out in Q1" — a driver reaches Q2 if and
+    // only if they are not eliminated in Q1 — so the board carried the same bet
+    // twice, and this was the dull side of it.
+    //
+    // And it is the side nobody can price. Ten of the last ten for half the
+    // grid: twelve of twenty-three drivers were above the house margin and had
+    // no offerable price at all, which is what a player saw as a market full of
+    // blanks. Keeping a market whose only bettable selections are the four
+    // drivers in trouble is worse than not having it.
+    available: false,
+  },
   beats_teammate_race: { id: "beats_teammate_race", name: "Beats teammate (race)", selection: "driver", odds: 1.8, description: "Finishes ahead of the other car in their garage.", available: true },
   beats_teammate_qualifying: { id: "beats_teammate_qualifying", name: "Beats teammate (qualifying)", selection: "driver", odds: 1.8, description: "Out-qualifies the other car in their garage.", available: true },
   lap_one_leader: {

@@ -42,6 +42,7 @@ export function BetsPanel({
   timing,
   hasRoster,
   odds,
+  markets,
   leagueLimit,
 }: {
   leagueId: string;
@@ -56,8 +57,22 @@ export function BetsPanel({
   timing: BetTiming;
   /** Whether a full roster is saved for this round. Betting waits on it. */
   hasRoster: boolean;
-  /** Price per market per selection. Missing entries fall back to the listed odds. */
-  odds: Record<string, Record<string, number>>;
+  /**
+   * Price per market per selection.
+   *
+   * Missing means nobody has raced it yet, and the listed price stands in.
+   * Null is different and deliberate: the house will not take that bet, because
+   * the selection comes in more often than any price could cover.
+   */
+  odds: Record<string, Record<string, number | null>>;
+  /**
+   * Which markets this round actually has, decided on the server.
+   *
+   * A sprint market is real only on a sprint weekend, and the client cannot
+   * tell — it has no schedule. Passed as ids rather than definitions because
+   * these cross the server boundary.
+   */
+  markets: MarketId[];
   /** The league's own per-bet ceiling, or null when the bank is the only one. */
   leagueLimit: number | null;
 }) {
@@ -68,7 +83,10 @@ export function BetsPanel({
   // Controlled so the price can follow the pick: odds are per selection now.
   const [selection, setSelection] = useState("");
 
-  const market = MARKET_LIST.find((entry) => entry.id === marketId)!;
+  // Only the markets this round has. A sprint market on a non-sprint weekend
+  // is not a market at all.
+  const offered = MARKET_LIST.filter((entry) => markets.includes(entry.id));
+  const market = offered.find((entry) => entry.id === marketId) ?? offered[0];
 
   /**
    * What this market pays across the field.
@@ -77,25 +95,37 @@ export function BetsPanel({
    * selection — so showing it beside a market read as a promise the driver list
    * then broke: "Race winner (4x)" above Antonelli at 1.7x.
    */
+  const pricesIn = (marketId: string) =>
+    Object.values(odds[marketId] ?? {}).filter((price): price is number => price !== null);
+
   const oddsRange = (marketId: string) => {
-    const prices = Object.values(odds[marketId] ?? {});
+    const prices = pricesIn(marketId);
     if (prices.length === 0) return "—";
     const low = Math.min(...prices);
     const high = Math.max(...prices);
-    return low === high ? `${low.toFixed(1)}x` : `${low.toFixed(1)}–${high.toFixed(1)}x`;
+    return low === high ? `${low.toFixed(2)}x` : `${low.toFixed(2)}–${high.toFixed(2)}x`;
   };
 
   // Markets ordered by their shortest available price, so the near-certainties
   // sit at the top and the long shots at the bottom.
-  const sortedMarkets = [...MARKET_LIST].sort((a, b) => {
-    const cheapest = (id: string) => {
-      const prices = Object.values(odds[id] ?? {});
-      return prices.length ? Math.min(...prices) : a.odds;
+  const sortedMarkets = [...offered].sort((a, b) => {
+    const cheapest = (entry: (typeof offered)[number]) => {
+      const prices = pricesIn(entry.id);
+      return prices.length ? Math.min(...prices) : entry.odds;
     };
-    return cheapest(a.id) - cheapest(b.id);
+    return cheapest(a) - cheapest(b);
   });
-  // The price follows the selection, so an unpicked market shows the listed one.
-  const selectedOdds = (selection && odds[marketId]?.[selection]) || market.odds;
+
+  /**
+   * The price on the current pick: a number, or null when there is none.
+   *
+   * An unpicked market shows the listed price as a placeholder. A withdrawn
+   * selection must not fall back to it — that fallback is what would put a
+   * near-certainty back on the board at its old listed odds.
+   */
+  const quoted = selection ? odds[market.id]?.[selection] : undefined;
+  const withdrawn = quoted === null;
+  const selectedOdds = quoted ?? market.odds;
   const placed = new Set(bets.map((bet) => bet.marketId));
   const limit = maxStake(bank, leagueLimit);
 
@@ -103,9 +133,11 @@ export function BetsPanel({
   const stakeCheck = checkStake(stake, bank, leagueLimit);
   const blockedReason = !selection
     ? "Choose who the bet is on."
-    : stakeCheck.allowed
-      ? null
-      : (stakeCheck.reason ?? "That stake is not allowed.");
+    : withdrawn
+      ? "No price on that one — it comes in too often to be worth a bet."
+      : stakeCheck.allowed
+        ? null
+        : (stakeCheck.reason ?? "That stake is not allowed.");
 
   const rawOptions =
     market.selection === "driver"
@@ -122,9 +154,12 @@ export function BetsPanel({
   // Shortest price first, the way a bookmaker lists a field: the likeliest
   // outcome is what you scan for, and an alphabetical list buries it. Anything
   // unpriced sorts last rather than pretending to be the favourite.
+  // Shortest price first, but a selection with no price sorts last whichever
+  // reason it has: unraced sits at the listed price, withdrawn at the bottom.
+  const priceOf = (id: string) => odds[market.id]?.[id];
   const options = [...rawOptions].sort((a, b) => {
-    const priceA = odds[marketId]?.[a.id] ?? Infinity;
-    const priceB = odds[marketId]?.[b.id] ?? Infinity;
+    const priceA = priceOf(a.id) ?? Infinity;
+    const priceB = priceOf(b.id) ?? Infinity;
     return priceA - priceB || a.name.localeCompare(b.name);
   });
 
@@ -224,7 +259,7 @@ export function BetsPanel({
 
           <select
             name="marketId"
-            value={marketId}
+            value={market.id}
             onChange={(event) => {
               setMarketId(event.target.value as MarketId);
               // A driver priced for the old market would show the wrong odds.
@@ -250,11 +285,21 @@ export function BetsPanel({
           >
             <option value="">Choose…</option>
             {options.map((option) => {
-              const price = odds[marketId]?.[option.id];
+              const price = priceOf(option.id);
+              // Null is a refusal, not a missing number: the selection comes in
+              // too often for any price to cover it. Shown and disabled rather
+              // than dropped, so a driver never silently vanishes from a list
+              // and leaves the player wondering whether the page is broken.
+              const label =
+                price === null
+                  ? " — no price"
+                  : price === undefined
+                    ? ""
+                    : ` — ${price.toFixed(2)}x`;
               return (
-                <option key={option.id} value={option.id}>
+                <option key={option.id} value={option.id} disabled={price === null}>
                   {option.name}
-                  {price ? ` — ${price.toFixed(1)}x` : ""}
+                  {label}
                 </option>
               );
             })}

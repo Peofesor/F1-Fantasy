@@ -96,10 +96,33 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   const check = checkStake(stake, bank, league.max_stake);
   if (!check.allowed) return { error: check.reason ?? "Stake not allowed." };
 
+  // A sprint market on a weekend with no sprint could only ever void. The
+  // dropdown does not offer it, and this is the same rule for a direct POST.
+  if (MARKETS[marketId].sprintOnly) {
+    const { data: scheduled } = await supabase
+      .from("rounds")
+      .select("has_sprint")
+      .eq("season", league.season)
+      .eq("round", round)
+      .maybeSingle();
+
+    if (scheduled?.has_sprint !== true) {
+      return { error: "There is no sprint this weekend." };
+    }
+  }
+
   // Priced here rather than taken from the form: the odds decide the payout,
   // so a submitted value would be a submitted payout.
   const history = await loadMarketHistory(supabase, league.season);
   const odds = oddsFor(marketId, history.get(marketId)?.get(selection));
+
+  // No price means the house will not take it: the selection comes in more
+  // often than the margin can cover, so every offer would be a losing one.
+  // Checked here and not only in the dropdown, since a server action is
+  // reachable by a direct POST that never saw the dropdown.
+  if (odds === null) {
+    return { error: "No price on that one — it comes in too often to be worth a bet." };
+  }
 
   // RLS refuses the insert once the race has started, and refuses a row whose
   // timing disagrees with the clock, so both rules hold against a direct POST.

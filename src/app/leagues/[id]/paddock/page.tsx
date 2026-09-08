@@ -80,13 +80,26 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
     target_round: round.round,
   });
 
+  // Sprint markets exist only on a sprint weekend. Settlement already voids
+  // them elsewhere, but a voided bet is discovered on Sunday night — by which
+  // point the player has spent a weekend holding a slip that was never going to
+  // pay. Not offering it is the same rule applied at the only useful moment.
+  const marketsThisRound = MARKET_LIST.filter(
+    (market) => !market.sprintOnly || round.hasSprint === true,
+  );
+
   // Odds are per selection now, so every option carries its own price. Priced
   // once here rather than per option in the client, which cannot see history.
   const history = await loadMarketHistory(supabase, round.season);
-  const odds: Record<string, Record<string, number>> = {};
-  for (const market of MARKET_LIST) {
+  const odds: Record<string, Record<string, number | null>> = {};
+  for (const market of marketsThisRound) {
     const bySelection = history.get(market.id);
     if (!bySelection) continue;
+    // Null is carried through rather than dropped: a selection the house will
+    // not take is not the same as one nobody has raced yet, and the client
+    // falls back to the listed price for the second. Dropping the first would
+    // quote a withdrawn near-certainty at its listed odds — the widest hole of
+    // the lot.
     odds[market.id] = Object.fromEntries(
       [...bySelection.keys()].map((selection) => [
         selection,
@@ -174,6 +187,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         timing={(timingValue ?? "pre_qualifying") as BetTiming}
         hasRoster={Boolean(hasRoster)}
         odds={odds}
+        markets={marketsThisRound.map((market) => market.id)}
         leagueLimit={league.max_stake}
       />
     </main>
