@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
@@ -92,6 +93,8 @@ interface Props {
   chips: ChipRow[];
   chipDriverOptions: { id: string; name: string }[];
   chipConstructorOptions: { id: string; name: string }[];
+  /** Open bets for this round, shown as a count on the Bets button. */
+  betsPlaced: number;
 }
 
 /**
@@ -252,6 +255,7 @@ export function RosterBuilder({
   chips,
   chipDriverOptions,
   chipConstructorOptions,
+  betsPlaced,
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialSelection));
   const [openSlot, setOpenSlot] = useState<Slot | null>(null);
@@ -445,69 +449,27 @@ export function RosterBuilder({
           />
         </div>
 
-        <div className="mt-2.5 flex gap-2">
+        {/* The two places you leave the picker for, above the cards rather
+            than below them: both are things you do *while* choosing a team,
+            and saving is what you do after. */}
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setChipsOpen(true)}
-            className="shrink-0 rounded-lg border border-zinc-300 px-3 py-2.5 text-sm font-medium dark:border-zinc-700"
+            className="relative rounded-lg border border-zinc-300 px-3 py-2.5 text-sm font-medium dark:border-zinc-700"
           >
             Chips
-            {playedThisRound > 0 && (
-              <span className="ml-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                {playedThisRound}
-              </span>
-            )}
+            {playedThisRound > 0 && <Badge count={playedThisRound} label="played" />}
           </button>
 
-          <form
-            action={formAction}
-            ref={formRef}
-            onSubmit={() => setSubmitted(JSON.stringify(selection))}
-            className="flex-1"
+          <Link
+            href={`/leagues/${leagueId}/paddock`}
+            className="relative rounded-lg border border-zinc-300 px-3 py-2.5 text-center text-sm font-medium dark:border-zinc-700"
           >
-          <input type="hidden" name="leagueId" value={leagueId} />
-          <input type="hidden" name="top" value={selection.top.join(",")} />
-          <input type="hidden" name="mid" value={selection.mid.join(",")} />
-          <input type="hidden" name="backmarker" value={selection.backmarker ?? ""} />
-          <input type="hidden" name="constructors" value={selection.constructors.join(",")} />
-          <input
-            type="hidden"
-            name="reverseConstructor"
-            value={selection.reverseConstructor ?? ""}
-          />
-          <input type="hidden" name="topCaptainId" value={selection.topCaptainId ?? ""} />
-          <input type="hidden" name="midCaptainId" value={selection.midCaptainId ?? ""} />
-          {/* A full roster with no captains is savable — the prompt collects
-              them on the way through, rather than the picker guessing. */}
-          <button
-            type={needsCaptains ? "button" : "submit"}
-            onClick={needsCaptains ? () => setAskingCaptains(true) : undefined}
-            disabled={!readyToSave || saving || locked}
-            className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            {locked
-              ? "Round locked"
-              : saving
-                ? "Saving…"
-                : empty > 0
-                  ? `Pick ${empty} more`
-                  : overBudget
-                    ? `Over by ${Math.abs(validation.remaining).toFixed(1)}`
-                    : "Save roster"}
-          </button>
-          </form>
+            Bets
+            {betsPlaced > 0 && <Badge count={betsPlaced} label="placed" />}
+          </Link>
         </div>
-
-        {state && "error" in state && (
-          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
-            {state.error}
-          </p>
-        )}
-        {state && "ok" in state && (
-          <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-            Roster saved.
-          </p>
-        )}
       </section>
 
       {ROWS.map((row) => {
@@ -563,6 +525,58 @@ export function RosterBuilder({
           </section>
         );
       })}
+
+      {/* Saving sits at the bottom: it is the last thing you do, and on a
+          phone the bottom of the screen is where a thumb rests. */}
+      <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+        {state && "error" in state && (
+          <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+            {state.error}
+          </p>
+        )}
+        {state && "ok" in state && (
+          <p className="mb-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            Roster saved.
+          </p>
+        )}
+
+        <form
+          action={formAction}
+          ref={formRef}
+          onSubmit={() => setSubmitted(JSON.stringify(selection))}
+        >
+          <input type="hidden" name="leagueId" value={leagueId} />
+          <input type="hidden" name="top" value={selection.top.join(",")} />
+          <input type="hidden" name="mid" value={selection.mid.join(",")} />
+          <input type="hidden" name="backmarker" value={selection.backmarker ?? ""} />
+          <input type="hidden" name="constructors" value={selection.constructors.join(",")} />
+          <input
+            type="hidden"
+            name="reverseConstructor"
+            value={selection.reverseConstructor ?? ""}
+          />
+          <input type="hidden" name="topCaptainId" value={selection.topCaptainId ?? ""} />
+          <input type="hidden" name="midCaptainId" value={selection.midCaptainId ?? ""} />
+          {/* A full roster with no captains is savable — the prompt collects
+              them on the way through, rather than the picker guessing. */}
+          <button
+            type={needsCaptains ? "button" : "submit"}
+            onClick={needsCaptains ? () => setAskingCaptains(true) : undefined}
+            disabled={!readyToSave || saving || locked}
+            className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            {locked
+              ? "Round locked"
+              : saving
+                ? "Saving…"
+                : empty > 0
+                  ? `Pick ${empty} more`
+                  : overBudget
+                    ? `Over by ${Math.abs(validation.remaining).toFixed(1)}`
+                    : "Save roster"}
+          </button>
+        </form>
+      </div>
 
       {validation.complete && !validation.valid && (
         <ul className="space-y-1 rounded-xl bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -791,6 +805,21 @@ function SheetShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * A count on the corner of a button.
+ *
+ * Carries a label for screen readers, since a bare number beside "Bets" does
+ * not say what it counts.
+ */
+function Badge({ count, label }: { count: number; label: string }) {
+  return (
+    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-semibold text-white">
+      {count}
+      <span className="sr-only"> {label}</span>
+    </span>
   );
 }
 

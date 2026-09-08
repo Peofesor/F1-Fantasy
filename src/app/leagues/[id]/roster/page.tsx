@@ -85,6 +85,15 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
   const costCap = spendableCap(balance, heldValue);
 
+  // Open bets for this round, so the Bets button can say there is something
+  // waiting rather than making you go and look.
+  const { count: betsPlaced } = await supabase
+    .from("bets")
+    .select("*", { count: "exact", head: true })
+    .eq("member_id", memberId)
+    .eq("season", round.season)
+    .eq("round", round.round);
+
   // Chip state for the whole season, so "already played this round" and how
   // many uses are left are both answerable without a second page.
   const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
@@ -199,6 +208,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
         chips={chipRows}
         chipDriverOptions={chipDriverOptions}
         chipConstructorOptions={chipConstructorOptions}
+        betsPlaced={betsPlaced ?? 0}
       />
     </main>
   );
