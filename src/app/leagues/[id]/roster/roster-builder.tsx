@@ -1206,11 +1206,18 @@ function ChooserSheet({
 
   const sorted = useMemo(() => {
     const direction = descending ? -1 : 1;
+    // Sorted on the short name, which for a driver is the surname. Sorting the
+    // full name ordered the grid by first name, so Lando Norris came before
+    // Lewis Hamilton — and somebody scanning for Hamilton looks under H. Teams
+    // are unaffected: their short name is their name.
+    const byName = (a: PickOption, b: PickOption) =>
+      a.shortName.localeCompare(b.shortName);
+
     return [...options].sort((a, b) => {
-      if (sortField === "name") return direction * a.name.localeCompare(b.name);
+      if (sortField === "name") return direction * byName(a, b);
       const delta = sortField === "price" ? a.price - b.price : a.form - b.form;
       // Ties fall back to name so the order never depends on input order.
-      return delta === 0 ? a.name.localeCompare(b.name) : direction * delta;
+      return delta === 0 ? byName(a, b) : direction * delta;
     });
   }, [options, sortField, descending]);
 
