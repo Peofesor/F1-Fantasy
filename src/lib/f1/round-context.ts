@@ -42,6 +42,14 @@ export interface RoundContext {
   driverForm: Map<string, number>;
   constructorForm: Map<string, number>;
   constructorNames: Map<string, string>;
+  /**
+   * A team's own colour and its drivers, so the picker can show a team as
+   * something recognisable rather than a grey disc. Both are derived from the
+   * driver rows OpenF1 already populates — no team-level source exists, and
+   * inventing one would mean a second media dependency for two fields.
+   */
+  constructorColours: Map<string, string>;
+  constructorDriverIds: Map<string, string[]>;
 }
 
 /**
@@ -160,6 +168,45 @@ export async function loadRoundContext(
 
   const driverIds = [...driverTeams.keys()];
 
+  const driverColours = new Map<string, string>(
+    (drivers.data ?? [])
+      .filter((row) => row.team_colour)
+      .map((row) => [row.driver_id, row.team_colour as string]),
+  );
+
+  // A team's *current* line-up, taken from the most recent round it has results
+  // for. Listing everyone who drove for it this season would be wrong on the
+  // teams that matter most: Red Bull ran three drivers in 2026, so any fixed
+  // ordering drops one of them from a two-seat card — alphabetically, that was
+  // Verstappen.
+  const latestRoundByConstructor = new Map<string, number>();
+  for (const row of seasonRows) {
+    const best = latestRoundByConstructor.get(row.constructor_id) ?? 0;
+    if (row.round > best) latestRoundByConstructor.set(row.constructor_id, row.round);
+  }
+
+  const constructorDriverIds = new Map<string, string[]>();
+  for (const row of seasonRows) {
+    if (row.round !== latestRoundByConstructor.get(row.constructor_id)) continue;
+    const existing = constructorDriverIds.get(row.constructor_id) ?? [];
+    if (existing.includes(row.driver_id)) continue;
+    constructorDriverIds.set(row.constructor_id, [...existing, row.driver_id]);
+  }
+
+  // Best-known driver first, so a two-seat card shows the recognisable one.
+  for (const [constructorId, ids] of constructorDriverIds) {
+    constructorDriverIds.set(
+      constructorId,
+      [...ids].sort((a, b) => (form.get(b) ?? 0) - (form.get(a) ?? 0) || (a < b ? -1 : 1)),
+    );
+  }
+
+  const constructorColours = new Map<string, string>();
+  for (const [constructorId, ids] of constructorDriverIds) {
+    const colour = ids.map((id) => driverColours.get(id)).find(Boolean);
+    if (colour) constructorColours.set(constructorId, colour);
+  }
+
   return {
     season: round.season,
     round: round.round,
@@ -192,15 +239,13 @@ export async function loadRoundContext(
         .filter((row) => row.headshot_url)
         .map((row) => [row.driver_id, row.headshot_url as string]),
     ),
-    driverColours: new Map(
-      (drivers.data ?? [])
-        .filter((row) => row.team_colour)
-        .map((row) => [row.driver_id, row.team_colour as string]),
-    ),
+    driverColours,
     driverForm: form,
     constructorForm: constructorFormMap,
     constructorNames: new Map(
       (constructors.data ?? []).map((row) => [row.constructor_id, row.name]),
     ),
+    constructorColours,
+    constructorDriverIds,
   };
 }

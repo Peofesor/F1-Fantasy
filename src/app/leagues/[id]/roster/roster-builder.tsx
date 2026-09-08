@@ -19,6 +19,14 @@ export interface PickOption {
   price: number;
   tier: Tier;
   headshotUrl?: string;
+  /**
+   * A team's current line-up. Constructors have no image of their own, so a
+   * team is shown as the drivers it fields — recognisable at a glance, and
+   * drawn from media already stored for the drivers. A driver with no portrait
+   * upstream (Lindblad, at time of writing) still takes a seat on the badge, so
+   * a team never renders as a single face and reads as a driver card.
+   */
+  lineup?: { name: string; headshotUrl?: string }[];
   /** Six-digit hex without the hash. */
   colour?: string;
   /** Points over the rolling window — the signal behind price and tier. */
@@ -378,6 +386,75 @@ export function RosterBuilder({
   );
 }
 
+/**
+ * The image on a card: a portrait for a driver, a paired line-up for a team,
+ * initials on the team colour when no media has been ingested yet.
+ */
+function Avatar({ option, size }: { option: PickOption; size: number }) {
+  const accent = option.colour ? `#${option.colour}` : "#a1a1aa";
+  const box = { height: size, width: size };
+
+  if (option.headshotUrl) {
+    return (
+      <Image
+        src={option.headshotUrl}
+        alt=""
+        width={size * 2}
+        height={size * 2}
+        style={box}
+        className="shrink-0 rounded-full object-cover"
+        unoptimized
+      />
+    );
+  }
+
+  if (option.lineup?.length) {
+    // Overlapped so two seats still read as one badge at card size. The outline
+    // separates them in the team's own colour.
+    return (
+      <span className="flex shrink-0 items-center" style={{ height: size }}>
+        {option.lineup.slice(0, 2).map((driver, index) => {
+          const seat = {
+            height: size,
+            width: size * 0.78,
+            marginLeft: index === 0 ? 0 : -size * 0.3,
+            outline: `2px solid ${accent}`,
+          };
+          return driver.headshotUrl ? (
+            <Image
+              key={driver.name}
+              src={driver.headshotUrl}
+              alt=""
+              width={size * 2}
+              height={size * 2}
+              style={seat}
+              className="rounded-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <span
+              key={driver.name}
+              style={{ ...seat, backgroundColor: accent, fontSize: size * 0.28 }}
+              className="flex items-center justify-center rounded-full font-semibold text-white"
+            >
+              {driver.name.slice(0, 2).toUpperCase()}
+            </span>
+          );
+        })}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+      style={{ ...box, backgroundColor: accent }}
+    >
+      {option.name.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
 function SlotCard({
   slot,
   option,
@@ -419,23 +496,7 @@ function SlotCard({
         onClick={onOpen}
         className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center"
       >
-        {option.headshotUrl ? (
-          <Image
-            src={option.headshotUrl}
-            alt=""
-            width={64}
-            height={64}
-            className="h-11 w-11 rounded-full object-cover"
-            unoptimized
-          />
-        ) : (
-          <span
-            className="flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold text-white"
-            style={{ backgroundColor: accent }}
-          >
-            {option.name.slice(0, 2).toUpperCase()}
-          </span>
-        )}
+        <Avatar option={option} size={44} />
         <span className="mt-1 line-clamp-2 text-[11px] font-medium leading-tight">
           {option.name}
         </span>
@@ -557,23 +618,7 @@ function ChooserSheet({
                 onClick={() => onPick(option.id)}
                 className="flex w-full items-center gap-3 rounded-lg p-2 text-left disabled:opacity-40"
               >
-                {option.headshotUrl ? (
-                  <Image
-                    src={option.headshotUrl}
-                    alt=""
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 shrink-0 rounded-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-                    style={{ backgroundColor: option.colour ? `#${option.colour}` : "#a1a1aa" }}
-                  >
-                    {option.name.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
+                <Avatar option={option} size={40} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{option.name}</span>
                   <span className="block truncate text-xs text-zinc-500">

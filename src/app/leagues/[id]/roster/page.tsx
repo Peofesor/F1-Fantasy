@@ -87,14 +87,25 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     .sort((a, b) => b.price - a.price);
 
   const constructors: PickOption[] = [...round.constructorPrices.entries()]
-    .map(([constructorId, price]) => ({
-      id: constructorId,
-      name: round.constructorNames.get(constructorId) ?? constructorId,
-      subtitle: "",
-      price,
-      tier: round.constructorTiers.get(constructorId) ?? "mid",
-      form: round.constructorForm.get(constructorId) ?? 0,
-    }))
+    .map(([constructorId, price]) => {
+      const lineup = round.constructorDriverIds.get(constructorId) ?? [];
+      return {
+        id: constructorId,
+        name: round.constructorNames.get(constructorId) ?? constructorId,
+        // A team has no portrait of its own, so it is shown as its line-up.
+        subtitle: lineup
+          .map((driverId) => round.driverNames.get(driverId)?.split(" ").slice(-1)[0] ?? driverId)
+          .join(" / "),
+        price,
+        tier: round.constructorTiers.get(constructorId) ?? "mid",
+        colour: round.constructorColours.get(constructorId),
+        lineup: lineup.map((driverId) => ({
+          name: round.driverNames.get(driverId) ?? driverId,
+          headshotUrl: round.driverHeadshots.get(driverId),
+        })),
+        form: round.constructorForm.get(constructorId) ?? 0,
+      };
+    })
     .sort((a, b) => b.price - a.price);
 
   return (
