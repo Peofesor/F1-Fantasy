@@ -30,6 +30,7 @@ export type MarketId =
   | "beats_teammate_qualifying";
 
 import { payoutAt } from "./bet-odds";
+import { OPENF1_SUPPORTS, sourceEnabled } from "./data-sources";
 
 export type BetTiming = "pre_qualifying" | "pre_race";
 
@@ -115,8 +116,21 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
   },
 };
 
-/** Only markets that can actually be settled are offered. */
-export const MARKET_LIST = Object.values(MARKETS).filter((market) => market.available);
+/**
+ * Only markets that can actually be settled are offered.
+ *
+ * Settleable covers two things. `available` is the market's own answer — is
+ * there any source for it at all. The source check is the second: three markets
+ * settle from OpenF1, and if that feed is switched off they have nothing behind
+ * them. A market with no feed behaves exactly like a market with no ingestion,
+ * so it is withdrawn the same way rather than offered and voided later.
+ */
+export const MARKET_LIST = Object.values(MARKETS).filter(
+  (market) =>
+    market.available &&
+    (!(OPENF1_SUPPORTS.markets as readonly string[]).includes(market.id) ||
+      sourceEnabled("openf1")),
+);
 
 /** Every market, including unavailable ones, for settling historical bets. */
 export const ALL_MARKETS = Object.values(MARKETS);

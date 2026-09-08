@@ -18,6 +18,7 @@ import {
   toSafetyCarEvents,
 } from "./openf1/transform";
 import type { JolpicaRace } from "./jolpica/schemas";
+import { sourceEnabled } from "./data-sources";
 
 /**
  * Ingestion for a single race weekend.
@@ -173,6 +174,15 @@ async function resolveOpenF1Session(
   race: JolpicaRace,
   season: number,
 ): Promise<{ sessionKey: number | null; warning?: string }> {
+  // One check disables the whole feed. Everything OpenF1 supplies hangs off a
+  // session key, and a null one is already the "no data for this round" path —
+  // the same route a pre-2023 race takes — so switching the source off reuses a
+  // branch that is exercised every time the backfill reaches 2022 rather than
+  // adding an untested one.
+  if (!sourceEnabled("openf1")) {
+    return { sessionKey: null, warning: "OpenF1 is switched off" };
+  }
+
   if (season < 2023) {
     return { sessionKey: null, warning: "OpenF1 has no data before 2023" };
   }
