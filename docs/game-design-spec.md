@@ -311,6 +311,14 @@ Populated across all 83 ingested rounds: 1,863 driver prices and 843 constructor
 
 Measured behaviour: prices span the full 4.0–28.0 band, and the median round-to-round change is 0.9 with a maximum of 3.9 — so a member's cost cap drifts steadily rather than lurching.
 
+### Roster picker
+
+The picker is slot-first, not a list: seven driver cards and three constructor cards, each showing a plus when empty. Tapping one opens a chooser filtered to what may legally fill it, so the bracket rules are visible while picking rather than only enforced afterwards. Options that cannot be afforded are listed but disabled, since knowing what is out of reach is part of the decision.
+
+Affordability inside a chooser is judged against remaining cap **plus whatever that slot currently holds**, because swapping refunds the outgoing pick — the same bank-plus-held-value rule as the cap itself.
+
+Driver portraits and team colours come from OpenF1 and are stored on the driver rather than fetched at render time: a page load must not depend on an API limited to 30 requests a minute. jolpica carries neither.
+
 ### Calendar versus results
 
 Two separate ingestion paths, because they answer different questions.

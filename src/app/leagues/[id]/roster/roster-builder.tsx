@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState, useMemo, useState } from "react";
 
 import {
@@ -18,6 +19,9 @@ export interface PickOption {
   subtitle: string;
   price: number;
   tier: Tier;
+  headshotUrl?: string;
+  /** Six-digit hex without the hash. */
+  colour?: string;
 }
 
 interface Props {
@@ -31,17 +35,48 @@ interface Props {
   locked: boolean;
 }
 
-function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs dark:bg-zinc-800">
-      {label}
-      {onRemove && (
-        <button type="button" onClick={onRemove} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-          ×
-        </button>
-      )}
-    </span>
-  );
+/**
+ * Which roster position a card represents.
+ *
+ * Slots are addressed individually rather than as "the next free one" so that
+ * tapping a specific empty card opens a chooser filtered to what may legally go
+ * there — the bracket rules become visible in the UI instead of being enforced
+ * only after the fact.
+ */
+type SlotKind = "top" | "mid" | "backmarker" | "constructor" | "reverse";
+
+interface Slot {
+  kind: SlotKind;
+  index: number;
+  label: string;
+  occupantId: string | null;
+}
+
+const SLOT_LABELS: Record<SlotKind, string> = {
+  top: "Top",
+  mid: "Mid",
+  backmarker: "Backmarker",
+  constructor: "Team",
+  reverse: "Reverse team",
+};
+
+function buildSlots(selection: RosterSelection): Slot[] {
+  const slot = (kind: SlotKind, index: number, occupantId: string | null): Slot => ({
+    kind,
+    index,
+    label: SLOT_LABELS[kind],
+    occupantId,
+  });
+
+  return [
+    ...Array.from({ length: TOP_SLOTS }, (_, i) => slot("top", i, selection.top[i] ?? null)),
+    ...Array.from({ length: MID_SLOTS }, (_, i) => slot("mid", i, selection.mid[i] ?? null)),
+    slot("backmarker", 0, selection.backmarker),
+    ...Array.from({ length: CONSTRUCTOR_SLOTS }, (_, i) =>
+      slot("constructor", i, selection.constructors[i] ?? null),
+    ),
+    slot("reverse", 0, selection.reverseConstructor),
+  ];
 }
 
 export function RosterBuilder({
@@ -55,13 +90,15 @@ export function RosterBuilder({
   locked,
 }: Props) {
   const [selection, setSelection] = useState<RosterSelection>(initialSelection);
+  const [openSlot, setOpenSlot] = useState<Slot | null>(null);
   const [state, formAction, saving] = useActionState<SaveState, FormData>(saveRoster, null);
 
-  const { tiers, driverPrices, constructorPrices } = useMemo(() => {
+  const { tiers, driverPrices, constructorPrices, byId } = useMemo(() => {
     const tiers = new Map<string, Tier>(drivers.map((d) => [d.id, d.tier]));
     const driverPrices = new Map(drivers.map((d) => [d.id, d.price]));
     const constructorPrices = new Map(constructors.map((c) => [c.id, c.price]));
-    return { tiers, driverPrices, constructorPrices };
+    const byId = new Map([...drivers, ...constructors].map((o) => [o.id, o]));
+    return { tiers, driverPrices, constructorPrices, byId };
   }, [drivers, constructors]);
 
   // The same validator the Server Action runs, so what you see while picking
@@ -71,67 +108,65 @@ export function RosterBuilder({
     [selection, tiers, driverPrices, constructorPrices, costCap],
   );
 
-  const chosenDrivers = new Set([
-    ...selection.top,
-    ...selection.mid,
-    ...(selection.backmarker ? [selection.backmarker] : []),
-  ]);
-  const chosenConstructors = new Set([
-    ...selection.constructors,
-    ...(selection.reverseConstructor ? [selection.reverseConstructor] : []),
-  ]);
-
-  function toggleDriver(option: PickOption) {
-    if (locked) return;
-    setSelection((current) => {
-      if (current.top.includes(option.id))
-        return { ...current, top: current.top.filter((id) => id !== option.id) };
-      if (current.mid.includes(option.id))
-        return { ...current, mid: current.mid.filter((id) => id !== option.id) };
-      if (current.backmarker === option.id) return { ...current, backmarker: null };
-
-      if (option.tier === "top" && current.top.length < TOP_SLOTS)
-        return { ...current, top: [...current.top, option.id] };
-      if (option.tier === "mid" && current.mid.length < MID_SLOTS)
-        return { ...current, mid: [...current.mid, option.id] };
-      if (current.backmarker === null) return { ...current, backmarker: option.id };
-      return current;
-    });
-  }
-
-  function toggleConstructor(option: PickOption) {
-    if (locked) return;
-    setSelection((current) => {
-      if (current.constructors.includes(option.id))
-        return { ...current, constructors: current.constructors.filter((id) => id !== option.id) };
-      if (current.reverseConstructor === option.id)
-        return { ...current, reverseConstructor: null };
-      if (current.constructors.length < CONSTRUCTOR_SLOTS)
-        return { ...current, constructors: [...current.constructors, option.id] };
-      if (current.reverseConstructor === null)
-        return { ...current, reverseConstructor: option.id };
-      return current;
-    });
-  }
-
-  function slotLabel(id: string): string | null {
-    if (selection.top.includes(id)) return "TOP";
-    if (selection.mid.includes(id)) return "MID";
-    if (selection.backmarker === id) return "BACK";
-    if (selection.constructors.includes(id)) return "TEAM";
-    if (selection.reverseConstructor === id) return "REV";
-    return null;
-  }
-
-  // Transfers already used this round consume the free allowance, so a second
-  // edit does not silently get a fresh one.
+  const slots = buildSlots(selection);
   const freeRemaining = Math.max(0, freeTransfers - transfersUsed);
-
   const overBudget = validation.remaining < 0;
+
+  function setSlot(slot: Slot, id: string | null) {
+    setSelection((current) => {
+      const replaceAt = (list: readonly string[], index: number) => {
+        const next = [...list];
+        if (id === null) next.splice(index, 1);
+        else next[index] = id;
+        return next.filter(Boolean);
+      };
+
+      switch (slot.kind) {
+        case "top":
+          return { ...current, top: replaceAt(current.top, slot.index) };
+        case "mid":
+          return { ...current, mid: replaceAt(current.mid, slot.index) };
+        case "backmarker":
+          return { ...current, backmarker: id };
+        case "constructor":
+          return { ...current, constructors: replaceAt(current.constructors, slot.index) };
+        case "reverse":
+          return { ...current, reverseConstructor: id };
+      }
+    });
+  }
+
+  /** Options legally allowed in a slot, excluding anyone already on the roster. */
+  function optionsFor(slot: Slot): PickOption[] {
+    const takenDrivers = new Set([
+      ...selection.top,
+      ...selection.mid,
+      ...(selection.backmarker ? [selection.backmarker] : []),
+    ]);
+    const takenConstructors = new Set([
+      ...selection.constructors,
+      ...(selection.reverseConstructor ? [selection.reverseConstructor] : []),
+    ]);
+
+    if (slot.kind === "constructor" || slot.kind === "reverse") {
+      return constructors
+        .filter((c) => !takenConstructors.has(c.id) || c.id === slot.occupantId)
+        .sort((a, b) => b.price - a.price);
+    }
+
+    return drivers
+      .filter((d) => {
+        if (takenDrivers.has(d.id) && d.id !== slot.occupantId) return false;
+        // The backmarker slot is deliberately unrestricted.
+        if (slot.kind === "backmarker") return true;
+        return d.tier === slot.kind;
+      })
+      .sort((a, b) => b.price - a.price);
+  }
 
   return (
     <div className="space-y-4">
-      <section className="sticky top-0 z-10 rounded-xl border border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+      <section className="sticky top-0 z-20 rounded-xl border border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-zinc-500">Spent</span>
           <span className="tabular-nums text-sm">
@@ -147,47 +182,14 @@ export function RosterBuilder({
             style={{ width: `${Math.min(100, (validation.cost / costCap) * 100)}%` }}
           />
         </div>
-
         <p className="mt-1 text-xs text-zinc-500">
           {freeRemaining > 0
             ? `${freeRemaining} free transfer${freeRemaining === 1 ? "" : "s"} left this round`
             : "Free transfers used — further changes cost cap"}
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-zinc-500">
-          <span>
-            Top {selection.top.length}/{TOP_SLOTS}
-          </span>
-          <span>·</span>
-          <span>
-            Mid {selection.mid.length}/{MID_SLOTS}
-          </span>
-          <span>·</span>
-          <span>Backmarker {selection.backmarker ? 1 : 0}/1</span>
-          <span>·</span>
-          <span>
-            Teams {selection.constructors.length}/{CONSTRUCTOR_SLOTS}
-          </span>
-          <span>·</span>
-          <span>Reverse {selection.reverseConstructor ? 1 : 0}/1</span>
-        </div>
-
-        {(selection.top.length > 0 || selection.mid.length > 0 || selection.backmarker) && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {[...selection.top, ...selection.mid, ...(selection.backmarker ? [selection.backmarker] : [])].map(
-              (id) => (
-                <Chip
-                  key={id}
-                  label={drivers.find((d) => d.id === id)?.name ?? id}
-                  onRemove={locked ? undefined : () => toggleDriver(drivers.find((d) => d.id === id)!)}
-                />
-              ),
-            )}
-          </div>
-        )}
-
-        {!validation.valid && validation.complete && (
-          <ul className="mt-3 space-y-1 text-xs text-red-600 dark:text-red-400">
+        {validation.complete && !validation.valid && (
+          <ul className="mt-2 space-y-1 text-xs text-red-600 dark:text-red-400">
             {validation.errors.map((error) => (
               <li key={error}>{error}</li>
             ))}
@@ -200,16 +202,18 @@ export function RosterBuilder({
           <input type="hidden" name="mid" value={selection.mid.join(",")} />
           <input type="hidden" name="backmarker" value={selection.backmarker ?? ""} />
           <input type="hidden" name="constructors" value={selection.constructors.join(",")} />
-          <input
-            type="hidden"
-            name="reverseConstructor"
-            value={selection.reverseConstructor ?? ""}
-          />
+          <input type="hidden" name="reverseConstructor" value={selection.reverseConstructor ?? ""} />
           <button
             disabled={!validation.valid || saving || locked}
-            className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+            className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
           >
-            {locked ? "Round locked" : saving ? "Saving…" : "Save roster"}
+            {locked
+              ? "Round locked"
+              : saving
+                ? "Saving…"
+                : validation.complete
+                  ? "Save roster"
+                  : `Pick ${slots.filter((s) => !s.occupantId).length} more`}
           </button>
         </form>
 
@@ -225,89 +229,222 @@ export function RosterBuilder({
         )}
       </section>
 
-      <PickList
-        title="Drivers"
-        note={`Top bracket fills ${TOP_SLOTS} slots, mid ${MID_SLOTS}, plus 1 backmarker (any driver).`}
-        options={drivers}
-        chosen={chosenDrivers}
-        slotLabel={slotLabel}
-        onToggle={toggleDriver}
-        showTier
-        disabled={locked}
-      />
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">Drivers</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {slots
+            .filter((slot) => slot.kind !== "constructor" && slot.kind !== "reverse")
+            .map((slot) => (
+              <SlotCard
+                key={`${slot.kind}-${slot.index}`}
+                slot={slot}
+                option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
+                locked={locked}
+                onOpen={() => setOpenSlot(slot)}
+                onClear={() => setSlot(slot, null)}
+              />
+            ))}
+        </div>
 
-      <PickList
-        title="Constructors"
-        note={`${CONSTRUCTOR_SLOTS} scored normally, plus 1 reverse-scored.`}
-        options={constructors}
-        chosen={chosenConstructors}
-        slotLabel={slotLabel}
-        onToggle={toggleConstructor}
-        disabled={locked}
-      />
+        <h2 className="mb-2 mt-4 text-sm font-semibold">Constructors</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {slots
+            .filter((slot) => slot.kind === "constructor" || slot.kind === "reverse")
+            .map((slot) => (
+              <SlotCard
+                key={`${slot.kind}-${slot.index}`}
+                slot={slot}
+                option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
+                locked={locked}
+                onOpen={() => setOpenSlot(slot)}
+                onClear={() => setSlot(slot, null)}
+              />
+            ))}
+        </div>
+      </section>
+
+      {openSlot && (
+        <ChooserSheet
+          slot={openSlot}
+          options={optionsFor(openSlot)}
+          remaining={validation.remaining}
+          currentPrice={
+            openSlot.occupantId ? (byId.get(openSlot.occupantId)?.price ?? 0) : 0
+          }
+          onPick={(id) => {
+            setSlot(openSlot, id);
+            setOpenSlot(null);
+          }}
+          onClose={() => setOpenSlot(null)}
+        />
+      )}
     </div>
   );
 }
 
-function PickList({
-  title,
-  note,
-  options,
-  chosen,
-  slotLabel,
-  onToggle,
-  showTier = false,
-  disabled = false,
+function SlotCard({
+  slot,
+  option,
+  locked,
+  onOpen,
+  onClear,
 }: {
-  title: string;
-  note: string;
-  options: PickOption[];
-  chosen: Set<string>;
-  slotLabel: (id: string) => string | null;
-  onToggle: (option: PickOption) => void;
-  showTier?: boolean;
-  disabled?: boolean;
+  slot: Slot;
+  option?: PickOption;
+  locked: boolean;
+  onOpen: () => void;
+  onClear: () => void;
 }) {
+  const accent = option?.colour ? `#${option.colour}` : "#a1a1aa";
+
+  if (!option) {
+    return (
+      <button
+        type="button"
+        disabled={locked}
+        onClick={onOpen}
+        className="flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-600 disabled:opacity-50 dark:border-zinc-700 dark:hover:border-zinc-500"
+      >
+        <span className="text-2xl leading-none">+</span>
+        <span className="text-[10px] font-medium uppercase tracking-wide">{slot.label}</span>
+      </button>
+    );
+  }
+
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <p className="mt-0.5 text-xs text-zinc-500">{note}</p>
-      <ul className="mt-3 space-y-1">
+    <div className="relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <span className="h-1 w-full shrink-0" style={{ backgroundColor: accent }} />
+
+      <button
+        type="button"
+        disabled={locked}
+        onClick={onOpen}
+        className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center"
+      >
+        {option.headshotUrl ? (
+          <Image
+            src={option.headshotUrl}
+            alt=""
+            width={64}
+            height={64}
+            className="h-12 w-12 rounded-full object-cover"
+            unoptimized
+          />
+        ) : (
+          <span
+            className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-semibold text-white"
+            style={{ backgroundColor: accent }}
+          >
+            {option.name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
+        <span className="mt-1 line-clamp-2 text-[11px] font-medium leading-tight">
+          {option.name}
+        </span>
+        <span className="mt-auto text-[11px] tabular-nums text-zinc-500">
+          {option.price.toFixed(1)}
+        </span>
+      </button>
+
+      {!locked && (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={`Remove ${option.name}`}
+          className="absolute right-1 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-900/70 text-xs text-white"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Full-screen chooser.
+ *
+ * Only shows what may legally fill the slot, so a bracket rule is never a
+ * surprise after picking. Options that cannot be afforded are still listed but
+ * disabled, since knowing what is out of reach is part of the decision.
+ */
+function ChooserSheet({
+  slot,
+  options,
+  remaining,
+  currentPrice,
+  onPick,
+  onClose,
+}: {
+  slot: Slot;
+  options: PickOption[];
+  remaining: number;
+  currentPrice: number;
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  // Swapping refunds the outgoing pick, so affordability is judged against
+  // what is left plus whatever this slot currently holds.
+  const budget = remaining + currentPrice;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-950">
+      <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">Choose a {slot.label.toLowerCase()}</h2>
+          <p className="text-xs text-zinc-500">{budget.toFixed(1)} available for this slot</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+        >
+          Cancel
+        </button>
+      </header>
+
+      <ul className="flex-1 overflow-y-auto p-2">
         {options.map((option) => {
-          const picked = chosen.has(option.id);
-          const label = slotLabel(option.id);
+          const affordable = option.price <= budget;
           return (
             <li key={option.id}>
               <button
                 type="button"
-                disabled={disabled}
-                onClick={() => onToggle(option)}
-                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-50 ${
-                  picked
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
-                    : "border-transparent hover:border-zinc-300 dark:hover:border-zinc-700"
-                }`}
+                disabled={!affordable}
+                onClick={() => onPick(option.id)}
+                className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition enabled:hover:bg-zinc-100 disabled:opacity-40 dark:enabled:hover:bg-zinc-900"
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{option.name}</span>
-                  <span className="block truncate text-xs text-zinc-500">
-                    {showTier ? `${option.tier === "top" ? "Top bracket" : "Mid bracket"}` : ""}
-                    {option.subtitle ? `${showTier ? " · " : ""}${option.subtitle}` : ""}
-                  </span>
-                </span>
-                {label && (
-                  <span className="shrink-0 rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
-                    {label}
+                {option.headshotUrl ? (
+                  <Image
+                    src={option.headshotUrl}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 shrink-0 rounded-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                    style={{ backgroundColor: option.colour ? `#${option.colour}` : "#a1a1aa" }}
+                  >
+                    {option.name.slice(0, 2).toUpperCase()}
                   </span>
                 )}
-                <span className="w-12 shrink-0 text-right tabular-nums">
-                  {option.price.toFixed(1)}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{option.name}</span>
+                  <span className="block truncate text-xs text-zinc-500">{option.subtitle}</span>
                 </span>
+                <span className="shrink-0 tabular-nums text-sm">{option.price.toFixed(1)}</span>
               </button>
             </li>
           );
         })}
+        {options.length === 0 && (
+          <li className="p-4 text-center text-sm text-zinc-500">
+            Nothing available for this slot.
+          </li>
+        )}
       </ul>
-    </section>
+    </div>
   );
 }

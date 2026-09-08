@@ -31,6 +31,8 @@ export const openF1DriverSchema = z.object({
   full_name: z.string(),
   name_acronym: z.string(),
   team_name: z.string().nullable(),
+  team_colour: z.string().nullable().optional(),
+  headshot_url: z.string().nullable().optional(),
 });
 
 export const overtakeSchema = z.object({

@@ -120,6 +120,8 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
       subtitle: context.driverTeams.get(driverId) ?? "",
       price,
       tier: context.tiers.get(driverId) ?? "mid",
+      headshotUrl: context.driverHeadshots.get(driverId),
+      colour: context.driverColours.get(driverId),
     }))
     .sort((a, b) => b.price - a.price);
 

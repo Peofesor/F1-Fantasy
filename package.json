@@ -14,6 +14,7 @@
     "ingest": "tsx scripts/ingest.ts",
     "backfill": "tsx scripts/backfill.ts",
     "prices": "tsx scripts/prices.ts",
+    "driver-media": "tsx scripts/driver-media.ts",
     "calendar": "tsx scripts/calendar.ts",
     "session-times": "tsx scripts/session-times.ts",
     "score": "tsx scripts/score.ts",

@@ -22,6 +22,9 @@ export interface RoundContext {
   driverTeams: Map<string, string>;
   /** Needed by the winner-nationality betting market. */
   driverNationalities: Map<string, string>;
+  /** Portrait and team colour, used by the slot picker. */
+  driverHeadshots: Map<string, string>;
+  driverColours: Map<string, string>;
   constructorNames: Map<string, string>;
 }
 
@@ -91,7 +94,7 @@ export async function loadRoundContext(
         .select("constructor_id, price")
         .eq("season", season)
         .eq("round", round.round),
-      supabase.from("drivers").select("driver_id, given_name, family_name, nationality"),
+      supabase.from("drivers").select("driver_id, given_name, family_name, nationality, headshot_url, team_colour"),
       supabase.from("constructors").select("constructor_id, name"),
     ]);
 
@@ -148,6 +151,16 @@ export async function loadRoundContext(
     driverTeams,
     driverNationalities: new Map(
       (drivers.data ?? []).map((row) => [row.driver_id, row.nationality]),
+    ),
+    driverHeadshots: new Map(
+      (drivers.data ?? [])
+        .filter((row) => row.headshot_url)
+        .map((row) => [row.driver_id, row.headshot_url as string]),
+    ),
+    driverColours: new Map(
+      (drivers.data ?? [])
+        .filter((row) => row.team_colour)
+        .map((row) => [row.driver_id, row.team_colour as string]),
     ),
     constructorNames: new Map(
       (constructors.data ?? []).map((row) => [row.constructor_id, row.name]),
