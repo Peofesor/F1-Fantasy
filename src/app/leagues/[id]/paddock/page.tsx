@@ -1,4 +1,4 @@
-import { MARKETS, MARKET_LIST, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { MARKETS, marketsForRound, type BetTiming, type MarketId } from "@/lib/f1/betting";
 import { loadMarketHistory } from "@/lib/f1/bet-history";
 import { oddsFor } from "@/lib/f1/bet-odds";
 import {
@@ -84,9 +84,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
   // them elsewhere, but a voided bet is discovered on Sunday night — by which
   // point the player has spent a weekend holding a slip that was never going to
   // pay. Not offering it is the same rule applied at the only useful moment.
-  const marketsThisRound = MARKET_LIST.filter(
-    (market) => !market.sprintOnly || round.hasSprint === true,
-  );
+  const marketsThisRound = marketsForRound(round.hasSprint);
 
   // Odds are per selection now, so every option carries its own price. Priced
   // once here rather than per option in the client, which cannot see history.

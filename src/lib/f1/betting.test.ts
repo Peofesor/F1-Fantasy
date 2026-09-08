@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   checkStake,
   MARKETS,
+  MARKET_LIST,
+  marketsForRound,
   maxStake,
   payout,
   PRE_QUALIFYING_BONUS,
@@ -234,5 +236,43 @@ describe("a league's own stake ceiling", () => {
     // A generous house rule is still bounded by the money that exists.
     expect(maxStake(5, 500)).toBeCloseTo(5, 1);
     expect(checkStake(6, 5, 500).allowed).toBe(false);
+  });
+});
+
+describe("marketsForRound", () => {
+  const sprintIds = MARKET_LIST.filter((market) => market.sprintOnly).map((market) => market.id);
+
+  it("has sprint markets to offer in the first place", () => {
+    // Guards the two tests below: if the sprint markets were ever renamed or
+    // withdrawn, both would pass by testing nothing.
+    expect(sprintIds.length).toBeGreaterThan(0);
+  });
+
+  it("offers the sprint markets on a sprint weekend", () => {
+    const offered = marketsForRound(true).map((market) => market.id);
+    for (const id of sprintIds) expect(offered).toContain(id);
+  });
+
+  it("withholds them on a weekend with no sprint", () => {
+    // Madrid, round 14 of 2026. Settlement voids these correctly, but a player
+    // only finds out on Sunday night, having held a dead slip all weekend.
+    const offered = marketsForRound(false).map((market) => market.id);
+    for (const id of sprintIds) expect(offered).not.toContain(id);
+  });
+
+  it("treats an unknown schedule as no sprint", () => {
+    // Null is a round ingested before the calendar carried the sprint session.
+    // Offering a market that might not exist costs a player a slot on their
+    // slip; withholding one that does costs them nothing they can see.
+    const offered = marketsForRound(null).map((market) => market.id);
+    for (const id of sprintIds) expect(offered).not.toContain(id);
+  });
+
+  it("leaves every other market alone", () => {
+    const others = MARKET_LIST.filter((market) => !market.sprintOnly).map((market) => market.id);
+    for (const hasSprint of [true, false, null]) {
+      const offered = marketsForRound(hasSprint).map((market) => market.id);
+      for (const id of others) expect(offered, `hasSprint=${hasSprint}`).toContain(id);
+    }
   });
 });

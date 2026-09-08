@@ -136,6 +136,22 @@ export const MARKET_LIST = Object.values(MARKETS).filter(
 export const ALL_MARKETS = Object.values(MARKETS);
 
 /**
+ * The markets a particular weekend actually has.
+ *
+ * `MARKET_LIST` answers "can this market ever be settled"; this answers "is
+ * there anything to settle it against this weekend". Only the sprint markets
+ * differ, and only because most weekends have no sprint.
+ *
+ * `hasSprint` is null for a round ingested before the calendar carried the
+ * sprint session. Unknown is treated as no: offering a market that might not
+ * exist costs a player a slot on their slip all weekend for a bet that can only
+ * void, and withholding one that does exist costs them nothing they can see.
+ */
+export function marketsForRound(hasSprint: boolean | null): MarketDefinition[] {
+  return MARKET_LIST.filter((market) => !market.sprintOnly || hasSprint === true);
+}
+
+/**
  * Pre-qualifying bets pay a little more, because they are placed before the
  * grid is known and therefore carry genuinely more risk (spec §8).
  *
