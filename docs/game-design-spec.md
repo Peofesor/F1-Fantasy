@@ -241,7 +241,7 @@ Within the range, strength sets the price: the 3× and the cap lift at 3, the on
 
 Turbo Driver and Konstruktor Boost are **no longer chips**. Turbo Driver became the bracket captaincies (§4a); the constructor boost was dropped outright.
 
-**There is no season limit on chip use.** The only limit is per race: one chip of a given kind per round, since stacking two multipliers on one result swings far beyond what the scoring model is balanced for.
+**There is no season limit on chip use.** The limit is per race: **one chip a weekend**, whichever it is. It was one of each kind, which let a multiplier, a safety net and a roster rewrite land on the same round — a swing far beyond what the scoring model is balanced for, and it turned "which chip" (the actual decision) into "all of them".
 
 Season caps of 2–3 were tried and removed. The argument for them was that a member banking cap by fielding a cheap roster could play the strongest chip every week — but that is a trade they already paid for. Chips are bought with the same currency that buys drivers, so playing SuperDriver every round means fielding a materially worse team all season. Price is the brake, and it is a brake the player chooses to press. A hard cap on top of it removed a strategy rather than balancing one.
 

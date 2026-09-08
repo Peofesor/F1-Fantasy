@@ -29,13 +29,10 @@ export function ChipStore({
 
   return (
     <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">Chips</h2>
-        <span className="text-xs text-zinc-500">cap {balance.toFixed(1)}</span>
-      </div>
+      <h2 className="text-sm font-semibold">Chips</h2>
       <p className="mt-0.5 text-xs text-zinc-500">
-        One free use of each per season. Buy more here, then play them from your roster. No season
-        limit — the only rule is one chip of a kind per round.
+        One free use of each per season. Buy more here, then play them from your roster —{" "}
+        <strong>one chip a weekend</strong>, whichever it is.
       </p>
 
       {state && (
@@ -50,20 +47,30 @@ export function ChipStore({
         </p>
       )}
 
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3 grid grid-cols-2 gap-2">
         {chips.map((chip) => {
           const held = chip.freeRemaining + chip.purchasedRemaining;
+          const affordable = balance >= chip.price;
           return (
             <li
               key={chip.chipId}
-              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+              className={`flex flex-col rounded-xl border p-3 ${
+                held > 0
+                  ? "border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20"
+                  : "border-zinc-200 dark:border-zinc-800"
+              }`}
             >
-              <span className="min-w-0">
-                <span className="block text-sm font-medium">{chip.name}</span>
-                <span className="block text-xs text-zinc-500">{chip.description}</span>
-                <span className="mt-0.5 block text-xs text-zinc-500">
-                  {held} in hand · {chip.usedThisSeason} played
-                </span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-medium leading-tight">{chip.name}</span>
+                {held > 0 && (
+                  <span className="shrink-0 rounded-full bg-emerald-500 px-1.5 text-[10px] font-semibold leading-4 text-white">
+                    {held}
+                  </span>
+                )}
+              </div>
+
+              <span className="mt-1 flex-1 text-xs leading-snug text-zinc-500">
+                {chip.description}
               </span>
 
               <form
@@ -72,15 +79,15 @@ export function ChipStore({
                   event.preventDefault();
                   setPending({ chip, form: event.currentTarget });
                 }}
-                className="shrink-0"
+                className="mt-2"
               >
                 <input type="hidden" name="leagueId" value={leagueId} />
                 <input type="hidden" name="chipId" value={chip.chipId} />
                 <button
-                  disabled={balance < chip.price}
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium disabled:opacity-40 dark:border-zinc-700"
+                  disabled={!affordable}
+                  className="w-full rounded-lg border border-zinc-300 py-1.5 text-xs font-medium disabled:opacity-40 dark:border-zinc-700"
                 >
-                  Buy for {chip.price}
+                  {affordable ? `Buy · ${chip.price}` : `Costs ${chip.price}`}
                 </button>
               </form>
             </li>

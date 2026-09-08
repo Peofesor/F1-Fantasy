@@ -100,7 +100,12 @@ export function DeadlineCard({
   return (
     <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">{raceName}</h2>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+            Next race
+          </p>
+          <h2 className="truncate text-base font-semibold">{raceName}</h2>
+        </div>
         <span className="shrink-0 text-xs text-zinc-500">Round {round}</span>
       </div>
 

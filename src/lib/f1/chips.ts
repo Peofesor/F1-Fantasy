@@ -9,11 +9,10 @@
  * something to forget. They live on the roster instead, and their doubling is
  * still applied here through `ActiveChips`.
  *
- * There is no season limit on how often a chip may be played. The only limit is
- * per race: one chip of a kind per round, so two multipliers can never stack on
- * a single result. Beyond that, price is the brake — every extra use is bought
- * with the same cost cap that buys drivers, so spamming a strong chip means
- * fielding a weaker roster all season (spec §6).
+ * There is no season limit on how often a chip may be played. The limit is per
+ * race: **one chip a weekend**, whichever it is. Beyond that, price is the
+ * brake — every extra use is bought with the same cost cap that buys drivers,
+ * so spamming a strong chip means fielding a weaker roster all season (spec §6).
  */
 
 export type ChipId =
@@ -140,11 +139,20 @@ export function chipAvailability(
     (entry) => entry.chipId === chipId && entry.round === round,
   );
 
+  // One chip a weekend, not one of each. Stacking a multiplier on a safety net
+  // on a roster rewrite made a single round swing further than the scoring
+  // model is built for, and turned "which chip" — the actual decision — into
+  // "all of them".
+  const anotherPlayedThisRound = usage.some(
+    (entry) => entry.round === round && entry.chipId !== chipId,
+  );
+
   const freeRemaining = Math.max(0, chip.freeUses - usedThisSeason);
   const purchasedRemaining = Math.max(0, purchased - Math.max(0, usedThisSeason - chip.freeUses));
 
   let reason: string | undefined;
   if (playedThisRound) reason = "Already played this round";
+  else if (anotherPlayedThisRound) reason = "Another chip is already played this round";
   else if (freeRemaining === 0 && purchasedRemaining === 0) reason = "Buy another use first";
 
   return {
@@ -152,7 +160,10 @@ export function chipAvailability(
     usedThisSeason,
     freeRemaining,
     purchasedRemaining,
-    available: !playedThisRound && (freeRemaining > 0 || purchasedRemaining > 0),
+    available:
+      !playedThisRound &&
+      !anotherPlayedThisRound &&
+      (freeRemaining > 0 || purchasedRemaining > 0),
     costToPlay: 0,
     reason,
   };

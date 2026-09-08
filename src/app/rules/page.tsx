@@ -227,7 +227,8 @@ export default function RulesPage() {
         </div>
         <p className="pt-1 text-xs">
           One free use of each per season, then buy more with cost cap — there is no season
-          limit. One chip of a kind per round, and SuperDriver stacks on top of a captaincy. Multipliers apply before No Negative, so doubling a
+          limit, but <strong>one chip a weekend</strong>, whichever it is. SuperDriver stacks on
+          top of a captaincy — the captaincies are not chips. Multipliers apply before No Negative, so doubling a
           negative score and then cancelling it leaves you at zero rather than deeper in the hole.
         </p>
       </Section>

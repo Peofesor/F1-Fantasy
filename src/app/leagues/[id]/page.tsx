@@ -10,7 +10,6 @@ import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
 import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
-import { ledgerBalance } from "@/lib/f1/ledger";
 
 export const dynamic = "force-dynamic";
 
@@ -67,13 +66,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     league.mode as LeagueMode,
   );
 
-  // Own ledger only — the read policy keeps another member's spare cap private,
-  // since it would reveal their betting capacity.
-  const { data: ledgerRows } = selfMemberId
-    ? await supabase.from("cost_cap_entries").select("amount").eq("member_id", selfMemberId)
-    : { data: [] };
 
-  const capBalance = ledgerBalance(ledgerRows ?? []);
 
   // Every member's ledger, for the cost cap panel. Balances are visible to the
   // league only in aggregate over time here — the figure that stays private is
@@ -160,11 +153,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           rosterSaved={Boolean(savedRoster)}
         />
       )}
-
-      <div className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <span className="text-sm text-zinc-500">Your cost cap</span>
-        <span className="tabular-nums text-lg font-semibold">{capBalance.toFixed(1)}</span>
-      </div>
 
       <StatsCard series={stats} />
 

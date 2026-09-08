@@ -64,9 +64,30 @@ export function BetsPanel({
 
   const market = MARKET_LIST.find((entry) => entry.id === marketId)!;
 
-  // Markets ordered by their listed price, so the near-certainties sit at the
-  // top and the long shots at the bottom.
-  const sortedMarkets = [...MARKET_LIST].sort((a, b) => a.odds - b.odds);
+  /**
+   * What this market pays across the field.
+   *
+   * The listed price is no longer what anyone is offered — odds follow the
+   * selection — so showing it beside a market read as a promise the driver list
+   * then broke: "Race winner (4x)" above Antonelli at 1.7x.
+   */
+  const oddsRange = (marketId: string) => {
+    const prices = Object.values(odds[marketId] ?? {});
+    if (prices.length === 0) return "—";
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    return low === high ? `${low.toFixed(1)}x` : `${low.toFixed(1)}–${high.toFixed(1)}x`;
+  };
+
+  // Markets ordered by their shortest available price, so the near-certainties
+  // sit at the top and the long shots at the bottom.
+  const sortedMarkets = [...MARKET_LIST].sort((a, b) => {
+    const cheapest = (id: string) => {
+      const prices = Object.values(odds[id] ?? {});
+      return prices.length ? Math.min(...prices) : a.odds;
+    };
+    return cheapest(a.id) - cheapest(b.id);
+  });
   // The price follows the selection, so an unpicked market shows the listed one.
   const selectedOdds = (selection && odds[marketId]?.[selection]) || market.odds;
   const placed = new Set(bets.map((bet) => bet.marketId));
@@ -197,7 +218,7 @@ export function BetsPanel({
           >
             {sortedMarkets.map((entry) => (
               <option key={entry.id} value={entry.id} disabled={placed.has(entry.id)}>
-                {entry.name} ({entry.odds}x){placed.has(entry.id) ? " — already bet" : ""}
+                {entry.name} ({oddsRange(entry.id)}){placed.has(entry.id) ? " — already bet" : ""}
               </option>
             ))}
           </select>
@@ -258,11 +279,33 @@ export function BetsPanel({
             )}
           </p>
 
-          <p className="text-xs text-zinc-500">
-            {selection
-              ? `Returns ${payoutAt(stake, selectedOdds, timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1).toFixed(1)} if it lands, at ${selectedOdds.toFixed(1)}x.`
-              : "Pick who it is on to see the price — odds follow the driver."}
-          </p>
+          {/* The payout is what a bet is for, so it gets the size. */}
+          {selection ? (
+            <div className="flex items-end justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-50/40 px-3 py-2.5 dark:bg-emerald-950/20">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Returns if it lands
+                </p>
+                <p className="text-2xl font-semibold tabular-nums leading-none text-emerald-700 dark:text-emerald-400">
+                  {payoutAt(
+                    stake,
+                    selectedOdds,
+                    timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1,
+                  ).toFixed(1)}
+                </p>
+              </div>
+              <p className="shrink-0 text-right text-xs text-zinc-500">
+                <span className="block tabular-nums text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {selectedOdds.toFixed(2)}x
+                </span>
+                on {stake.toFixed(1)}
+              </p>
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-zinc-300 px-3 py-2.5 text-xs text-zinc-500 dark:border-zinc-700">
+              Pick who it is on to see the price — odds follow the driver, not the market.
+            </p>
+          )}
 
           {state && "error" in state && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">

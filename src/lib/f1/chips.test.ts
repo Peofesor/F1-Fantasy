@@ -152,3 +152,35 @@ describe("chip prices", () => {
     }
   });
 });
+
+describe("one chip a weekend", () => {
+  it("blocks a different chip once one has been played", () => {
+    // The limit is per round, not per chip: stacking a multiplier on a safety
+    // net on a roster rewrite swung a round further than the model allows.
+    const usage: ChipUsage[] = [{ chipId: "autopilot", round: 6 }];
+    const state = chipAvailability("super_driver", usage, 5, 6);
+    expect(state.available).toBe(false);
+    expect(state.reason).toBe("Another chip is already played this round");
+  });
+
+  it("still allows a different chip in a different round", () => {
+    const usage: ChipUsage[] = [{ chipId: "autopilot", round: 5 }];
+    expect(chipAvailability("super_driver", usage, 5, 6).available).toBe(true);
+  });
+
+  it("names the chip's own play first when it is the one already down", () => {
+    const usage: ChipUsage[] = [
+      { chipId: "super_driver", round: 6 },
+      { chipId: "autopilot", round: 6 },
+    ];
+    expect(chipAvailability("super_driver", usage, 5, 6).reason).toBe(
+      "Already played this round",
+    );
+  });
+
+  it("leaves buying alone — the limit is on playing, not owning", () => {
+    const usage: ChipUsage[] = [{ chipId: "autopilot", round: 6 }];
+    void usage;
+    expect(canPurchase("super_driver", 1, 0, 100).allowed).toBe(true);
+  });
+});

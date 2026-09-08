@@ -136,12 +136,27 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
-      <header className="space-y-2 pt-2">
+      <header className="space-y-3 pt-2">
         <LeagueNav leagueId={league.id} active="paddock" />
-        <h1 className="text-xl font-semibold tracking-tight">Paddock</h1>
-        <p className="text-sm text-zinc-500">
-          {round.raceName} · round {round.round}
-        </p>
+
+        {/* The bank leads: everything on this page spends it, and how much is
+            left is the number that decides what you do next. */}
+        <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-zinc-50 to-white p-4 dark:border-zinc-800 dark:from-zinc-900 dark:to-zinc-950">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                Paddock · to spend
+              </p>
+              <p className="mt-0.5 text-3xl font-semibold tabular-nums leading-none">
+                {balance.toFixed(1)}
+              </p>
+            </div>
+            <p className="shrink-0 text-right text-xs text-zinc-500">
+              {round.raceName}
+              <span className="block">Round {round.round}</span>
+            </p>
+          </div>
+        </div>
       </header>
 
       <ChipStore leagueId={league.id} chips={chipRows} balance={balance} />

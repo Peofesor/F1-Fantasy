@@ -22,7 +22,17 @@ const TABS: { key: Section; label: string; path: string }[] = [
  */
 export function LeagueNav({ leagueId, active }: { leagueId: string; active: Section }) {
   return (
-    <nav className="flex justify-center gap-1.5">
+    <nav className="flex items-center gap-1.5">
+      {/* Out of this league entirely. The tabs beside it only move within one,
+          so without this the app had no way back to the list. */}
+      <Link
+        href="/leagues"
+        aria-label="All leagues"
+        className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1.5 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+      >
+        ←
+      </Link>
+      <span className="flex flex-1 justify-center gap-1.5">
       {TABS.map((tab) => {
         const isActive = tab.key === active;
         return (
@@ -40,6 +50,7 @@ export function LeagueNav({ leagueId, active }: { leagueId: string; active: Sect
           </Link>
         );
       })}
+      </span>
     </nav>
   );
 }
