@@ -200,7 +200,8 @@ export default function RulesPage() {
           ))}
         </div>
         <p className="pt-1 text-xs">
-          One chip of a kind per round. Multipliers apply before No Negative, so doubling a
+          One free use of each per season, then buy more with cost cap — there is no season
+          limit. One chip of a kind per round. Multipliers apply before No Negative, so doubling a
           negative score and then cancelling it leaves you at zero rather than deeper in the hole.
         </p>
       </Section>

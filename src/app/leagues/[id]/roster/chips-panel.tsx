@@ -30,13 +30,11 @@ export function ChipsPanel({
   const message = playState ?? buyState ?? cancelState;
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">Chips</h2>
-        <span className="text-xs text-zinc-500">cap {balance.toFixed(1)}</span>
-      </div>
-      <p className="mt-0.5 text-xs text-zinc-500">
-        One free use each per season. Extra uses cost cap, and one chip of a kind per round.
+    // Titled by the sheet that opens it, so it carries no heading of its own.
+    <section>
+      <p className="text-xs text-zinc-500">
+        One free use each per season, then buy more with cost cap. No season
+        limit — the only rule is one chip of a kind per round.
       </p>
 
       {message && (
@@ -74,7 +72,7 @@ export function ChipsPanel({
                 <span className="shrink-0 text-xs text-zinc-500">
                   {chip.unlimited
                     ? "unlimited"
-                    : `${chip.freeRemaining + chip.purchasedRemaining} left · ${chip.usedThisSeason}/${chip.seasonCap} used`}
+                    : `${chip.freeRemaining + chip.purchasedRemaining} left · ${chip.usedThisSeason} played`}
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-zinc-500">{chip.description}</p>
@@ -132,8 +130,9 @@ export function ChipsPanel({
                     </span>
                   )}
 
-                  {!chip.unlimited &&
-                    chip.usedThisSeason + chip.purchasedRemaining < chip.seasonCap && (
+                  {/* No season limit: another use can always be bought, and
+                      price is what keeps it from being free. */}
+                  {!chip.unlimited && (
                       <form action={buyAction}>
                         <input type="hidden" name="leagueId" value={leagueId} />
                         <input type="hidden" name="chipId" value={chip.chipId} />

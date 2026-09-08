@@ -3,8 +3,13 @@
  *
  * Two chips are unlimited and always available (Turbo Driver and its
  * constructor twin); every other chip starts with one free use per season and
- * further uses must be bought from the store, capped so a currency-rich member
- * cannot spam a strong effect (spec §6).
+ * further uses must be bought from the store.
+ *
+ * There is no season limit on how often a chip may be played. The only limit is
+ * per race: one chip of a kind per round, so two multipliers can never stack on
+ * a single result. Beyond that, price is the brake — every extra use is bought
+ * with the same cost cap that buys drivers, so spamming a strong chip means
+ * fielding a weaker roster all season (spec §6).
  */
 
 export type ChipId =
@@ -27,23 +32,22 @@ export interface ChipDefinition {
   freeUses: number;
   /** Cost cap charged per extra use bought from the store. */
   price: number;
-  /** Total uses allowed in a season, including the free one. */
-  seasonCap: number;
   /** Whether the chip targets a specific driver or constructor on the roster. */
   target: "driver" | "constructor" | "none";
 }
 
 /**
- * Chip prices are set relative to the 130 cost cap.
+ * Chip prices are set relative to the 160 cost cap.
  *
  * A mid-price driver is around 15, so a chip at 10–20 costs about one roster
  * upgrade: enough to be a real decision, not enough to decide a season. The
  * strongest effects (SuperDriver's 3x, and lifting the cap entirely) sit at the
  * top of that range; the safety-net chips sit at the bottom.
  *
- * Season caps exist because these are all bought with the same currency that
- * buys drivers. Without a cap, a member who banks cost cap by fielding a cheap
- * roster could buy the same strong chip every week.
+ * Price is the only brake on repeat use. A member who banks cost cap by
+ * fielding a cheap roster can buy the same chip every week — but that is a
+ * trade they paid for in roster quality, which is the decision the store exists
+ * to create.
  */
 export const CHIPS: Record<ChipId, ChipDefinition> = {
   turbo_driver: {
@@ -53,7 +57,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: true,
     freeUses: Infinity,
     price: 0,
-    seasonCap: Infinity,
     target: "driver",
   },
   konstruktor_boost: {
@@ -63,7 +66,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: true,
     freeUses: Infinity,
     price: 0,
-    seasonCap: Infinity,
     target: "constructor",
   },
   super_driver: {
@@ -73,7 +75,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: false,
     freeUses: 1,
     price: 20,
-    seasonCap: 3,
     target: "driver",
   },
   final_fix: {
@@ -83,7 +84,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: false,
     freeUses: 1,
     price: 15,
-    seasonCap: 3,
     target: "none",
   },
   autopilot: {
@@ -93,7 +93,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: false,
     freeUses: 1,
     price: 15,
-    seasonCap: 3,
     target: "none",
   },
   no_negative: {
@@ -103,7 +102,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: false,
     freeUses: 1,
     price: 10,
-    seasonCap: 3,
     target: "none",
   },
   wildcard: {
@@ -113,7 +111,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: false,
     freeUses: 1,
     price: 12,
-    seasonCap: 3,
     target: "none",
   },
   unlimited_cap: {
@@ -123,7 +120,6 @@ export const CHIPS: Record<ChipId, ChipDefinition> = {
     unlimited: false,
     freeUses: 1,
     price: 20,
-    seasonCap: 2,
     target: "none",
   },
 };
@@ -182,11 +178,9 @@ export function chipAvailability(
 
   const freeRemaining = Math.max(0, chip.freeUses - usedThisSeason);
   const purchasedRemaining = Math.max(0, purchased - Math.max(0, usedThisSeason - chip.freeUses));
-  const atSeasonCap = usedThisSeason >= chip.seasonCap;
 
   let reason: string | undefined;
   if (playedThisRound) reason = "Already played this round";
-  else if (atSeasonCap) reason = `Season limit of ${chip.seasonCap} reached`;
   else if (freeRemaining === 0 && purchasedRemaining === 0) reason = "Buy another use first";
 
   return {
@@ -194,7 +188,7 @@ export function chipAvailability(
     usedThisSeason,
     freeRemaining,
     purchasedRemaining,
-    available: !playedThisRound && !atSeasonCap && (freeRemaining > 0 || purchasedRemaining > 0),
+    available: !playedThisRound && (freeRemaining > 0 || purchasedRemaining > 0),
     costToPlay: 0,
     reason,
   };
@@ -212,11 +206,6 @@ export function canPurchase(
     return { allowed: false, price: 0, reason: "Always available — nothing to buy" };
   }
 
-  // Owning more uses than the season allows would be money thrown away.
-  const owned = chip.freeUses + purchased;
-  if (owned >= chip.seasonCap) {
-    return { allowed: false, price: chip.price, reason: `Season limit of ${chip.seasonCap} reached` };
-  }
   if (balance < chip.price) {
     return { allowed: false, price: chip.price, reason: "Not enough cost cap" };
   }
@@ -237,7 +226,6 @@ export interface ChipRow {
   description: string;
   unlimited: boolean;
   price: number;
-  seasonCap: number;
   target: "driver" | "constructor" | "none";
   usedThisSeason: number;
   freeRemaining: number;
@@ -259,9 +247,6 @@ export function toChipRow(
     description: state.chip.description,
     unlimited: state.chip.unlimited,
     price: state.chip.price,
-    // Infinity does not survive serialisation to a Client Component, so an
-    // unlimited chip reports zero and is distinguished by the flag instead.
-    seasonCap: state.chip.unlimited ? 0 : state.chip.seasonCap,
     target: state.chip.target,
     usedThisSeason: state.usedThisSeason,
     freeRemaining: state.chip.unlimited ? 0 : state.freeRemaining,

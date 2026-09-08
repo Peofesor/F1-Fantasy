@@ -2,6 +2,13 @@ import Link from "next/link";
 
 import { EMPTY_SELECTION, type RosterSelection } from "@/lib/f1/roster";
 import { FREE_CHANGES_PER_ROUND, spendableCap } from "@/lib/f1/ledger";
+import {
+  CHIP_LIST,
+  chipAvailability,
+  toChipRow,
+  type ChipId,
+  type ChipUsage,
+} from "@/lib/f1/chips";
 import { loadMemberContext } from "../member-context";
 import { LeagueNav } from "../league-nav";
 import { RosterBuilder, type PickOption } from "./roster-builder";
@@ -73,6 +80,46 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
   const costCap = spendableCap(balance, heldValue);
 
+  // Chip state for the whole season, so "already played this round" and how
+  // many uses are left are both answerable without a second page.
+  const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
+    supabase
+      .from("chip_plays")
+      .select("chip_id, round, target_driver_id, target_constructor_id")
+      .eq("member_id", memberId)
+      .eq("season", round.season),
+    supabase.from("chip_purchases").select("chip_id").eq("member_id", memberId),
+  ]);
+
+  const usage: ChipUsage[] = (chipPlays ?? []).map((play) => ({
+    chipId: play.chip_id as ChipId,
+    round: play.round,
+  }));
+
+  const chipRows = CHIP_LIST.map((definition) => {
+    const owned = (chipPurchases ?? []).filter((row) => row.chip_id === definition.id).length;
+    const state = chipAvailability(definition.id, usage, owned, round.round);
+    const played = (chipPlays ?? []).find(
+      (play) => play.chip_id === definition.id && play.round === round.round,
+    );
+    const targetId = played?.target_driver_id ?? played?.target_constructor_id ?? undefined;
+    const targetName = targetId
+      ? (round.driverNames.get(targetId) ?? round.constructorNames.get(targetId) ?? targetId)
+      : undefined;
+    return toChipRow(state, Boolean(played), targetName);
+  });
+
+  // Chips target the roster, so the picker only offers what is actually fielded.
+  const selection = slots.length ? selectionFromSlots(slots) : EMPTY_SELECTION;
+  const chipDriverOptions = [...selection.top, ...selection.mid].map((driverId) => ({
+    id: driverId,
+    name: round.driverNames.get(driverId) ?? driverId,
+  }));
+  const chipConstructorOptions = selection.constructors.map((constructorId) => ({
+    id: constructorId,
+    name: round.constructorNames.get(constructorId) ?? constructorId,
+  }));
+
   const drivers: PickOption[] = [...round.driverPrices.entries()]
     .map(([driverId, price]) => ({
       id: driverId,
@@ -130,8 +177,13 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
         freeTransfers={FREE_CHANGES_PER_ROUND}
         drivers={drivers}
         constructors={constructors}
-        initialSelection={slots.length ? selectionFromSlots(slots) : EMPTY_SELECTION}
+        initialSelection={selection}
         locked={Boolean(existingRoster?.locked_at)}
+        round={round.round}
+        balance={balance}
+        chips={chipRows}
+        chipDriverOptions={chipDriverOptions}
+        chipConstructorOptions={chipConstructorOptions}
       />
     </main>
   );

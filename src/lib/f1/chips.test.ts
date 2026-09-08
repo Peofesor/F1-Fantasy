@@ -102,11 +102,23 @@ describe("chipAvailability", () => {
     expect(state.available).toBe(true);
   });
 
-  it("enforces the season cap even with uses bought", () => {
-    const usage: ChipUsage[] = [1, 2, 3].map((round) => ({ chipId: "super_driver" as const, round }));
+  it("imposes no season limit, however often a chip has been played", () => {
+    // The only limit is per race. Repeat use is paid for in cost cap, which is
+    // the same currency that buys drivers, so it already costs roster quality.
+    const usage: ChipUsage[] = [1, 2, 3, 4, 5].map((round) => ({
+      chipId: "super_driver" as const,
+      round,
+    }));
+    const state = chipAvailability("super_driver", usage, 5, 6);
+    expect(state.available).toBe(true);
+    expect(state.reason).toBeUndefined();
+  });
+
+  it("still refuses a second play of the same chip in one round", () => {
+    const usage: ChipUsage[] = [{ chipId: "super_driver", round: 6 }];
     const state = chipAvailability("super_driver", usage, 5, 6);
     expect(state.available).toBe(false);
-    expect(state.reason).toContain("Season limit");
+    expect(state.reason).toBe("Already played this round");
   });
 });
 
@@ -127,10 +139,8 @@ describe("canPurchase", () => {
     expect(result.reason).toBe("Not enough cost cap");
   });
 
-  it("refuses to sell beyond the season cap", () => {
-    // Owning more uses than the season allows would be money thrown away.
-    const result = canPurchase("super_driver", 0, CHIPS.super_driver.seasonCap, 500);
-    expect(result.allowed).toBe(false);
-    expect(result.reason).toContain("Season limit");
+  it("sells any number of uses as long as the cap is there", () => {
+    const result = canPurchase("super_driver", 0, 12, 500);
+    expect(result.allowed).toBe(true);
   });
 });

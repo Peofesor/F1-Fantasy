@@ -102,18 +102,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         <span className="tabular-nums text-lg font-semibold">{capBalance.toFixed(1)}</span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Link
           href={`/leagues/${league.id}/roster`}
           className="rounded-xl bg-zinc-900 px-3 py-3 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
         >
           Roster
-        </Link>
-        <Link
-          href={`/leagues/${league.id}/chips`}
-          className="rounded-xl border border-zinc-200 px-3 py-3 text-center text-sm font-medium dark:border-zinc-800"
-        >
-          Chips
         </Link>
         <Link
           href={`/leagues/${league.id}/bets`}

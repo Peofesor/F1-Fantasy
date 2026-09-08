@@ -10,7 +10,9 @@ import {
   type RosterSelection,
 } from "@/lib/f1/roster";
 import type { Tier } from "@/lib/f1/tiers";
+import type { ChipRow } from "@/lib/f1/chips";
 import { saveRoster, type SaveState } from "./actions";
+import { ChipsPanel } from "./chips-panel";
 
 export interface PickOption {
   id: string;
@@ -63,6 +65,12 @@ interface Props {
   constructors: PickOption[];
   initialSelection: RosterSelection;
   locked: boolean;
+  round: number;
+  /** Spare cap — what a chip is bought with. */
+  balance: number;
+  chips: ChipRow[];
+  chipDriverOptions: { id: string; name: string }[];
+  chipConstructorOptions: { id: string; name: string }[];
 }
 
 /**
@@ -180,9 +188,15 @@ export function RosterBuilder({
   constructors,
   initialSelection,
   locked,
+  round,
+  balance,
+  chips,
+  chipDriverOptions,
+  chipConstructorOptions,
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialSelection));
   const [openSlot, setOpenSlot] = useState<Slot | null>(null);
+  const [chipsOpen, setChipsOpen] = useState(false);
   const [state, formAction, saving] = useActionState<SaveState, FormData>(saveRoster, null);
 
   const { tiers, constructorTiers, driverPrices, constructorPrices, byId } = useMemo(() => {
@@ -214,6 +228,7 @@ export function RosterBuilder({
   const bySlot = new Map(slots.map((slot) => [slot.kind + "-" + slot.index, slot]));
   const empty = slots.filter((slot) => !slot.occupantId).length;
   const freeRemaining = Math.max(0, freeTransfers - transfersUsed);
+  const playedThisRound = chips.filter((chip) => chip.playedThisRound).length;
   const overBudget = validation.remaining < 0;
 
   function setSlot(slot: Slot, id: string | null) {
@@ -290,7 +305,21 @@ export function RosterBuilder({
           />
         </div>
 
-        <form action={formAction} className="mt-2.5">
+        <div className="mt-2.5 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setChipsOpen(true)}
+            className="shrink-0 rounded-lg border border-zinc-300 px-3 py-2.5 text-sm font-medium dark:border-zinc-700"
+          >
+            Chips
+            {playedThisRound > 0 && (
+              <span className="ml-1.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {playedThisRound}
+              </span>
+            )}
+          </button>
+
+          <form action={formAction} className="flex-1">
           <input type="hidden" name="leagueId" value={leagueId} />
           <input type="hidden" name="top" value={selection.top.join(",")} />
           <input type="hidden" name="mid" value={selection.mid.join(",")} />
@@ -315,7 +344,8 @@ export function RosterBuilder({
                     ? `Over by ${Math.abs(validation.remaining).toFixed(1)}`
                     : "Save roster"}
           </button>
-        </form>
+          </form>
+        </div>
 
         {state && "error" in state && (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -367,6 +397,37 @@ export function RosterBuilder({
             <li key={error}>{error}</li>
           ))}
         </ul>
+      )}
+
+      {chipsOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-950">
+          <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
+            <div>
+              <h2 className="text-sm font-semibold">Chips</h2>
+              <p className="text-xs text-zinc-500">
+                Round {round} · {balance.toFixed(1)} spare cap
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setChipsOpen(false)}
+              className="rounded-lg px-3 py-1.5 text-sm text-zinc-500"
+            >
+              Done
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-3">
+            <ChipsPanel
+              leagueId={leagueId}
+              round={round}
+              chips={chips}
+              balance={balance}
+              driverOptions={chipDriverOptions}
+              constructorOptions={chipConstructorOptions}
+              locked={locked}
+            />
+          </div>
+        </div>
       )}
 
       {openSlot && (

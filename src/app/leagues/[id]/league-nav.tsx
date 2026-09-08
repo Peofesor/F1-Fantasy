@@ -1,21 +1,23 @@
 import Link from "next/link";
 
-type Section = "hub" | "roster" | "chips" | "bets";
+type Section = "hub" | "roster" | "bets";
 
 const TABS: { key: Section; label: string; path: string }[] = [
   { key: "hub", label: "League", path: "" },
   { key: "roster", label: "Roster", path: "/roster" },
-  { key: "chips", label: "Chips", path: "/chips" },
   { key: "bets", label: "Bets", path: "/bets" },
 ];
 
 /**
  * Tabs across every league page.
  *
- * Chips and bets used to sit at the bottom of the roster page, below seven
- * pickers, where neither was reachable without scrolling past the thing you
- * actually came to do. Giving each its own tab keeps the roster page to one
- * job and puts betting somewhere you can find without hunting.
+ * Bets used to sit at the bottom of the roster page, below seven pickers,
+ * where it was not reachable without scrolling past the thing you came to do.
+ *
+ * Chips are deliberately not a tab. They act on the roster you are looking at —
+ * doubling a driver, changing a slot after qualifying — so they open as a sheet
+ * over the picker instead of sending you to another page to reason about a team
+ * you can no longer see.
  */
 export function LeagueNav({ leagueId, active }: { leagueId: string; active: Section }) {
   return (
