@@ -14,6 +14,11 @@ import { useEffect, useState } from "react";
  * The countdown is a client component because a server-rendered "in 3 days"
  * would be wrong by however long the page has been open, and this is exactly
  * the figure someone leaves on screen while deciding.
+ *
+ * Nothing time-dependent renders until after mount. Both the countdown and the
+ * formatted date are the viewer's local time, which the server cannot know:
+ * rendering either one server-side produced a hydration mismatch that took the
+ * whole page's interactivity down with it, not just this card.
  */
 export interface DeadlineCardProps {
   leagueId: string;
@@ -108,7 +113,11 @@ export function DeadlineCard({
               <Link href={row.href} className="min-w-0">
                 <span className="block text-sm">{row.label}</span>
                 <span className="block text-xs text-zinc-500">
-                  {row.at ? formatWhen(row.at) : "Not scheduled yet"}
+                  {row.at === null
+                    ? "Not scheduled yet"
+                    : now === null
+                      ? " "
+                      : formatWhen(row.at)}
                 </span>
               </Link>
               <span

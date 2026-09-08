@@ -74,8 +74,8 @@ export function BetsPanel({
         </span>
       </div>
       <p className="mt-0.5 text-xs text-zinc-500">
-        Staked from your bank, not from cap tied up in the roster. One bet per market, and a
-        bet cannot be withdrawn.
+        Staked from your bank, not from cap tied up in the roster. One bet per market. An open
+        bet can be withdrawn until the race starts, and the stake comes back.
       </p>
       <p className="mt-1 text-xs text-zinc-500">
         <strong>When you bet changes the odds.</strong> Betting before qualifying pays{" "}
@@ -172,7 +172,7 @@ export function BetsPanel({
             ))}
           </select>
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <label className="flex-1">
               <span className="sr-only">Stake</span>
               <input
@@ -186,10 +186,13 @@ export function BetsPanel({
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
             </label>
-            {/* The window follows the clock, so it is reported rather than
-                offered: letting it be chosen would either be a lie or a
-                loophole. The server decides it again on submit. */}
-            <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+            <span className="shrink-0 text-sm text-zinc-500">stake</span>
+          </div>
+
+          {/* The window follows the clock, so it is reported rather than
+              offered: letting it be chosen would either be a lie or a
+              loophole. The server decides it again on submit. */}
+          <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
               {timing === "pre_qualifying" ? (
                 <>
                   Qualifying has not run, so this pays{" "}
@@ -198,12 +201,11 @@ export function BetsPanel({
                 </>
               ) : (
                 <>
-                  Qualifying has run, so this pays the <strong>listed odds</strong>. Betting
-                  closes when the race starts.
-                </>
-              )}
-            </p>
-          </div>
+                Qualifying has run, so this pays the <strong>listed odds</strong>. Betting
+                closes when the race starts.
+              </>
+            )}
+          </p>
 
           <p className="text-xs text-zinc-500">
             Returns {payout(stake, marketId, timing).toFixed(1)} if it lands.
