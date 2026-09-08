@@ -131,6 +131,8 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     .map(([driverId, price]) => ({
       id: driverId,
       name: round.driverNames.get(driverId) ?? driverId,
+      // Surname only on the card; "Andrea Kimi Antonelli" does not fit one.
+      shortName: (round.driverNames.get(driverId) ?? driverId).split(" ").slice(-1)[0],
       subtitle: (() => {
         const constructorId = round.driverTeams.get(driverId);
         return constructorId
@@ -151,6 +153,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
       return {
         id: constructorId,
         name: round.constructorNames.get(constructorId) ?? constructorId,
+        shortName: round.constructorNames.get(constructorId) ?? constructorId,
         // A team has no portrait of its own, so it is shown as its line-up.
         subtitle: lineup
           .map((driverId) => round.driverNames.get(driverId)?.split(" ").slice(-1)[0] ?? driverId)

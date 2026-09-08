@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   MID_SLOTS,
@@ -12,6 +12,7 @@ import {
 import type { Tier } from "@/lib/f1/tiers";
 import type { ChipRow } from "@/lib/f1/chips";
 import { saveRoster, type SaveState } from "./actions";
+import { driverSeason, type DriverSeasonState } from "./driver-actions";
 import { ChipsPanel } from "./chips-panel";
 
 export interface PickOption {
@@ -29,6 +30,12 @@ export interface PickOption {
    * a team never renders as a single face and reads as a driver card.
    */
   lineup?: { name: string; headshotUrl?: string }[];
+  /**
+   * What the slot card shows. A three-part name wrapped to three lines and ran
+   * into the price; the surname alone is also how the sport names drivers.
+   * Teams keep their full name, which is already short.
+   */
+  shortName: string;
   /** Six-digit hex without the hash. */
   colour?: string;
   /** Points over the rolling window — the signal behind price and tier. */
@@ -214,12 +221,12 @@ function slotsOf(draft: Draft): Slot[] {
 const ROWS: { title: string; hint: string; groups: SlotKind[][]; filler?: number }[] = [
   {
     title: "Top",
-    hint: "3 drivers + 1 team · tap 2x for captain",
+    hint: "3 drivers + 1 team",
     groups: [["top", "top", "top"], ["constructorTop"]],
   },
   {
     title: "Midfield",
-    hint: "3 drivers + 1 team · tap 2x for captain",
+    hint: "3 drivers + 1 team",
     groups: [["mid", "mid", "mid"], ["constructorMid"]],
   },
   {
@@ -247,7 +254,10 @@ export function RosterBuilder({
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialSelection));
   const [openSlot, setOpenSlot] = useState<Slot | null>(null);
+  const [detailSlot, setDetailSlot] = useState<Slot | null>(null);
   const [chipsOpen, setChipsOpen] = useState(false);
+  const [askingCaptains, setAskingCaptains] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, saving] = useActionState<SaveState, FormData>(saveRoster, null);
 
   const { tiers, constructorTiers, driverPrices, constructorPrices, byId } = useMemo(() => {
@@ -278,6 +288,9 @@ export function RosterBuilder({
   const slots = slotsOf(draft);
   const bySlot = new Map(slots.map((slot) => [slot.kind + "-" + slot.index, slot]));
   const empty = slots.filter((slot) => !slot.occupantId).length;
+  const needsCaptains = !draft.topCaptainId || !draft.midCaptainId;
+  // Captains are collected at save time, so they do not hold the button back.
+  const readyToSave = empty === 0 && validation.remaining >= 0;
   const freeRemaining = Math.max(0, freeTransfers - transfersUsed);
   const playedThisRound = chips.filter((chip) => chip.playedThisRound).length;
   const overBudget = validation.remaining < 0;
@@ -391,7 +404,7 @@ export function RosterBuilder({
             )}
           </button>
 
-          <form action={formAction} className="flex-1">
+          <form action={formAction} ref={formRef} className="flex-1">
           <input type="hidden" name="leagueId" value={leagueId} />
           <input type="hidden" name="top" value={selection.top.join(",")} />
           <input type="hidden" name="mid" value={selection.mid.join(",")} />
@@ -404,8 +417,12 @@ export function RosterBuilder({
           />
           <input type="hidden" name="topCaptainId" value={selection.topCaptainId ?? ""} />
           <input type="hidden" name="midCaptainId" value={selection.midCaptainId ?? ""} />
+          {/* A full roster with no captains is savable — the prompt collects
+              them on the way through, rather than the picker guessing. */}
           <button
-            disabled={!validation.valid || saving || locked}
+            type={needsCaptains ? "button" : "submit"}
+            onClick={needsCaptains ? () => setAskingCaptains(true) : undefined}
+            disabled={!readyToSave || saving || locked}
             className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
           >
             {locked
@@ -466,15 +483,14 @@ export function RosterBuilder({
                         slot={slot}
                         option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
                         locked={locked}
-                        captainable={CAPTAINABLE_KINDS.includes(slot.kind)}
                         captain={
                           slot.occupantId !== null &&
                           (slot.occupantId === draft.topCaptainId ||
                             slot.occupantId === draft.midCaptainId)
                         }
-                        onOpen={() => setOpenSlot(slot)}
-                        onClear={() => setSlot(slot, null)}
-                        onCaptain={() => nominate(slot)}
+                        onOpen={() =>
+                          slot.occupantId ? setDetailSlot(slot) : setOpenSlot(slot)
+                        }
                       />
                     );
                   })}
@@ -525,6 +541,64 @@ export function RosterBuilder({
             />
           </div>
         </SheetShell>
+      )}
+
+      {detailSlot?.occupantId && (
+        <DetailSheet
+          key={detailSlot.occupantId}
+          leagueId={leagueId}
+          slot={detailSlot}
+          option={byId.get(detailSlot.occupantId)!}
+          captain={
+            detailSlot.occupantId === draft.topCaptainId ||
+            detailSlot.occupantId === draft.midCaptainId
+          }
+          captainable={CAPTAINABLE_KINDS.includes(detailSlot.kind)}
+          locked={locked}
+          onClose={() => setDetailSlot(null)}
+          onRemoveCaptain={() => {
+            setDraft((current) =>
+              detailSlot.kind === "top"
+                ? { ...current, topCaptainId: null }
+                : { ...current, midCaptainId: null },
+            );
+          }}
+          onMakeCaptain={() => {
+            nominate(detailSlot);
+          }}
+          onRemove={() => {
+            setSlot(detailSlot, null);
+            setDetailSlot(null);
+          }}
+          onReplace={() => {
+            setDetailSlot(null);
+            setOpenSlot(detailSlot);
+          }}
+        />
+      )}
+
+      {askingCaptains && (
+        <CaptainPrompt
+          topOptions={draft.top.filter(Boolean).map((id) => byId.get(id as string)!)}
+          midOptions={draft.mid.filter(Boolean).map((id) => byId.get(id as string)!)}
+          topCaptainId={draft.topCaptainId}
+          midCaptainId={draft.midCaptainId}
+          onPick={(bracket, id) =>
+            setDraft((current) =>
+              bracket === "top"
+                ? { ...current, topCaptainId: id }
+                : { ...current, midCaptainId: id },
+            )
+          }
+          onCancel={() => setAskingCaptains(false)}
+          onConfirm={() => {
+            // Both captains are already in the draft — the confirm button only
+            // enables once they are — so the hidden fields carry them and the
+            // form can go straight out.
+            setAskingCaptains(false);
+            formRef.current?.requestSubmit();
+          }}
+        />
       )}
 
       {openSlot && (
@@ -634,20 +708,14 @@ function SlotCard({
   slot,
   option,
   locked,
-  captainable,
   captain,
   onOpen,
-  onClear,
-  onCaptain,
 }: {
   slot: Slot;
   option?: PickOption;
   locked: boolean;
-  captainable: boolean;
   captain: boolean;
   onOpen: () => void;
-  onClear: () => void;
-  onCaptain: () => void;
 }) {
   const accent = option?.colour ? `#${option.colour}` : "#a1a1aa";
 
@@ -657,7 +725,7 @@ function SlotCard({
         type="button"
         disabled={locked}
         onClick={onOpen}
-        className="flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-zinc-300 px-1 text-zinc-400 transition active:border-zinc-500 disabled:opacity-50 dark:border-zinc-700"
+        className="flex aspect-[3/4] min-h-[5.75rem] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-zinc-300 px-1 text-zinc-400 transition active:border-zinc-500 disabled:opacity-50 dark:border-zinc-700"
       >
         <span className="text-2xl leading-none">+</span>
         <span className="text-center text-[9px] font-medium uppercase leading-tight tracking-wide">
@@ -669,7 +737,7 @@ function SlotCard({
 
   return (
     <div
-      className={`relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border ${
+      className={`relative flex aspect-[3/4] min-h-[5.75rem] flex-col overflow-hidden rounded-xl border ${
         captain ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
@@ -681,43 +749,300 @@ function SlotCard({
         onClick={onOpen}
         className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center"
       >
-        <Avatar option={option} size={44} />
-        <span className="mt-1 line-clamp-2 text-[11px] font-medium leading-tight">
-          {option.name}
+        <Avatar option={option} size={36} />
+        <span className="mt-1 w-full shrink-0 truncate text-[11px] font-medium leading-tight">
+          {option.shortName}
         </span>
-        <span className="mt-auto text-[11px] tabular-nums text-zinc-500">
+        <span className="mt-auto shrink-0 text-[11px] tabular-nums text-zinc-500">
           {option.price.toFixed(1)}
         </span>
       </button>
 
-      {!locked && (
+      {/* Only the captain is marked. Showing the badge on every eligible card
+          made it look as though the whole roster scored double. */}
+      {captain && (
+        <span
+          aria-label={`${option.name} is captain, scoring double`}
+          className="absolute left-1 top-2 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-zinc-900"
+        >
+          2x
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Asks who wears the armband, on the way to saving.
+ *
+ * The captaincies are not pre-filled: a default would be an invisible decision
+ * made for the player on a slot that doubles their score. Asking once, at the
+ * moment they commit the roster, is the only point where they are certain to
+ * see it.
+ */
+function CaptainPrompt({
+  topOptions,
+  midOptions,
+  topCaptainId,
+  midCaptainId,
+  onPick,
+  onCancel,
+  onConfirm,
+}: {
+  topOptions: PickOption[];
+  midOptions: PickOption[];
+  topCaptainId: string | null;
+  midCaptainId: string | null;
+  onPick: (bracket: "top" | "mid", id: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const rows: { bracket: "top" | "mid"; title: string; options: PickOption[]; chosen: string | null }[] = [
+    { bracket: "top", title: "Top captain", options: topOptions, chosen: topCaptainId },
+    { bracket: "mid", title: "Midfield captain", options: midOptions, chosen: midCaptainId },
+  ];
+
+  return (
+    <SheetShell>
+      <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
+        <div>
+          <h2 className="text-sm font-semibold">Who scores double?</h2>
+          <p className="text-xs text-zinc-500">One captain per bracket</p>
+        </div>
+        <button type="button" onClick={onCancel} className="rounded-lg px-3 py-1.5 text-sm text-zinc-500">
+          Cancel
+        </button>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-3">
+        {rows.map((row) => (
+          <section key={row.bracket} className="mb-4">
+            <h3 className="mb-1.5 text-xs font-semibold text-zinc-500">{row.title}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {row.options.map((option) => {
+                const chosen = option.id === row.chosen;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onPick(row.bracket, option.id)}
+                    aria-pressed={chosen}
+                    className={`flex flex-col items-center gap-1 rounded-xl border-2 p-2 text-center ${
+                      chosen
+                        ? "border-amber-400 bg-amber-50 dark:bg-amber-950/40"
+                        : "border-zinc-200 dark:border-zinc-800"
+                    }`}
+                  >
+                    <Avatar option={option} size={40} />
+                    <span className="line-clamp-2 text-[11px] font-medium leading-tight">
+                      {option.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
         <button
           type="button"
-          onClick={onClear}
-          aria-label={`Remove ${option.name}`}
-          className="absolute right-1 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-900/70 text-xs text-white"
+          disabled={!topCaptainId || !midCaptainId}
+          onClick={onConfirm}
+          className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {topCaptainId && midCaptainId ? "Save roster" : "Pick both captains"}
+        </button>
+      </div>
+    </SheetShell>
+  );
+}
+
+/**
+ * One pick's season, and what can be done with the slot holding them.
+ *
+ * The season is fetched when the sheet opens rather than shipped with the page:
+ * it is every round for every driver in the field, which most visits never look
+ * at. Results are kept per driver for the life of the sheet, so re-opening the
+ * same card is instant.
+ */
+function DetailSheet({
+  leagueId,
+  slot,
+  option,
+  captain,
+  captainable,
+  locked,
+  onClose,
+  onRemoveCaptain,
+  onMakeCaptain,
+  onRemove,
+  onReplace,
+}: {
+  leagueId: string;
+  slot: Slot;
+  option: PickOption;
+  captain: boolean;
+  captainable: boolean;
+  locked: boolean;
+  onClose: () => void;
+  onRemoveCaptain: () => void;
+  onMakeCaptain: () => void;
+  onRemove: () => void;
+  onReplace: () => void;
+}) {
+  const [season, setSeason] = useState<DriverSeasonState | null>(null);
+  const isDriver = DRIVER_KINDS.includes(slot.kind);
+
+  // The sheet is keyed on the pick, so opening a different card mounts a fresh
+  // one and this starts from null without having to reset it here.
+  useEffect(() => {
+    let live = true;
+    // Constructors have no per-driver breakdown to show.
+    if (!isDriver) return;
+    driverSeason(leagueId, option.id).then((result) => {
+      if (live) setSeason(result);
+    });
+    return () => {
+      live = false;
+    };
+  }, [leagueId, option.id, isDriver]);
+
+  const rounds = season && !("error" in season) ? season.rounds : [];
+
+  return (
+    <SheetShell>
+      <header className="flex items-start justify-between gap-3 border-b border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar option={option} size={44} />
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold">{option.name}</h2>
+            <p className="truncate text-xs text-zinc-500">
+              {option.subtitle}
+              {option.subtitle ? " · " : ""}
+              {slot.label}
+              {captain ? " · captain" : ""}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-zinc-500"
         >
           ×
         </button>
-      )}
+      </header>
 
-      {captainable && (
-        <button
-          type="button"
-          disabled={locked || captain}
-          onClick={onCaptain}
-          aria-pressed={captain}
-          aria-label={
-            captain ? `${option.name} is captain, scoring double` : `Make ${option.name} captain`
-          }
-          className={`absolute left-1 top-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-            captain ? "bg-amber-400 text-zinc-900" : "bg-zinc-900/70 text-white disabled:opacity-40"
-          }`}
-        >
-          2x
-        </button>
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+            <span className="block text-xs text-zinc-500">Price</span>
+            <span className="tabular-nums text-lg font-semibold">{option.price.toFixed(1)}</span>
+          </div>
+          <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+            <span className="block text-xs text-zinc-500">Season points</span>
+            <span className="tabular-nums text-lg font-semibold">
+              {season === null
+                ? "…"
+                : "error" in season
+                  ? "—"
+                  : season.seasonPoints.toFixed(0)}
+            </span>
+          </div>
+        </div>
+
+        {!isDriver && (
+          <p className="text-sm text-zinc-500">
+            A team scores its two drivers combined — open either of them for a round-by-round
+            breakdown.
+          </p>
+        )}
+
+        {isDriver && season === null && (
+          <p className="text-sm text-zinc-500">Loading this season…</p>
+        )}
+
+        {isDriver && season !== null && "error" in season && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            {season.error}
+          </p>
+        )}
+
+        {rounds.length > 0 && (
+          <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <div className="grid grid-cols-[1fr_2.75rem_2.75rem_2.75rem] gap-1 border-b border-zinc-200 px-3 py-2 text-[10px] font-medium text-zinc-500 dark:border-zinc-800">
+              <span>Race</span>
+              <span className="text-right">Quali</span>
+              <span className="text-right">Race</span>
+              <span className="text-right">Total</span>
+            </div>
+            {rounds.map((line) => (
+              <div
+                key={line.round}
+                className="grid grid-cols-[1fr_2.75rem_2.75rem_2.75rem] gap-1 border-b border-zinc-100 px-3 py-1.5 text-sm last:border-0 dark:border-zinc-900"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate">{line.raceName}</span>
+                  <span className="block text-[10px] text-zinc-500">
+                    {line.qualifyingPosition === null ? "—" : `Q${line.qualifyingPosition}`} ·{" "}
+                    {line.finishPosition === null ? "DNF" : `P${line.finishPosition}`}
+                  </span>
+                </span>
+                <span className="text-right tabular-nums text-zinc-500">
+                  {line.qualifyingPoints.toFixed(0)}
+                </span>
+                <span className="text-right tabular-nums text-zinc-500">
+                  {line.racePoints.toFixed(0)}
+                </span>
+                <span className="text-right tabular-nums font-medium">
+                  {line.total.toFixed(0)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!locked && (
+        <div className="flex gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+          {captainable &&
+            (captain ? (
+              <button
+                type="button"
+                onClick={onRemoveCaptain}
+                className="flex-1 rounded-lg border border-amber-400 py-2.5 text-sm font-medium text-amber-700 dark:text-amber-400"
+              >
+                Remove 2x
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onMakeCaptain}
+                className="flex-1 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium dark:border-zinc-700"
+              >
+                Make 2x
+              </button>
+            ))}
+          <button
+            type="button"
+            onClick={onReplace}
+            className="flex-1 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium dark:border-zinc-700"
+          >
+            Replace
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white"
+          >
+            Remove
+          </button>
+        </div>
       )}
-    </div>
+    </SheetShell>
   );
 }
 

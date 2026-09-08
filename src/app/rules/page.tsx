@@ -86,9 +86,9 @@ export default function RulesPage() {
       <Section title="Your captains">
         <p>
           Every round you name <strong>one captain among your top drivers</strong> and{" "}
-          <strong>one among your midfield drivers</strong>. Tap the 2× badge on a card. Both score
-          double, both are free, both are required, and the doubling is applied for you when the
-          round is scored — there is no chip to remember to play.
+          <strong>one among your midfield drivers</strong>. Both score double, both are free,
+          both are required, and the doubling is applied for you when the round is scored — there
+          is no chip to remember to play.
         </p>
         <p>
           One per bracket rather than one overall, so the midfield choice is a real decision
@@ -98,8 +98,10 @@ export default function RulesPage() {
           points.
         </p>
         <p>
-          Swapping a captain moves the armband onto whoever replaces them, and your captains carry
-          into next round with the rest of the roster.
+          You are asked who wears the armband when you save, so it is never picked for you by
+          default. You can also change it from a driver&rsquo;s page — tap any card on your roster to
+          open it. Swapping a captain moves the armband onto whoever replaces them, and your
+          captains carry into next round with the rest of the roster.
         </p>
       </Section>
 
