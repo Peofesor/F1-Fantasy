@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { getCurrentUser } from "@/lib/supabase/server";
 import {
   getCoverage,
   getLatestRound,
@@ -60,6 +63,14 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 export default async function Home() {
+  // This page reads with the service role and renders whatever the pipeline
+  // holds. It was reachable without signing in, which made an internal
+  // inspection tool a public endpoint that anyone could make do unbounded
+  // database work by reloading it. Signing in is not authorisation — every
+  // member can still see it — but it takes the page off the open internet,
+  // which is the part that mattered.
+  if (!(await getCurrentUser())) redirect("/login");
+
   const latest = await getLatestRound();
 
   if (!latest) {
