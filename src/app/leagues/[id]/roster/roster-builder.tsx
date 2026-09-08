@@ -1093,7 +1093,9 @@ function DetailSheet({
         {rounds.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
             <div className="grid grid-cols-[1fr_2.75rem_2.75rem_2.75rem] gap-1 border-b border-zinc-200 px-3 py-2 text-[10px] font-medium text-zinc-500 dark:border-zinc-800">
-              <span>Race</span>
+              {/* "Race" twice — once for the name, once for the points — read
+                  as a repeated column. The points columns say what they are. */}
+              <span>Round</span>
               <span className="text-right">Quali</span>
               <span className="text-right">Race</span>
               <span className="text-right">Total</span>
@@ -1106,7 +1108,15 @@ function DetailSheet({
                 <span className="min-w-0">
                   <span className="block truncate">{line.raceName}</span>
                   <span className="block text-[10px] text-zinc-500">
-                    {line.qualifyingPosition === null ? "—" : `Q${line.qualifyingPosition}`} ·{" "}
+                    {/* Not "Q1". In Formula 1 that names the first knockout
+                        session — and this app uses it that way itself, in the
+                        "Out in Q1" and "Reaches Q3" markets. Written as a grid
+                        slot, "Q1 · P1" said a driver was knocked out early and
+                        then won the race. */}
+                    {line.qualifyingPosition === null
+                      ? "—"
+                      : `Grid ${line.qualifyingPosition}`}{" "}
+                    ·{" "}
                     {line.finishPosition === null ? "DNF" : `P${line.finishPosition}`}
                   </span>
                 </span>

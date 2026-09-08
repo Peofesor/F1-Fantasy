@@ -31,8 +31,8 @@ export function ChipStore({
     <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
       <h2 className="text-sm font-semibold">Chips</h2>
       <p className="mt-0.5 text-xs text-zinc-500">
-        One free use of each per season. Buy more here, then play them from your roster —{" "}
-        <strong>one chip a weekend</strong>, whichever it is.
+        Free uses are granted per half-season and again after the summer break. Buy more here,
+        then play them from your roster — <strong>one chip a weekend</strong>, whichever it is.
       </p>
 
       {state && (
