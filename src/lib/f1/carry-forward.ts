@@ -32,25 +32,42 @@ interface SlotRow {
 }
 
 /**
- * Replaces a driver who no longer belongs in their slot's bracket.
+ * Which bracket a slot demands, or null if the slot is unrestricted.
+ *
+ * The backmarker slot takes anyone, and the reverse-scored team is judged on
+ * placing rather than tier, so neither can ever fall out of its bracket.
+ */
+function requiredTier(slotType: string): Tier | null {
+  switch (slotType) {
+    case "driver_top":
+    case "constructor_top":
+      return "top";
+    case "driver_mid":
+    case "constructor_mid":
+      return "mid";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Replaces a competitor who no longer belongs in their slot's bracket.
  *
  * This is the auto-swap rule (spec §4): a member never has to fix a roster that
  * became illegal through someone else's results. The replacement is the
- * cheapest eligible driver not already on the roster — cheapest rather than
+ * cheapest eligible pick not already on the roster — cheapest rather than
  * best, because the swap is involuntary and should not silently spend cap the
  * member has not got.
  */
 function findReplacement(
-  slotType: string,
+  wanted: Tier,
   taken: Set<string>,
   tiers: ReadonlyMap<string, Tier>,
   prices: ReadonlyMap<string, number>,
 ): string | null {
-  const wanted: Tier = slotType === "driver_top" ? "top" : "mid";
-
   const candidates = [...tiers.entries()]
-    .filter(([driverId, tier]) => tier === wanted && !taken.has(driverId))
-    .map(([driverId]) => driverId)
+    .filter(([id, tier]) => tier === wanted && !taken.has(id))
+    .map(([id]) => id)
     .sort((a, b) => (prices.get(a) ?? 0) - (prices.get(b) ?? 0));
 
   return candidates[0] ?? null;
@@ -129,56 +146,43 @@ export async function carryForwardRosters(
 
     const carried = slots.map((slot) => {
       let driverId = slot.driver_id;
+      let constructorId = slot.constructor_id;
 
-      // Only the bracketed slots can become illegal. The backmarker slot is
-      // unrestricted and constructors have no bracket at all.
-      const bracketed = slot.slot_type === "driver_top" || slot.slot_type === "driver_mid";
-      if (bracketed && driverId) {
-        const wanted: Tier = slot.slot_type === "driver_top" ? "top" : "mid";
-        if (context.tiers.get(driverId) !== wanted) {
-          const replacement = findReplacement(
-            slot.slot_type,
-            taken,
-            context.tiers,
-            context.driverPrices,
-          );
-          if (replacement) {
-            report.autoSwapped.push({
-              memberId: member.id,
-              out: driverId,
-              in: replacement,
-            });
-            taken.delete(driverId);
-            taken.add(replacement);
-            driverId = replacement;
-          }
+      // Drivers and teams are both bracketed now, so either can fall out of a
+      // slot it used to be eligible for.
+      const wanted = requiredTier(slot.slot_type);
+      const held = driverId ?? constructorId;
+      const tiers = driverId ? context.tiers : context.constructorTiers;
+      const prices = driverId ? context.driverPrices : context.constructorPrices;
+
+      if (wanted && held && tiers.get(held) !== wanted) {
+        const replacement = findReplacement(wanted, taken, tiers, prices);
+        if (replacement) {
+          report.autoSwapped.push({ memberId: member.id, out: held, in: replacement });
+          taken.delete(held);
+          taken.add(replacement);
+          if (driverId) driverId = replacement;
+          else constructorId = replacement;
         }
       }
 
-      const competitorId = driverId ?? slot.constructor_id;
       const price = driverId
         ? (context.driverPrices.get(driverId) ?? 0)
-        : (context.constructorPrices.get(slot.constructor_id ?? "") ?? 0);
+        : (context.constructorPrices.get(constructorId ?? "") ?? 0);
 
       return {
         roster_id: created.id,
         slot_type: slot.slot_type,
         slot_index: slot.slot_index,
         driver_id: driverId,
-        constructor_id: slot.constructor_id,
+        constructor_id: constructorId,
         // Recorded at this round's price, since that is what the slot is worth
         // now; the ledger values sales at current price too.
         price_paid: price,
-        _competitorId: competitorId,
       };
     });
 
-    const { error: slotError } = await supabase.from("roster_slots").insert(
-      carried.map(({ _competitorId, ...row }) => {
-        void _competitorId;
-        return row;
-      }),
-    );
+    const { error: slotError } = await supabase.from("roster_slots").insert(carried);
 
     if (!slotError) report.created++;
   }

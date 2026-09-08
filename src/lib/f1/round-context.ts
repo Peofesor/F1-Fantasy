@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { assignTiers, buildSeedRanks, rollingWindowPoints, type RoundPoints, type Tier } from "./tiers";
+import {
+  assignTiers,
+  buildSeedRanks,
+  rollingWindowPoints,
+  TOP_CONSTRUCTOR_BRACKET_SIZE,
+  type RoundPoints,
+  type Tier,
+} from "./tiers";
 
 /**
  * Assembles everything needed to build or validate a roster for one round:
@@ -16,6 +23,8 @@ export interface RoundContext {
   round: number;
   raceName: string;
   tiers: Map<string, Tier>;
+  /** Constructor brackets, derived the same way as driver ones. */
+  constructorTiers: Map<string, Tier>;
   driverPrices: Map<string, number>;
   constructorPrices: Map<string, number>;
   driverNames: Map<string, string>;
@@ -155,6 +164,12 @@ export async function loadRoundContext(
     round: round.round,
     raceName: round.race_name,
     tiers: assignTiers(driverIds, form, seeds),
+    constructorTiers: assignTiers(
+      [...new Set(seasonRows.map((row) => row.constructor_id))],
+      constructorFormMap,
+      new Map(),
+      TOP_CONSTRUCTOR_BRACKET_SIZE,
+    ),
     driverPrices: new Map(
       (prices.data ?? []).map((row) => [row.driver_id, Number(row.price)]),
     ),

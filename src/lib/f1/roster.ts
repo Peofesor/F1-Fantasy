@@ -12,6 +12,7 @@ import type { Tier } from "./tiers";
 
 export const TOP_SLOTS = 3;
 export const MID_SLOTS = 3;
+/** One top-bracket constructor and one mid-bracket constructor. */
 export const CONSTRUCTOR_SLOTS = 2;
 
 export interface RosterSelection {
@@ -21,7 +22,11 @@ export interface RosterSelection {
   mid: readonly string[];
   /** Unrestricted slot: any driver. Pays cost cap, scores no points. */
   backmarker: string | null;
-  /** Two normally-scored constructors. */
+  /**
+   * Two normally-scored constructors, in bracket order: the top-bracket pick
+   * first, the mid-bracket one second. Order carries meaning here, which is why
+   * the stored slot types name the brackets explicitly rather than relying on it.
+   */
   constructors: readonly string[];
   /** One constructor scored on its per-race placing. */
   reverseConstructor: string | null;
@@ -29,6 +34,7 @@ export interface RosterSelection {
 
 export interface RosterContext {
   tiers: ReadonlyMap<string, Tier>;
+  constructorTiers: ReadonlyMap<string, Tier>;
   driverPrices: ReadonlyMap<string, number>;
   constructorPrices: ReadonlyMap<string, number>;
   costCap: number;
@@ -134,6 +140,15 @@ export function validateRoster(
       errors.push(`${driverId} is not in the mid bracket.`);
     }
   }
+
+  // Constructor brackets, checked positionally: index 0 is the top slot.
+  const constructorBrackets: Tier[] = ["top", "mid"];
+  selection.constructors.forEach((constructorId, index) => {
+    const wanted = constructorBrackets[index];
+    if (wanted && context.constructorTiers.get(constructorId) !== wanted) {
+      errors.push(`${constructorId} is not a ${wanted}-bracket constructor.`);
+    }
+  });
 
   for (const driverId of duplicates(selectedDrivers(selection))) {
     errors.push(`${driverId} is picked more than once.`);

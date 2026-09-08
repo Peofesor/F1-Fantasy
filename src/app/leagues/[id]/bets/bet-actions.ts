@@ -93,6 +93,6 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     note: `${MARKETS[marketId].name} · ${selection}`,
   });
 
-  revalidatePath(`/leagues/${leagueId}/roster`);
+  revalidatePath(`/leagues/${leagueId}/bets`);
   return { ok: true, message: `Bet placed on ${MARKETS[marketId].name}.` };
 }

@@ -20,8 +20,15 @@ const tiers = new Map<string, Tier>([
   ["m4", "mid"],
 ]);
 
+const constructorTiers = new Map<string, Tier>([
+  ["c1", "top"],
+  ["c2", "mid"],
+  ["c3", "mid"],
+]);
+
 const context: RosterContext = {
   tiers,
+  constructorTiers,
   driverPrices: new Map([
     ["t1", 25], ["t2", 24], ["t3", 23], ["t4", 22],
     ["m1", 10], ["m2", 9], ["m3", 8], ["m4", 5],

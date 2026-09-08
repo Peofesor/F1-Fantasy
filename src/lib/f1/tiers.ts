@@ -19,6 +19,15 @@ export type Tier = "top" | "mid";
 /** Default bracket size. The mid bracket is simply everyone below it. */
 export const TOP_BRACKET_SIZE = 8;
 
+/**
+ * Constructors in the top bracket.
+ *
+ * Four of roughly eleven, mirroring how the field actually splits: a handful of
+ * teams win, the rest race each other. One top and one mid slot then force a
+ * genuine choice rather than letting a roster hold the two best teams.
+ */
+export const TOP_CONSTRUCTOR_BRACKET_SIZE = 4;
+
 /** How many race weekends the tier ordering looks back over. */
 export const ROLLING_WINDOW_ROUNDS = 5;
 

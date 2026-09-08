@@ -75,8 +75,27 @@ The rolling window removes the round-one special case rather than patching it, w
 - The backmarker slot has no bucket and is exempt from auto-swap — it's simply a free, standing choice. Reverse scoring already discourages picking a genuinely strong driver here, so no tier restriction is needed to keep the slot meaningful.
 
 ### Constructors (3 total)
-- **2 normal slots** — scored normally, budget-costed like driver picks.
+- **1 top-bracket slot** — must be filled by a constructor in the top bracket.
+- **1 mid-bracket slot** — must be filled by a constructor in the mid bracket.
 - **1 reverse-scored slot** — a free pick (any constructor, no tier/rank restriction), scored via reverse points (last place in constructor standings = most points). Budget-costed the same as a normal pick — not free. Not auto-tracked to "whoever is currently last"; it's a standing player choice, same treatment as the backmarker driver slot.
+
+#### Constructor bracket definition
+
+- **Top bracket: the top 4 constructors** by the same rolling 5-race window used for drivers. **Mid bracket: everyone else.** On the real 2026 field at round 14 this splits Ferrari, McLaren, Mercedes and Red Bull from the other seven teams.
+- **Why 4 of ~11:** it mirrors how the field actually divides — a handful of teams win, the rest race each other. Two unrestricted slots let a roster hold the two best teams outright, which removes the choice; one from each bracket forces a genuine trade-off, exactly as the driver slots do.
+- Constructors are subject to the **same 1-for-1 auto-swap** as drivers when a team changes bracket. The reverse slot is exempt, since it is scored on placing rather than tier.
+
+### Roster layout
+
+The picker presents the roster in **three tiers**, not as a list of drivers followed by a list of teams:
+
+| Row | Contents |
+| --- | --- |
+| Top | 3 top-bracket drivers + 1 top-bracket constructor |
+| Midfield | 3 mid-bracket drivers + 1 mid-bracket constructor |
+| Back of the grid | 1 backmarker driver + 1 reverse-scored constructor |
+
+Grouping by bracket makes the composition rule legible at a glance: each row is a tier, and the team in it comes from the same tier as the drivers beside it. **Constructor slot order carries meaning** — the first stored constructor fills the top-bracket slot, the second the mid one — so the stored slot types name the brackets (`constructor_top`, `constructor_mid`, `constructor_reverse`) rather than relying on an index.
 
 ### Explicitly dropped from the original roster ideas
 - Draft mode and everything tied to it (each-driver-pickable-2x rule, bench/reserve slots).

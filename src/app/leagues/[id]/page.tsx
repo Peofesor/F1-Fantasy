@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
+import { LeagueNav } from "./league-nav";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
 import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
@@ -87,11 +88,9 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
   return (
     <main className="mx-auto max-w-2xl space-y-5 p-4 pb-16">
-      <header className="pt-2">
-        <Link href="/leagues" className="text-sm text-zinc-500 underline underline-offset-4">
-          ← Leagues
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{league.name}</h1>
+      <header className="space-y-2 pt-2">
+        <LeagueNav leagueId={league.id} active="hub" />
+        <h1 className="text-2xl font-semibold tracking-tight">{league.name}</h1>
         <p className="text-sm text-zinc-500">
           {league.season} · {league.mode === "duel" ? "Duel" : "Free-for-all"} · cost cap{" "}
           {Number(league.starting_cost_cap).toFixed(0)}
@@ -103,12 +102,26 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         <span className="tabular-nums text-lg font-semibold">{capBalance.toFixed(1)}</span>
       </div>
 
-      <Link
-        href={`/leagues/${league.id}/roster`}
-        className="block rounded-xl bg-zinc-900 px-4 py-3 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-      >
-        Build your roster
-      </Link>
+      <div className="grid grid-cols-3 gap-2">
+        <Link
+          href={`/leagues/${league.id}/roster`}
+          className="rounded-xl bg-zinc-900 px-3 py-3 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          Roster
+        </Link>
+        <Link
+          href={`/leagues/${league.id}/chips`}
+          className="rounded-xl border border-zinc-200 px-3 py-3 text-center text-sm font-medium dark:border-zinc-800"
+        >
+          Chips
+        </Link>
+        <Link
+          href={`/leagues/${league.id}/bets`}
+          className="rounded-xl border border-zinc-200 px-3 py-3 text-center text-sm font-medium dark:border-zinc-800"
+        >
+          Bets
+        </Link>
+      </div>
 
       <Standings
         rows={standings}

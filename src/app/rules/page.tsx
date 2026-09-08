@@ -19,7 +19,7 @@ import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
 import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
 import { CHIP_LIST } from "@/lib/f1/chips";
 import { MARKET_LIST, MAX_STAKE_FRACTION, PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
-import { TOP_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
+import { TOP_BRACKET_SIZE, TOP_CONSTRUCTOR_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
 
 /**
  * How the game scores.
@@ -66,14 +66,20 @@ export default function RulesPage() {
 
       <Section title="Your roster">
         <p>
-          {TOP_SLOTS} drivers from the top bracket, {MID_SLOTS} from the mid bracket, and 1
-          backmarker who can be anyone. Plus {CONSTRUCTOR_SLOTS} constructors and 1
-          reverse-scored constructor.
+          You pick in three tiers: {TOP_SLOTS} top-bracket drivers and 1 top-bracket team,{" "}
+          {MID_SLOTS} mid-bracket drivers and 1 mid-bracket team, then 1 backmarker and 1
+          reverse-scored team at the back. That is {TOP_SLOTS + MID_SLOTS + 1} drivers and{" "}
+          {CONSTRUCTOR_SLOTS + 1} teams.
         </p>
         <p>
           The <strong>top bracket is the top {TOP_BRACKET_SIZE} drivers</strong> by points scored
           over the last {ROLLING_WINDOW_ROUNDS} race weekends. Everyone else is mid. That same
           figure sets prices, so a driver in form is both better and dearer.
+        </p>
+        <p>
+          Teams are bracketed the same way, with the{" "}
+          <strong>top {TOP_CONSTRUCTOR_BRACKET_SIZE} teams</strong> forming the top bracket. The
+          backmarker and reverse slots take anyone.
         </p>
       </Section>
 

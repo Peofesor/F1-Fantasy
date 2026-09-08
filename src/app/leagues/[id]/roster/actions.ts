@@ -240,6 +240,7 @@ export async function saveRoster(
   const selection = parseSelection(formData);
   const validation = validateRoster(selection, {
     tiers: context.tiers,
+    constructorTiers: context.constructorTiers,
     driverPrices: context.driverPrices,
     constructorPrices: context.constructorPrices,
     costCap,
@@ -320,7 +321,7 @@ export async function saveRoster(
     },
     ...selection.constructors.map((constructorId, index) => ({
       roster_id: roster.id,
-      slot_type: "constructor",
+      slot_type: index === 0 ? "constructor_top" : "constructor_mid",
       slot_index: index + 1,
       driver_id: null,
       constructor_id: constructorId,

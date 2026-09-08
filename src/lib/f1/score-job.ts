@@ -40,7 +40,7 @@ function selectionFromSlots(slots: SlotRow[]): RosterSelection {
     top: of("driver_top").map((s) => s.driver_id ?? "").filter(Boolean),
     mid: of("driver_mid").map((s) => s.driver_id ?? "").filter(Boolean),
     backmarker: of("driver_backmarker")[0]?.driver_id ?? null,
-    constructors: of("constructor").map((s) => s.constructor_id ?? "").filter(Boolean),
+    constructors: [...of("constructor_top"), ...of("constructor_mid")].map((s) => s.constructor_id ?? "").filter(Boolean),
     reverseConstructor: of("constructor_reverse")[0]?.constructor_id ?? null,
   };
 }

@@ -117,7 +117,7 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
     note: CHIPS[chipId].name,
   });
 
-  revalidatePath(`/leagues/${leagueId}/roster`);
+  revalidatePath(`/leagues/${leagueId}/chips`);
   return { ok: true, message: `Bought ${CHIPS[chipId].name}.` };
 }
 
@@ -158,7 +158,7 @@ export async function playChip(_previous: ChipState, formData: FormData): Promis
     return { error: error.message };
   }
 
-  revalidatePath(`/leagues/${leagueId}/roster`);
+  revalidatePath(`/leagues/${leagueId}/chips`);
   return { ok: true, message: `Played ${chip.name}.` };
 }
 
@@ -182,6 +182,6 @@ export async function cancelChip(_previous: ChipState, formData: FormData): Prom
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/leagues/${leagueId}/roster`);
+  revalidatePath(`/leagues/${leagueId}/chips`);
   return { ok: true, message: `${CHIPS[chipId].name} cancelled.` };
 }
