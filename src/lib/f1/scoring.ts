@@ -6,7 +6,7 @@ import type { FinishClassification } from "./types";
  * The normal driver table follows the official F1 Fantasy game (see
  * docs/game-design-spec.md §10), which is already balanced against real
  * outcomes. The single deliberate deviation is overtakes — see
- * OVERTAKE_DIVISOR.
+ * OVERTAKE_POINTS.
  *
  * Two slots do not score points at all and are handled separately: the
  * backmarker slot pays cost cap instead (see `backmarkerBudget`), and the
@@ -71,14 +71,22 @@ export const QUALIFYING_NO_TIME_PENALTY = -5;
 /**
  * Overtakes are divided by this before scoring, rounded down.
  *
- * Our overtake feed counts a broader class of events than the broadcast
- * statistic — passes on lapped cars, pit-cycle position changes, and moves the
- * official stat omits. Measured over 276 driver-races in 2026 the median driver
- * recorded 7 and the maximum 43, so scoring 1:1 would let one race out-earn the
- * 25 points for winning it. Filtering does not close the gap (a held-position
- * filter removes only 13-20%), so the correction is applied here instead.
+ * Every on-track pass is worth a point. Position changes made while the other
+ * car was in the pits are already excluded at ingestion, so what is counted
+ * here is overtaking done on the road.
+ *
+ * This is a deliberate choice to score what happened rather than a scaled
+ * version of it, and it is a large lever: measured across 2026, a driver's
+ * on-track passes run to a median of 9 in a race, 18 at the 90th percentile and
+ * 43 at the maximum — so a busy race can out-earn the 25 points for winning
+ * one. An earlier version divided by three to keep overtaking below a win.
+ *
+ * The feed is broader than the broadcast statistic, since it also sees passes
+ * on lapped cars, and separating those would need lap-down data no source here
+ * provides. If the reward proves too strong, the lever is a per-race cap rather
+ * than a divisor, so that each pass still counts as one.
  */
-export const OVERTAKE_DIVISOR = 3;
+export const OVERTAKE_POINTS = 1;
 
 export interface DriverRaceInput {
   driverId: string;
@@ -157,7 +165,7 @@ export function positionChangePoints(
 }
 
 export function overtakePoints(overtakes: number): number {
-  return Math.floor(Math.max(0, overtakes) / OVERTAKE_DIVISOR);
+  return Math.max(0, overtakes) * OVERTAKE_POINTS;
 }
 
 /** True when the driver's race ended in a way the official game penalises. */

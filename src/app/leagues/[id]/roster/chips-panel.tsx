@@ -26,6 +26,32 @@ export function ChipsPanel({
   const [buyState, buyAction] = useActionState<ChipState, FormData>(buyChip, null);
   const [cancelState, cancelAction] = useActionState<ChipState, FormData>(cancelChip, null);
   const [targets, setTargets] = useState<Record<string, string>>({});
+  // Playing or buying a chip spends cost cap and cannot be undone once the
+  // round locks, so both wait behind a confirmation naming what is about to
+  // happen. The pending action carries the form it will submit.
+  const [pending, setPending] = useState<{
+    title: string;
+    detail: string;
+    confirmLabel: string;
+    form: HTMLFormElement;
+  } | null>(null);
+
+  /**
+   * Intercepts a submit so the action can be described before it runs.
+   *
+   * The form is submitted programmatically on confirm, which keeps the Server
+   * Action and its hidden fields exactly as they were rather than rebuilding
+   * the request by hand.
+   */
+  function confirmFirst(
+    event: React.FormEvent<HTMLFormElement>,
+    title: string,
+    detail: string,
+    confirmLabel: string,
+  ) {
+    event.preventDefault();
+    setPending({ title, detail, confirmLabel, form: event.currentTarget });
+  }
 
   const message = playState ?? buyState ?? cancelState;
 
@@ -81,7 +107,17 @@ export function ChipsPanel({
                     Played{chip.playedTarget ? ` on ${chip.playedTarget}` : ""}
                   </span>
                   {!locked && (
-                    <form action={cancelAction}>
+                    <form
+                      action={cancelAction}
+                      onSubmit={(event) =>
+                        confirmFirst(
+                          event,
+                          `Take ${chip.name} back?`,
+                          "The use returns to your inventory and can be played again this season.",
+                          "Take it back",
+                        )
+                      }
+                    >
                       <input type="hidden" name="leagueId" value={leagueId} />
                       <input type="hidden" name="chipId" value={chip.chipId} />
                       <input type="hidden" name="round" value={round} />
@@ -94,7 +130,22 @@ export function ChipsPanel({
               ) : (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {chip.available && !locked ? (
-                    <form action={playAction} className="flex flex-wrap items-center gap-2">
+                    <form
+                      action={playAction}
+                      onSubmit={(event) => {
+                        const target = targets[chip.chipId];
+                        const on = options.find((option) => option.id === target)?.name;
+                        confirmFirst(
+                          event,
+                          `Play ${chip.name}?`,
+                          on
+                            ? `${chip.description} It will apply to ${on} in round ${round}.`
+                            : `${chip.description} It applies to round ${round}.`,
+                          "Play it",
+                        );
+                      }}
+                      className="flex flex-wrap items-center gap-2"
+                    >
                       <input type="hidden" name="leagueId" value={leagueId} />
                       <input type="hidden" name="chipId" value={chip.chipId} />
                       <input type="hidden" name="round" value={round} />
@@ -130,7 +181,17 @@ export function ChipsPanel({
 
                   {/* No season limit: another use can always be bought, and
                       price is what keeps it from being free. */}
-                  <form action={buyAction}>
+                  <form
+                    action={buyAction}
+                    onSubmit={(event) =>
+                      confirmFirst(
+                        event,
+                        `Buy another ${chip.name}?`,
+                        `${chip.price} comes off your cost cap, leaving ${(balance - chip.price).toFixed(1)}. It buys one more use, not a play — you still choose the round.`,
+                        `Buy for ${chip.price}`,
+                      )
+                    }
+                  >
                         <input type="hidden" name="leagueId" value={leagueId} />
                         <input type="hidden" name="chipId" value={chip.chipId} />
                         <button
@@ -146,6 +207,37 @@ export function ChipsPanel({
           );
         })}
       </ul>
+
+      {pending && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl dark:bg-zinc-900">
+            <h3 className="text-sm font-semibold">{pending.title}</h3>
+            <p className="mt-1 text-sm text-zinc-500">{pending.detail}</p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                className="flex-1 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium dark:border-zinc-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { form } = pending;
+                  setPending(null);
+                  // Submitting the original form keeps the Server Action and
+                  // its hidden fields intact rather than rebuilding the request.
+                  form.requestSubmit();
+                }}
+                className="flex-1 rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+              >
+                {pending.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

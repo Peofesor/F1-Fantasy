@@ -84,16 +84,18 @@ describe("positionChangePoints", () => {
 });
 
 describe("overtakePoints", () => {
-  it("divides by three and rounds down", () => {
-    expect(overtakePoints(7)).toBe(2);
-    expect(overtakePoints(2)).toBe(0);
-    expect(overtakePoints(9)).toBe(3);
+  it("pays a point for each pass", () => {
+    expect(overtakePoints(7)).toBe(7);
+    expect(overtakePoints(2)).toBe(2);
+    expect(overtakePoints(9)).toBe(9);
   });
 
-  it("keeps the biggest recorded race below the value of a win", () => {
-    // 43 was the 2026 maximum; unscaled it would beat the 25 for winning.
-    expect(overtakePoints(43)).toBe(14);
-    expect(overtakePoints(43)).toBeLessThan(racePoints(1));
+  it("lets a busy race out-earn a win, which is the point of counting them 1:1", () => {
+    // 43 was the 2026 maximum. Scoring passes as they happened means a driver
+    // who carves through the field can beat the 25 for winning; the lever if
+    // that proves too strong is a per-race cap, not a divisor.
+    expect(overtakePoints(43)).toBe(43);
+    expect(overtakePoints(43)).toBeGreaterThan(racePoints(1));
   });
 
   it("never returns a negative", () => {
@@ -109,8 +111,8 @@ describe("scoreDriver", () => {
     expect(score.qualifying).toBe(9);
     expect(score.race).toBe(25);
     expect(score.positionsGained).toBe(1);
-    expect(score.overtakes).toBe(2);
-    expect(score.total).toBe(37);
+    expect(score.overtakes).toBe(6);
+    expect(score.total).toBe(41);
   });
 
   it("applies the DNF penalty", () => {

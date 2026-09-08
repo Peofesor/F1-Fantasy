@@ -2,7 +2,14 @@
 
 import { useActionState, useState } from "react";
 
-import { MARKET_LIST, maxStake, payout, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import {
+  MARKET_LIST,
+  maxStake,
+  payout,
+  PRE_QUALIFYING_BONUS,
+  type BetTiming,
+  type MarketId,
+} from "@/lib/f1/betting";
 import { placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
@@ -67,6 +74,12 @@ export function BetsPanel({
         Staked from your bank, not from cap tied up in the roster. One bet per market, and a
         bet cannot be withdrawn.
       </p>
+      <p className="mt-1 text-xs text-zinc-500">
+        <strong>When you bet changes the odds.</strong> Betting before qualifying pays{" "}
+        {PRE_QUALIFYING_BONUS}x, because you are calling it without knowing the grid. Once
+        qualifying has run you know where everyone starts, so the same bet pays normal odds. Both
+        settle on the race.
+      </p>
 
       {bets.length > 0 && (
         <ul className="mt-3 space-y-1 text-sm">
@@ -85,7 +98,7 @@ export function BetsPanel({
                       : "text-zinc-500"
                 }`}
               >
-                {bet.outcome ?? (bet.timing === "pre_qualifying" ? "pre-quali" : "open")}
+                {bet.outcome ?? (bet.timing === "pre_qualifying" ? `open · ${PRE_QUALIFYING_BONUS}x` : "open")}
                 {bet.returned ? ` +${bet.returned}` : ""}
               </span>
             </li>
@@ -150,8 +163,10 @@ export function BetsPanel({
               onChange={(event) => setTiming(event.target.value as BetTiming)}
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
-              <option value="pre_race">Pre-race</option>
-              <option value="pre_qualifying">Pre-quali (1.5x)</option>
+              <option value="pre_race">After qualifying — normal odds</option>
+              <option value="pre_qualifying">
+                Before qualifying — {PRE_QUALIFYING_BONUS}x odds
+              </option>
             </select>
           </div>
 

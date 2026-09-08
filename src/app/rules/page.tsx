@@ -10,7 +10,7 @@ import {
   TEAMMATE_QUALIFYING_POINTS,
   TEAMMATE_RACE_POINTS,
   FASTEST_LAP_POINTS,
-  OVERTAKE_DIVISOR,
+  OVERTAKE_POINTS,
   QUALIFYING_NO_TIME_PENALTY,
   QUALIFYING_POINTS,
   RACE_POINTS,
@@ -159,7 +159,7 @@ export default function RulesPage() {
         <div>
           <Row label="Each place gained against your grid slot" value="+1" />
           <Row label="Each place lost" value="−1" />
-          <Row label={`Every ${OVERTAKE_DIVISOR} on-track overtakes`} value="+1" />
+          <Row label="Each on-track overtake" value={`+${OVERTAKE_POINTS}`} />
           <Row label="Fastest lap" value={`+${FASTEST_LAP_POINTS}`} />
           <Row label="Retirement, disqualification or non-start" value={`${DNF_PENALTY}`} />
           <Row
@@ -175,14 +175,18 @@ export default function RulesPage() {
 
       <Section title="Why overtakes are divided by three">
         <p>
-          Our overtake feed counts a broader class of events than the figure shown on TV: passes
-          on lapped cars, position changes during pit cycles, and moves the official stat leaves
-          out. Across 276 driver-races in 2026 the median driver recorded 7 and the highest 43.
+          Every pass made on the road counts as one point. Position changes that happen while the
+          other car is in the pits do not count at all.
         </p>
         <p>
-          Scored one-for-one, a single race could out-earn the {RACE_POINTS[0]} points for
-          winning it. Dividing by {OVERTAKE_DIVISOR} keeps a win the most valuable thing you can
-          do while still rewarding a driver who carves through the field.
+          This is a big lever, and worth knowing about before you pick: across 2026 a driver
+          averaged 9 on-track passes in a race, with 18 at the busy end and a high of 43. So a
+          driver who carves through the field can out-score the {RACE_POINTS[0]} points for
+          winning the race. Starting near the back is not the handicap it looks like.
+        </p>
+        <p>
+          The feed also sees passes on lapped cars, which the figure shown on TV leaves out —
+          separating those would need lap-down data that no source here publishes.
         </p>
       </Section>
 
