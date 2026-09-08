@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { ensureProfile } from "../auth/actions";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
-import { COST_CAP_RANGE, DEFAULT_COST_CAP } from "@/lib/f1/ledger";
+import { DEFAULT_COST_CAP, MIN_COST_CAP } from "@/lib/f1/ledger";
 import { parseChipAllowance } from "@/lib/f1/chip-allowance";
 
 export type LeagueActionState = { error: string } | null;
@@ -43,9 +43,11 @@ export async function createLeague(
 
   // Checked here and not only in the form: a Server Action takes a direct POST,
   // and the opening balance is granted from this figure by a database trigger.
-  if (!Number.isFinite(costCap) || costCap < COST_CAP_RANGE.min || costCap > COST_CAP_RANGE.max) {
+  // A floor only. There is no upper limit: a host who wants a league where
+  // everyone can afford everything is entitled to run one.
+  if (!Number.isFinite(costCap) || costCap < MIN_COST_CAP) {
     return {
-      error: `Budget must be between ${COST_CAP_RANGE.min} and ${COST_CAP_RANGE.max}.`,
+      error: `Budget has to be at least ${MIN_COST_CAP} — below that no legal team can be bought.`,
     };
   }
 

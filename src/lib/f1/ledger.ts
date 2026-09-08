@@ -200,16 +200,20 @@ export function backmarkerPayoutEntry(
  * makes every held roster look unaffordable the moment it is bought.
  */
 /**
- * What a league's opening cost cap may be set to.
+ * The least a league's opening cost cap may be.
  *
- * The floor is above the cheapest legal roster (~117 at 2026 round 14) so a
- * league can never be created that cannot field a team at all. The ceiling sits
- * above the dearest legal roster (~186), since a cap that buys every premium
- * pick removes the trade-off the budget exists to create — but it is left
- * reachable, because a host who wants a no-constraints league should be able to
- * say so deliberately.
+ * A floor, and no ceiling. The floor is above the cheapest legal roster (~117
+ * at 2026 round 14), because below it there is no team that can be bought at
+ * all: the league would be created and then refuse every roster anyone tried to
+ * save. That is not a balance opinion, it is the difference between a hard
+ * league and a broken one.
+ *
+ * The ceiling was a balance opinion, and it is gone. It sat at 250 on the
+ * reasoning that a cap buying every premium pick removes the trade-off the
+ * budget exists to create — true, and none of the game's business. A host who
+ * wants a league where everyone can afford everything is entitled to run one.
  */
-export const COST_CAP_RANGE = { min: 120, max: 250 } as const;
+export const MIN_COST_CAP = 120;
 
 /** The default when a host does not choose one. */
 export const DEFAULT_COST_CAP = 160;
