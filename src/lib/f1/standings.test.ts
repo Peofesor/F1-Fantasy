@@ -63,6 +63,52 @@ describe("buildStandings", () => {
     expect(a.duelPoints).toBeCloseTo(1.5, 1);
   });
 
+  it("does not count a round with no fixture as a defeat", () => {
+    // A duel league whose fixtures start mid-season scored every earlier round
+    // with no opponent. Those arrived as 0 and were read as losses, which put
+    // all four members of a real league on 0-0-13 — impossible in a format
+    // where one member losing is another member winning.
+    const table = buildStandings(
+      ["a", "b"],
+      [
+        { memberId: "a", round: 1, points: 10, duelPoints: null },
+        { memberId: "a", round: 2, points: 10, duelPoints: null },
+        { memberId: "a", round: 3, points: 10, duelPoints: 0 },
+      ],
+      "duel",
+    );
+    const a = table.find((row) => row.memberId === "a")!;
+    expect([a.wins, a.draws, a.losses]).toEqual([0, 0, 1]);
+    // Still three rounds played: the rounds happened, only the duels did not.
+    expect(a.roundsPlayed).toBe(3);
+    expect(a.points).toBeCloseTo(30, 1);
+  });
+
+  it("never shows more results than there were duels", () => {
+    // The property the bug broke, stated directly: across a whole league, every
+    // win is somebody's loss, so wins and losses have to balance and draws come
+    // in pairs.
+    const table = buildStandings(
+      ["a", "b"],
+      [
+        { memberId: "a", round: 1, points: 20, duelPoints: 1 },
+        { memberId: "b", round: 1, points: 10, duelPoints: 0 },
+        { memberId: "a", round: 2, points: 10, duelPoints: null },
+        { memberId: "b", round: 2, points: 30, duelPoints: null },
+        { memberId: "a", round: 3, points: 15, duelPoints: 0.5 },
+        { memberId: "b", round: 3, points: 15, duelPoints: 0.5 },
+      ],
+      "duel",
+    );
+
+    const wins = table.reduce((sum, row) => sum + row.wins, 0);
+    const losses = table.reduce((sum, row) => sum + row.losses, 0);
+    const draws = table.reduce((sum, row) => sum + row.draws, 0);
+
+    expect(wins).toBe(losses);
+    expect(draws % 2).toBe(0);
+  });
+
   it("includes members who have not scored, rather than hiding them", () => {
     const table = buildStandings(members, scores, "duel");
     const c = table.find((row) => row.memberId === "c");

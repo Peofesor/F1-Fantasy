@@ -65,7 +65,9 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         memberId: row.member_id,
         round: row.round,
         points: Number(row.points),
-        duelPoints: Number(row.duel_points),
+        // Number(null) is 0, which is exactly the collapse this column was made
+        // nullable to avoid — a round with no fixture would arrive as a defeat.
+        duelPoints: row.duel_points === null ? null : Number(row.duel_points),
       })),
     league.mode as LeagueMode,
   );

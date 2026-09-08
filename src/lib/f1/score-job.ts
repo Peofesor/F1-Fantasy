@@ -287,7 +287,7 @@ export async function scoreRound(
   }
 
   const pointsByMember = new Map<string, number>();
-  const scoreRows: { member_id: string; season: number; round: number; points: number; duel_points: number }[] = [];
+  const scoreRows: { member_id: string; season: number; round: number; points: number; duel_points: number | null }[] = [];
   const ledgerEntries: LedgerEntry[] = [];
 
   for (const roster of rosters ?? []) {
@@ -310,7 +310,10 @@ export async function scoreRound(
       season,
       round,
       points: score.points,
-      duel_points: 0,
+      // Null until a fixture resolves it. A free-for-all league has no
+      // fixtures at all, and a duel league has none before its first scheduled
+      // round — neither case is a defeat, and 0 said it was.
+      duel_points: null,
     });
 
     // The backmarker slot pays cost cap instead of scoring (spec §4).

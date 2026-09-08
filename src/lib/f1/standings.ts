@@ -12,7 +12,16 @@ export interface MemberRoundScore {
   memberId: string;
   round: number;
   points: number;
-  duelPoints: number;
+  /**
+   * Match points for the round, or null when there was no duel to play.
+   *
+   * Null is not zero. Zero is a duel that was played and lost; null is a round
+   * with no fixture, which is neither. Collapsing the two put every member of a
+   * league whose fixtures start mid-season on thirteen defeats — in a format
+   * where one member losing is another member winning, so four players cannot
+   * all lose the same week.
+   */
+  duelPoints: number | null;
 }
 
 export interface StandingRow {
@@ -72,11 +81,13 @@ export function buildStandings(
     if (!row) continue;
 
     row.points = round1(row.points + score.points);
-    row.duelPoints = round1(row.duelPoints + score.duelPoints);
+    row.duelPoints = round1(row.duelPoints + (score.duelPoints ?? 0));
     row.roundsPlayed++;
     row.bestRound = Math.max(row.bestRound, score.points);
 
-    if (mode === "duel") {
+    // A round with no fixture is skipped rather than counted: it is not a
+    // result, so it belongs in no column of the record.
+    if (mode === "duel" && score.duelPoints !== null) {
       if (score.duelPoints === 1) row.wins++;
       else if (score.duelPoints === 0.5) row.draws++;
       else row.losses++;
