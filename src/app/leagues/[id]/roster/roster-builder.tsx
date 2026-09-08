@@ -189,10 +189,31 @@ function slotsOf(draft: Draft): Slot[] {
  * rules visible: each row is a tier, and the team picked in it comes from the
  * same tier as the drivers beside it.
  */
-const ROWS: { title: string; hint: string; kinds: SlotKind[] }[] = [
-  { title: "Top", hint: "3 drivers + 1 team", kinds: ["top", "top", "top", "constructorTop"] },
-  { title: "Midfield", hint: "3 drivers + 1 team", kinds: ["mid", "mid", "mid", "constructorMid"] },
-  { title: "Back of the grid", hint: "scores in reverse", kinds: ["backmarker", "reverse"] },
+/**
+ * Each row is a tier, split into its drivers and its team.
+ *
+ * The two groups are set apart rather than sitting in one even strip, so the
+ * team reads as a different kind of pick instead of a fourth driver. `filler`
+ * holds the short last row to the same card width as the rows above it: without
+ * it, two cards sharing a row would stretch to half the width each.
+ */
+const ROWS: { title: string; hint: string; groups: SlotKind[][]; filler?: number }[] = [
+  {
+    title: "Top",
+    hint: "3 drivers + 1 team",
+    groups: [["top", "top", "top"], ["constructorTop"]],
+  },
+  {
+    title: "Midfield",
+    hint: "3 drivers + 1 team",
+    groups: [["mid", "mid", "mid"], ["constructorMid"]],
+  },
+  {
+    title: "Back of the grid",
+    hint: "scores in reverse",
+    groups: [["backmarker"], ["reverse"]],
+    filler: 2,
+  },
 ];
 
 export function RosterBuilder({
@@ -421,29 +442,45 @@ export function RosterBuilder({
               <h2 className="text-sm font-semibold">{row.title}</h2>
               <span className="text-xs text-zinc-500">{row.hint}</span>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {row.kinds.map((kind) => {
-                const index = counts.get(kind) ?? 0;
-                counts.set(kind, index + 1);
-                const slot = bySlot.get(kind + "-" + index)!;
-                return (
-                  <SlotCard
-                    key={kind + "-" + index}
-                    slot={slot}
-                    option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
-                    locked={locked}
-                    boostable={BOOSTABLE_KINDS.includes(slot.kind)}
-                    boosted={
-                      slot.occupantId !== null &&
-                      (slot.occupantId === draft.turboDriverId ||
-                        slot.occupantId === draft.boostConstructorId)
-                    }
-                    onOpen={() => setOpenSlot(slot)}
-                    onClear={() => setSlot(slot, null)}
-                    onBoost={() => nominate(slot)}
-                  />
-                );
-              })}
+            <div className="flex gap-2">
+              {row.groups.map((group, groupIndex) => (
+                <div
+                  key={groupIndex}
+                  // Grown in proportion to how many cards it holds, so every
+                  // card keeps the same width across all three rows.
+                  style={{
+                    flex: group.length + " 1 0%",
+                    gridTemplateColumns: "repeat(" + group.length + ", minmax(0, 1fr))",
+                  }}
+                  className={groupIndex > 0 ? "ml-3 grid gap-2" : "grid gap-2"}
+                >
+                  {group.map((kind) => {
+                    const index = counts.get(kind) ?? 0;
+                    counts.set(kind, index + 1);
+                    const slot = bySlot.get(kind + "-" + index)!;
+                    return (
+                      <SlotCard
+                        key={kind + "-" + index}
+                        slot={slot}
+                        option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
+                        locked={locked}
+                        boostable={BOOSTABLE_KINDS.includes(slot.kind)}
+                        boosted={
+                          slot.occupantId !== null &&
+                          (slot.occupantId === draft.turboDriverId ||
+                            slot.occupantId === draft.boostConstructorId)
+                        }
+                        onOpen={() => setOpenSlot(slot)}
+                        onClear={() => setSlot(slot, null)}
+                        onBoost={() => nominate(slot)}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+              {row.filler ? (
+                <div aria-hidden style={{ flex: row.filler + " 1 0%" }} />
+              ) : null}
             </div>
           </section>
         );
@@ -458,7 +495,7 @@ export function RosterBuilder({
       )}
 
       {chipsOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-950">
+        <SheetShell>
           <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
             <div>
               <h2 className="text-sm font-semibold">Chips</h2>
@@ -485,7 +522,7 @@ export function RosterBuilder({
               locked={locked}
             />
           </div>
-        </div>
+        </SheetShell>
       )}
 
       {openSlot && (
@@ -571,6 +608,23 @@ function Avatar({ option, size }: { option: PickOption; size: number }) {
     >
       {option.name.slice(0, 2).toUpperCase()}
     </span>
+  );
+}
+
+/**
+ * The frame both overlays sit in.
+ *
+ * Full-screen on a phone, where that is the whole point; a centred panel from
+ * the small breakpoint up, because a picker stretched across a desktop monitor
+ * puts a driver's name and their price at opposite ends of the screen.
+ */
+function SheetShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-center bg-black/40 sm:p-6">
+      <div className="flex h-full w-full max-w-md flex-col overflow-hidden bg-white dark:bg-zinc-950 sm:rounded-2xl sm:shadow-2xl">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -712,7 +766,7 @@ function ChooserSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-950">
+    <SheetShell>
       <header className="border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <div>
@@ -782,6 +836,6 @@ function ChooserSheet({
           </li>
         )}
       </ul>
-    </div>
+    </SheetShell>
   );
 }
