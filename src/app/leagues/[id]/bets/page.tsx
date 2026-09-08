@@ -86,6 +86,19 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     );
   }
 
+  // Priced competitors only. driverNames holds every driver the reference data
+  // has ever seen, which was offering bets on Magnussen and Sargeant in a 2026
+  // race; the price list is built from this season's results.
+  const bettableDrivers = [...round.driverPrices.keys()].map((driverId) => ({
+    id: driverId,
+    name: round.driverNames.get(driverId) ?? driverId,
+  }));
+
+  const bettableConstructors = [...round.constructorPrices.keys()].map((constructorId) => ({
+    id: constructorId,
+    name: round.constructorNames.get(constructorId) ?? constructorId,
+  }));
+
   const nationalities = [...new Set([...round.driverNationalities.values()])].sort();
 
   return (
@@ -103,14 +116,8 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         round={round.round}
         bank={balance}
         bets={placedBets}
-        drivers={[...round.driverNames.entries()].map(([driverId, name]) => ({
-          id: driverId,
-          name,
-        }))}
-        constructors={[...round.constructorNames.entries()].map(([constructorId, name]) => ({
-          id: constructorId,
-          name,
-        }))}
+        drivers={bettableDrivers}
+        constructors={bettableConstructors}
         nationalities={nationalities}
         locked={Boolean(roster?.locked_at)}
         timing={(timingValue ?? "pre_qualifying") as BetTiming}

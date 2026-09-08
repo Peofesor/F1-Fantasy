@@ -147,20 +147,26 @@ describe("settle", () => {
 });
 
 describe("checkStake", () => {
-  it("caps a stake at a fifth of the bank", () => {
-    expect(maxStake(100)).toBeCloseTo(20, 1);
-    expect(checkStake(25, 100).allowed).toBe(false);
-    expect(checkStake(20, 100).allowed).toBe(true);
+  it("lets the whole bank ride", () => {
+    // The ceiling used to be a fifth. A bet now requires a paid-for roster, so
+    // the bank is genuinely spare, and odds carry a house margin, so betting
+    // big is a faster way to lose rather than a shortcut to winning.
+    expect(maxStake(100)).toBeCloseTo(100, 1);
+    expect(checkStake(100, 100).allowed).toBe(true);
+    expect(checkStake(60, 100).allowed).toBe(true);
   });
 
-  it("rejects a stake larger than the bank with the clearer message", () => {
-    // Both limits are exceeded, but "more than you hold" explains the real
-    // problem better than quoting a fraction of a bank you cannot cover.
-    expect(checkStake(500, 100).reason).toContain("more cap than you hold");
+  it("rejects a stake larger than the bank", () => {
+    const result = checkStake(500, 100);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain("more cap than your bank holds");
   });
 
-  it("quotes the fraction limit when the bank would cover it", () => {
-    expect(checkStake(50, 100).reason).toContain("Maximum stake");
+  it("keeps the ceiling usable on a small bank", () => {
+    // A fifth of 2.0 is 0.4, under the 1.0 minimum, so the form asked for a
+    // number between 1 and 0.4 and no stake was possible at all.
+    expect(maxStake(2)).toBeCloseTo(2, 1);
+    expect(checkStake(2, 2).allowed).toBe(true);
   });
 
   it("rejects a stake below the minimum", () => {

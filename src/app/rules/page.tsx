@@ -18,7 +18,7 @@ import {
 import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
 import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
 import { CHIP_LIST } from "@/lib/f1/chips";
-import { MARKET_LIST, MAX_STAKE_FRACTION, PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
+import { MARKET_LIST, PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
 import { TOP_BRACKET_SIZE, TOP_CONSTRUCTOR_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
 
 /**
@@ -236,9 +236,9 @@ export default function RulesPage() {
         <p>
           You need a full roster for the round before you can bet: both come out of the same cost
           cap, and the team is the bigger claim on it. Stakes come from your bank — the cap not
-          tied up in your roster — and are capped at{" "}
-          {Math.round(MAX_STAKE_FRACTION * 100)}% of it per bet. Bets placed before qualifying pay{" "}
-          {PRE_QUALIFYING_BONUS}× the listed odds, because you are guessing with less information.
+          tied up in your roster — and you can stake all of it if you want to. Bets placed before
+          qualifying pay {PRE_QUALIFYING_BONUS}× the odds, because you are guessing with less
+          information.
         </p>
         <div>
           {MARKET_LIST.map((market) => (

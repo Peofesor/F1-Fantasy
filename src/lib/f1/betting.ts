@@ -107,20 +107,26 @@ export const ALL_MARKETS = Object.values(MARKETS);
 export const PRE_QUALIFYING_BONUS = 1.1;
 
 /**
- * The most of the bank a single bet may risk.
+ * The bank is the ceiling: a member may stake everything they are not already
+ * holding as a roster.
  *
- * Without a ceiling one all-in bet could decide a season, which would make the
- * roster — the actual game — irrelevant. A fifth is enough to matter and
- * survivable when it loses.
+ * This used to be a fifth, to stop one all-in bet deciding a season while the
+ * roster — the actual game — sat untouched. Two changes since removed the need.
+ * A bet now requires a complete roster (§8), so the team is bought and paid for
+ * before any of this is reachable, and the bank is genuinely spare. And odds
+ * are priced per selection against a house margin, so betting big is a faster
+ * way to lose, not a shortcut to winning.
+ *
+ * What the old ceiling did instead was break the form on a small bank: a
+ * fifth of 2.0 is 0.4, below the 1.0 minimum, so the field asked for a number
+ * between 1 and 0.4.
  */
-export const MAX_STAKE_FRACTION = 0.2;
+export function maxStake(bank: number): number {
+  return Math.floor(bank * 10) / 10;
+}
 
 /** Smallest stake worth recording. */
 export const MIN_STAKE = 1;
-
-export function maxStake(bank: number): number {
-  return Math.floor(bank * MAX_STAKE_FRACTION * 10) / 10;
-}
 
 export interface StakeCheck {
   allowed: boolean;
@@ -133,11 +139,8 @@ export function checkStake(stake: number, bank: number): StakeCheck {
   if (!Number.isFinite(stake) || stake < MIN_STAKE) {
     return { allowed: false, max, reason: `Minimum stake is ${MIN_STAKE}.` };
   }
-  if (stake > bank) {
-    return { allowed: false, max, reason: "You cannot stake more cap than you hold." };
-  }
   if (stake > max) {
-    return { allowed: false, max, reason: `Maximum stake is ${max.toFixed(1)} (a fifth of your bank).` };
+    return { allowed: false, max, reason: "You cannot stake more cap than your bank holds." };
   }
   return { allowed: true, max };
 }

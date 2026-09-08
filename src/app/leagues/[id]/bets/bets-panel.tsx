@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import {
   MARKET_LIST,
   maxStake,
+  MIN_STAKE,
 
   PRE_QUALIFYING_BONUS,
   type BetTiming,
@@ -61,12 +62,16 @@ export function BetsPanel({
   const [selection, setSelection] = useState("");
 
   const market = MARKET_LIST.find((entry) => entry.id === marketId)!;
+
+  // Markets ordered by their listed price, so the near-certainties sit at the
+  // top and the long shots at the bottom.
+  const sortedMarkets = [...MARKET_LIST].sort((a, b) => a.odds - b.odds);
   // The price follows the selection, so an unpicked market shows the listed one.
   const selectedOdds = (selection && odds[marketId]?.[selection]) || market.odds;
   const placed = new Set(bets.map((bet) => bet.marketId));
   const limit = maxStake(bank);
 
-  const options =
+  const rawOptions =
     market.selection === "driver"
       ? drivers
       : market.selection === "constructor"
@@ -77,6 +82,15 @@ export function BetsPanel({
               { id: "yes", name: "Yes" },
               { id: "no", name: "No" },
             ];
+
+  // Shortest price first, the way a bookmaker lists a field: the likeliest
+  // outcome is what you scan for, and an alphabetical list buries it. Anything
+  // unpriced sorts last rather than pretending to be the favourite.
+  const options = [...rawOptions].sort((a, b) => {
+    const priceA = odds[marketId]?.[a.id] ?? Infinity;
+    const priceB = odds[marketId]?.[b.id] ?? Infinity;
+    return priceA - priceB || a.name.localeCompare(b.name);
+  });
 
   return (
     <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
@@ -180,7 +194,7 @@ export function BetsPanel({
             }}
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           >
-            {MARKET_LIST.map((entry) => (
+            {sortedMarkets.map((entry) => (
               <option key={entry.id} value={entry.id} disabled={placed.has(entry.id)}>
                 {entry.name} ({entry.odds}x){placed.has(entry.id) ? " — already bet" : ""}
               </option>
@@ -214,7 +228,7 @@ export function BetsPanel({
               <input
                 type="number"
                 name="stake"
-                min={1}
+                min={MIN_STAKE}
                 max={limit}
                 step={0.5}
                 value={stake}
