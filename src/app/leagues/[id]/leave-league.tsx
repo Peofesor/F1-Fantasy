@@ -28,16 +28,21 @@ export function LeaveLeague({
   const [asking, setAsking] = useState(false);
 
   const ownerBlocked = isOwner && memberCount > 1;
+  // Leaving as the only member deletes the league: nobody can reach one with
+  // no members, so there is nothing left to come back to.
+  const isLast = memberCount <= 1;
 
   return (
     <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <h2 className="text-sm font-semibold">Leave this league</h2>
+      <h2 className="text-sm font-semibold">{isLast ? "Delete this league" : "Leave this league"}</h2>
       <p className="mt-1 text-xs text-zinc-500">
         {ownerBlocked
           ? "You created this league, so you cannot leave while others are still in it."
-          : hasHistory
-            ? "Your rosters, points, cost cap, bets and chips for this league are deleted with you. There is no undo."
-            : "You have no history here yet, so there is nothing to lose."}
+          : isLast
+            ? "You are the last one here, so leaving deletes the league itself — its name, invite code, standings and every round played in it."
+            : hasHistory
+              ? "Your rosters, points, cost cap, bets and chips for this league are deleted with you. There is no undo."
+              : "You have no history here yet, so there is nothing to lose."}
       </p>
 
       {state && "error" in state && (
@@ -52,17 +57,21 @@ export function LeaveLeague({
         onClick={() => setAsking(true)}
         className="mt-3 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-40 dark:border-red-900 dark:text-red-400"
       >
-        {pending ? "Leaving…" : "Leave league"}
+        {pending ? "Leaving…" : isLast ? "Leave and delete league" : "Leave league"}
       </button>
 
       {asking && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl dark:bg-zinc-900">
-            <h3 className="text-sm font-semibold">Leave for good?</h3>
+            <h3 className="text-sm font-semibold">
+              {isLast ? "Delete this league?" : "Leave for good?"}
+            </h3>
             <p className="mt-1 text-sm text-zinc-500">
-              {hasHistory
-                ? "Everything you have done in this league goes with you — rosters, points, cost cap, bets and chips. Rejoining with the invite code would start you from nothing."
-                : "You can rejoin later with the invite code."}
+              {isLast
+                ? "You are the last member, so the league goes with you: its name, its invite code, its standings and every round played in it. A league with no members cannot be reached by anyone, so this cannot be undone."
+                : hasHistory
+                  ? "Everything you have done in this league goes with you — rosters, points, cost cap, bets and chips. Rejoining with the invite code would start you from nothing."
+                  : "You can rejoin later with the invite code."}
             </p>
 
             <div className="mt-4 flex gap-2">
@@ -76,7 +85,7 @@ export function LeaveLeague({
               <form action={formAction} className="flex-1">
                 <input type="hidden" name="leagueId" value={leagueId} />
                 <button className="w-full rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white">
-                  Leave
+                  {isLast ? "Delete" : "Leave"}
                 </button>
               </form>
             </div>

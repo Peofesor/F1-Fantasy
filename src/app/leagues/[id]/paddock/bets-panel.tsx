@@ -25,6 +25,8 @@ export interface PlacedBet {
   timing: BetTiming;
   outcome: string | null;
   returned: number | null;
+  /** The price agreed when it was placed. Null on bets from before per-selection odds. */
+  odds: number | null;
 }
 
 export function BetsPanel({
@@ -39,6 +41,7 @@ export function BetsPanel({
   timing,
   hasRoster,
   odds,
+  leagueLimit,
 }: {
   leagueId: string;
   round: number;
@@ -54,6 +57,8 @@ export function BetsPanel({
   hasRoster: boolean;
   /** Price per market per selection. Missing entries fall back to the listed odds. */
   odds: Record<string, Record<string, number>>;
+  /** The league's own per-bet ceiling, or null when the bank is the only one. */
+  leagueLimit: number | null;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
   const [cancelState, cancelAction] = useActionState<BetState, FormData>(cancelBet, null);
@@ -91,7 +96,7 @@ export function BetsPanel({
   // The price follows the selection, so an unpicked market shows the listed one.
   const selectedOdds = (selection && odds[marketId]?.[selection]) || market.odds;
   const placed = new Set(bets.map((bet) => bet.marketId));
-  const limit = maxStake(bank);
+  const limit = maxStake(bank, leagueLimit);
 
   const rawOptions =
     market.selection === "driver"
@@ -120,6 +125,7 @@ export function BetsPanel({
         <h2 className="text-sm font-semibold">Bets</h2>
         <span className="text-xs text-zinc-500">
           bank {bank.toFixed(1)} · max stake {limit.toFixed(1)}
+          {leagueLimit !== null && leagueLimit < bank ? " (league cap)" : ""}
         </span>
       </div>
       <p className="mt-0.5 text-xs text-zinc-500">
@@ -150,8 +156,9 @@ export function BetsPanel({
                       : "text-zinc-500"
                 }`}
               >
-                {bet.outcome ??
-                  (bet.timing === "pre_qualifying" ? `open · ${PRE_QUALIFYING_BONUS}×` : "open")}
+                {bet.outcome ?? "open"}
+                {bet.odds !== null && ` · ${bet.odds.toFixed(2)}x`}
+                {bet.timing === "pre_qualifying" && ` ×${PRE_QUALIFYING_BONUS}`}
                 {bet.returned ? ` +${bet.returned}` : ""}
               </span>
 

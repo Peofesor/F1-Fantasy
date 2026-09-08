@@ -32,7 +32,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
 
   const { data: betRows } = await supabase
     .from("bets")
-    .select("market_id, selection, stake, timing, outcome, returned")
+    .select("market_id, selection, stake, timing, outcome, returned, odds")
     .eq("member_id", memberId)
     .eq("season", round.season)
     .eq("round", round.round);
@@ -52,6 +52,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
       timing: bet.timing as BetTiming,
       outcome: bet.outcome,
       returned: bet.returned === null ? null : Number(bet.returned),
+      odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
     };
   });
 
@@ -173,6 +174,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         timing={(timingValue ?? "pre_qualifying") as BetTiming}
         hasRoster={Boolean(hasRoster)}
         odds={odds}
+        leagueLimit={league.max_stake}
       />
     </main>
   );

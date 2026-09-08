@@ -22,6 +22,8 @@ export interface MemberContext {
     name: string;
     season: number;
     starting_cost_cap: number;
+    /** Per-bet ceiling set by the host, or null for none. */
+    max_stake: number | null;
   };
   /** Null when the season has no ingested rounds yet. */
   round: RoundContext | null;
@@ -40,7 +42,9 @@ export async function loadMemberContext(leagueId: string): Promise<MemberContext
     // The FK is named explicitly because duel_fixtures references both
     // leagues and league_members, so PostgREST sees a second relationship
     // between them and refuses an unqualified embed.
-    .select("id, leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap)")
+    .select(
+      "id, leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap, max_stake)",
+    )
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)
     .maybeSingle();

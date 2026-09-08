@@ -24,7 +24,7 @@ Cost cap is not a static pool you're handed once — it moves with your roster's
 
 Spending cost cap on a chip genuinely reduces what you have available for drivers (and vice versa) — it's one pool, not separate currencies. This is intentional: it creates a real trade-off between a stronger roster and chip advantages, rather than "free" bonus spending.
 
-Betting stakes are drawn from your **spare** (uncommitted) cost cap, not your total. There is no per-bet ceiling below the bank itself: a bet already requires a paid-for roster, so the bank is genuinely spare, and odds carry a house margin, so staking big is a faster way to lose rather than a shortcut to winning. The old ceiling of a fifth also broke the form on a small bank — a fifth of 2.0 is 0.4, under the 1.0 minimum, so no stake was possible at all.
+Betting stakes are drawn from your **spare** (uncommitted) cost cap, not your total. By default there is no per-bet ceiling below the bank itself, though **a host may set one** (`leagues.max_stake`) — it only ever narrows what a future bet may risk, so it cannot rescore a round already played. Without one: a bet already requires a paid-for roster, so the bank is genuinely spare, and odds carry a house margin, so staking big is a faster way to lose rather than a shortcut to winning. The old ceiling of a fifth also broke the form on a small bank — a fifth of 2.0 is 0.4, under the 1.0 minimum, so no stake was possible at all.
 
 ## 3. Game modes
 

@@ -212,3 +212,27 @@ describe("roundStake", () => {
     expect(checkStake(0.1, 0.1).allowed).toBe(true);
   });
 });
+
+describe("a league's own stake ceiling", () => {
+  it("does nothing when the league sets none", () => {
+    expect(maxStake(100, null)).toBeCloseTo(100, 1);
+    expect(checkStake(100, 100, null).allowed).toBe(true);
+  });
+
+  it("caps a stake at the league's figure", () => {
+    expect(maxStake(100, 10)).toBeCloseTo(10, 1);
+    expect(checkStake(10, 100, 10).allowed).toBe(true);
+    expect(checkStake(10.5, 100, 10).allowed).toBe(false);
+  });
+
+  it("says which limit was hit, since the two need different fixes", () => {
+    expect(checkStake(50, 100, 10).reason).toContain("league caps a bet at 10.0");
+    expect(checkStake(200, 100, 500).reason).toContain("more cap than your bank holds");
+  });
+
+  it("never lets a league limit raise what the bank can cover", () => {
+    // A generous house rule is still bounded by the money that exists.
+    expect(maxStake(5, 500)).toBeCloseTo(5, 1);
+    expect(checkStake(6, 5, 500).allowed).toBe(false);
+  });
+});

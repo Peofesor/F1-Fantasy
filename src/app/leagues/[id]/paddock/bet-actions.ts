@@ -54,13 +54,13 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     // The FK is named explicitly because duel_fixtures references both
     // leagues and league_members, so PostgREST sees a second relationship
     // between them and refuses an unqualified embed.
-    .select("id, leagues!league_members_league_id_fkey(season)")
+    .select("id, leagues!league_members_league_id_fkey(season, max_stake)")
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)
     .maybeSingle();
 
   if (!membership) return { error: "You are not a member of this league." };
-  const league = membership.leagues as unknown as { season: number } | null;
+  const league = membership.leagues as unknown as { season: number; max_stake: number | null } | null;
   if (!league) return { error: "League not found." };
 
   // The bank is the uncommitted balance. Cap tied up in a roster is not
@@ -93,7 +93,7 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     .eq("member_id", membership.id);
 
   const bank = ledgerBalance(ledger ?? []);
-  const check = checkStake(stake, bank);
+  const check = checkStake(stake, bank, league.max_stake);
   if (!check.allowed) return { error: check.reason ?? "Stake not allowed." };
 
   // Priced here rather than taken from the form: the odds decide the payout,
@@ -161,13 +161,13 @@ export async function cancelBet(
 
   const { data: membership } = await supabase
     .from("league_members")
-    .select("id, leagues!league_members_league_id_fkey(season)")
+    .select("id, leagues!league_members_league_id_fkey(season, max_stake)")
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)
     .maybeSingle();
 
   if (!membership) return { error: "Not a member of this league." };
-  const league = membership.leagues as unknown as { season: number };
+  const league = membership.leagues as unknown as { season: number; max_stake: number | null };
 
   // Read the stake before deleting it: the refund has to match what was taken,
   // and the row is gone immediately afterwards.

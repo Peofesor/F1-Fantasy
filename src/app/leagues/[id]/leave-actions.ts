@@ -15,6 +15,10 @@ export type LeaveState = { error: string } | null;
  * that member. There is no soft delete and no undo — which is why the button
  * that calls this asks first and says so plainly.
  *
+ * The last person out takes the league with them: an emptied league is
+ * unreachable by anybody, since the read policy needs membership or ownership,
+ * so leaving it behind only accumulates rows nobody can see or remove.
+ *
  * The owner cannot walk out on a league that still has members in it. The
  * league's `owner_id` points at a profile rather than a membership, so leaving
  * would leave it running with nobody able to reschedule fixtures, and no way
@@ -60,6 +64,12 @@ export async function leaveLeague(_previous: LeaveState, formData: FormData): Pr
     }
   }
 
+  // Counted before leaving: afterwards the row is gone and so is the answer.
+  const { count: before } = await supabase
+    .from("league_members")
+    .select("*", { count: "exact", head: true })
+    .eq("league_id", leagueId);
+
   const { error, count } = await supabase
     .from("league_members")
     .delete({ count: "exact" })
@@ -67,6 +77,13 @@ export async function leaveLeague(_previous: LeaveState, formData: FormData): Pr
 
   if (error) return { error: error.message };
   if (!count) return { error: "Could not leave — nothing was removed." };
+
+  if ((before ?? 0) <= 1) {
+    // Nobody is left to see it. A failure here is not worth blocking the exit
+    // over — the member is already out, and an orphaned league harms nothing
+    // beyond being untidy.
+    await supabase.from("leagues").delete().eq("id", leagueId);
+  }
 
   revalidatePath("/leagues");
   redirect("/leagues");

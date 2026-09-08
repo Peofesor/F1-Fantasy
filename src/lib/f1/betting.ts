@@ -121,8 +121,9 @@ export const PRE_QUALIFYING_BONUS = 1.1;
  * fifth of 2.0 is 0.4, below the 1.0 minimum, so the field asked for a number
  * between 1 and 0.4.
  */
-export function maxStake(bank: number): number {
-  return roundStake(bank);
+export function maxStake(bank: number, leagueLimit: number | null = null): number {
+  const ceiling = leagueLimit === null ? bank : Math.min(bank, leagueLimit);
+  return roundStake(ceiling);
 }
 
 /**
@@ -154,13 +155,23 @@ export interface StakeCheck {
   reason?: string;
 }
 
-export function checkStake(stake: number, bank: number): StakeCheck {
-  const max = maxStake(bank);
+export function checkStake(
+  stake: number,
+  bank: number,
+  leagueLimit: number | null = null,
+): StakeCheck {
+  const max = maxStake(bank, leagueLimit);
   if (!Number.isFinite(stake) || stake < MIN_STAKE) {
     return { allowed: false, max, reason: `Minimum stake is ${MIN_STAKE.toFixed(1)}.` };
   }
   if (stake > max) {
-    return { allowed: false, max, reason: "You cannot stake more cap than your bank holds." };
+    // Which limit bit is worth saying: "your bank" and "the house rule" call
+    // for different fixes.
+    const reason =
+      leagueLimit !== null && leagueLimit < bank
+        ? `This league caps a bet at ${leagueLimit.toFixed(1)}.`
+        : "You cannot stake more cap than your bank holds.";
+    return { allowed: false, max, reason };
   }
   return { allowed: true, max };
 }
