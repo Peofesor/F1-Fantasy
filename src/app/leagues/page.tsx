@@ -35,9 +35,14 @@ export default async function LeaguesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Your leagues</h1>
           <p className="text-sm text-zinc-500">{user.email}</p>
         </div>
-        <form action={signOut}>
-          <button className="text-sm text-zinc-500 underline underline-offset-4">Sign out</button>
-        </form>
+        <div className="flex items-center gap-3">
+          <Link href="/rules" className="text-sm text-zinc-500 underline underline-offset-4">
+            Rules
+          </Link>
+          <form action={signOut}>
+            <button className="text-sm text-zinc-500 underline underline-offset-4">Sign out</button>
+          </form>
+        </div>
       </header>
 
       {memberships.length === 0 ? (

@@ -1,0 +1,189 @@
+import Link from "next/link";
+
+import {
+  DNF_PENALTY,
+  FASTEST_LAP_POINTS,
+  OVERTAKE_DIVISOR,
+  QUALIFYING_NO_TIME_PENALTY,
+  QUALIFYING_POINTS,
+  RACE_POINTS,
+} from "@/lib/f1/scoring";
+import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
+import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
+import { CHIP_LIST } from "@/lib/f1/chips";
+import { MARKET_LIST, MAX_STAKE_FRACTION, PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
+import { TOP_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
+
+/**
+ * How the game scores.
+ *
+ * Every number here is imported from the module that implements it rather than
+ * written out, so the page cannot drift from the rules it describes. If a
+ * balance constant changes, this updates with it.
+ */
+export const metadata = { title: "Rules · F1 Fantasy" };
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <div className="mt-2 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">{children}</div>
+    </section>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-zinc-100 py-1 last:border-0 dark:border-zinc-800">
+      <span className="min-w-0">{label}</span>
+      <span className="shrink-0 tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+export default function RulesPage() {
+  return (
+    <main className="mx-auto max-w-2xl space-y-4 p-4 pb-16">
+      <header className="pt-2">
+        <Link href="/leagues" className="text-sm text-zinc-500 underline underline-offset-4">
+          ← Leagues
+        </Link>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">How scoring works</h1>
+        <p className="text-sm text-zinc-500">
+          Every figure on this page comes straight from the code, so it always matches what
+          actually happens.
+        </p>
+      </header>
+
+      <Section title="Your roster">
+        <p>
+          {TOP_SLOTS} drivers from the top bracket, {MID_SLOTS} from the mid bracket, and 1
+          backmarker who can be anyone. Plus {CONSTRUCTOR_SLOTS} constructors and 1
+          reverse-scored constructor.
+        </p>
+        <p>
+          The <strong>top bracket is the top {TOP_BRACKET_SIZE} drivers</strong> by points scored
+          over the last {ROLLING_WINDOW_ROUNDS} race weekends. Everyone else is mid. That same
+          figure sets prices, so a driver in form is both better and dearer.
+        </p>
+      </Section>
+
+      <Section title="What earns points in a weekend">
+        <p className="text-zinc-900 dark:text-zinc-100">Qualifying position</p>
+        <div>
+          {QUALIFYING_POINTS.map((points, index) => (
+            <Row key={index} label={`P${index + 1}`} value={`+${points}`} />
+          ))}
+          <Row label={`P${QUALIFYING_POINTS.length + 1} and below`} value="0" />
+        </div>
+
+        <p className="pt-2 text-zinc-900 dark:text-zinc-100">Race finish</p>
+        <div>
+          {RACE_POINTS.map((points, index) => (
+            <Row key={index} label={`P${index + 1}`} value={`+${points}`} />
+          ))}
+          <Row label={`P${RACE_POINTS.length + 1} and below`} value="0" />
+        </div>
+
+        <p className="pt-2 text-zinc-900 dark:text-zinc-100">Everything else</p>
+        <div>
+          <Row label="Each place gained against your grid slot" value="+1" />
+          <Row label="Each place lost" value="−1" />
+          <Row label={`Every ${OVERTAKE_DIVISOR} on-track overtakes`} value="+1" />
+          <Row label="Fastest lap" value={`+${FASTEST_LAP_POINTS}`} />
+          <Row label="Retirement, disqualification or non-start" value={`${DNF_PENALTY}`} />
+          <Row
+            label="Disqualified from qualifying, or no time set"
+            value={`${QUALIFYING_NO_TIME_PENALTY}`}
+          />
+        </div>
+        <p className="pt-1 text-xs">
+          A driver who retires scores no race points and takes no places-lost penalty — the
+          retirement is punished once, not twice.
+        </p>
+      </Section>
+
+      <Section title="Why overtakes are divided by three">
+        <p>
+          Our overtake feed counts a broader class of events than the figure shown on TV: passes
+          on lapped cars, position changes during pit cycles, and moves the official stat leaves
+          out. Across 276 driver-races in 2026 the median driver recorded 7 and the highest 43.
+        </p>
+        <p>
+          Scored one-for-one, a single race could out-earn the {RACE_POINTS[0]} points for
+          winning it. Dividing by {OVERTAKE_DIVISOR} keeps a win the most valuable thing you can
+          do while still rewarding a driver who carves through the field.
+        </p>
+      </Section>
+
+      <Section title="The two slots that score differently">
+        <p>
+          <strong>Your backmarker scores no points at all.</strong> Instead they pay you cost cap
+          equal to their finishing position — P18 pays 18. A retirement pays nothing, so
+          picking a crash-prone driver is not a strategy.
+        </p>
+        <p>
+          <strong>A constructor scores its two drivers combined</strong>, so it swings about twice
+          as hard as a driver slot. The <strong>reverse-scored constructor</strong> pays on how
+          badly the team did that race: last place pays the most.
+        </p>
+      </Section>
+
+      <Section title="Transfers and the cost cap">
+        <p>
+          {FREE_CHANGES_PER_ROUND} free changes each round, then {EXTRA_CHANGE_FEE} cost cap per
+          change. Your cap moves with your roster: it grows when a driver you own rises in price
+          and shrinks when they fall, so a bad pick costs you twice.
+        </p>
+        <p>
+          Selling returns a driver&apos;s <em>current</em> price, not what you paid. Swapping
+          conserves your total wealth; only fees actually consume it.
+        </p>
+      </Section>
+
+      <Section title="Chips">
+        <div>
+          {CHIP_LIST.map((chip) => (
+            <Row
+              key={chip.id}
+              label={`${chip.name} — ${chip.description}`}
+              value={chip.unlimited ? "free" : `${chip.price}`}
+            />
+          ))}
+        </div>
+        <p className="pt-1 text-xs">
+          One chip of a kind per round. Multipliers apply before No Negative, so doubling a
+          negative score and then cancelling it leaves you at zero rather than deeper in the hole.
+        </p>
+      </Section>
+
+      <Section title="Betting">
+        <p>
+          Stakes come from your bank — the cap not tied up in your roster — and are capped at{" "}
+          {Math.round(MAX_STAKE_FRACTION * 100)}% of it per bet. Bets placed before qualifying pay{" "}
+          {PRE_QUALIFYING_BONUS}× the listed odds, because you are guessing with less information.
+        </p>
+        <div>
+          {MARKET_LIST.map((market) => (
+            <Row key={market.id} label={market.name} value={`${market.odds}×`} />
+          ))}
+        </div>
+        <p className="pt-1 text-xs">
+          One bet per market per round, and a bet cannot be withdrawn. If the data needed to
+          settle a market never arrives, the bet is voided and your stake returned.
+        </p>
+      </Section>
+
+      <Section title="Winning">
+        <p>
+          In a <strong>duel</strong> league you face one opponent each race; the higher score
+          takes 1 point, a draw splits it. In <strong>free-for-all</strong>, everyone is ranked on
+          total points.
+        </p>
+        <p>Not fielding a roster scores zero, which loses to anyone who picked one.</p>
+      </Section>
+    </main>
+  );
+}

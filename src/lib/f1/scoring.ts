@@ -13,11 +13,12 @@ import type { FinishClassification } from "./types";
  * reverse-scored constructor pays on its per-race placing.
  */
 
-/** Qualifying points for P1..P10; nothing below. */
-const QUALIFYING_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+/** Qualifying points for P1..P10; nothing below. Exported so the rules page
+ * renders the real table rather than a copy that can drift from it. */
+export const QUALIFYING_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
-/** Race points for P1..P10, matching the real sport. */
-const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+/** Race points for P1..P10, matching the real sport. Exported for the rules page. */
+export const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
 export const FASTEST_LAP_POINTS = 10;
 export const DRIVER_OF_THE_DAY_POINTS = 10;

@@ -207,6 +207,9 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
         <p className="text-sm text-zinc-500">
           Picking for {context.raceName} · {context.season} round {context.round}
         </p>
+        <Link href="/rules" className="mt-1 inline-block text-xs text-zinc-500 underline underline-offset-4">
+          How scoring works
+        </Link>
       </header>
 
       <RosterBuilder
