@@ -207,6 +207,16 @@ export async function getRaceResults(season: number, round: number) {
   return mergeRaces(await fetchRaceTable(`${season}/${round}/results.json`));
 }
 
+/**
+ * Sprint results for a round.
+ *
+ * Returns null for a weekend with no sprint, which is most of them — upstream
+ * answers with an empty race list rather than an error.
+ */
+export async function getSprintResults(season: number, round: number) {
+  return mergeRaces(await fetchRaceTable(`${season}/${round}/sprint.json`));
+}
+
 export async function getPitStops(season: number, round: number) {
   return mergeRaces(await fetchRaceTable(`${season}/${round}/pitstops.json`));
 }

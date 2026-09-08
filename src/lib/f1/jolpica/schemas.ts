@@ -115,6 +115,7 @@ const raceSchema = z.object({
   Sprint: z.object({ date: z.string(), time: z.string().optional() }).optional(),
   QualifyingResults: z.array(qualifyingResultSchema).optional(),
   Results: z.array(raceResultSchema).optional(),
+  SprintResults: z.array(raceResultSchema).optional(),
   PitStops: z.array(pitStopSchema).optional(),
   Laps: z.array(lapSchema).optional(),
 });

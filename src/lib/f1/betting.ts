@@ -22,7 +22,12 @@ export type MarketId =
   | "winner_nationality"
   | "most_overtakes"
   | "safety_car"
-  | "lap_one_leader";
+  | "lap_one_leader"
+  | "sprint_winner"
+  | "sprint_points"
+  | "reached_q2"
+  | "beats_teammate_race"
+  | "beats_teammate_qualifying";
 
 export type BetTiming = "pre_qualifying" | "pre_race";
 
@@ -65,6 +70,11 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
   winner_nationality: { id: "winner_nationality", name: "Winner's nationality", selection: "nationality", odds: 3, description: "Nationality of the race winner.", available: true },
   most_overtakes: { id: "most_overtakes", name: "Most overtakes", selection: "driver", odds: 5, description: "Makes the most on-track passes (house count).", available: true },
   safety_car: { id: "safety_car", name: "Safety car", selection: "yes_no", odds: 1.6, description: "A safety car is deployed.", available: true },
+  sprint_winner: { id: "sprint_winner", name: "Sprint winner", selection: "driver", odds: 4, description: "Wins the sprint. Sprint weekends only.", available: true },
+  sprint_points: { id: "sprint_points", name: "Sprint points", selection: "driver", odds: 1.5, description: "Finishes the sprint in the top 8. Sprint weekends only.", available: true },
+  reached_q2: { id: "reached_q2", name: "Reaches Q2", selection: "driver", odds: 1.4, description: "Survives the first qualifying cut.", available: true },
+  beats_teammate_race: { id: "beats_teammate_race", name: "Beats teammate (race)", selection: "driver", odds: 1.8, description: "Finishes ahead of the other car in their garage.", available: true },
+  beats_teammate_qualifying: { id: "beats_teammate_qualifying", name: "Beats teammate (qualifying)", selection: "driver", odds: 1.8, description: "Out-qualifies the other car in their garage.", available: true },
   lap_one_leader: {
     id: "lap_one_leader",
     name: "Leader after lap 1",
@@ -146,6 +156,14 @@ export interface SettlementFacts {
   mostOvertakesDriverId: string | null;
   safetyCarDeployed: boolean;
   lapOneLeaderDriverId: string | null;
+  /**
+   * Sprint finishing positions. An empty map means no sprint ran, which voids
+   * the sprint markets rather than settling them as losses.
+   */
+  sprintPositions: ReadonlyMap<string, number | null>;
+  /** Who beat their teammate. Absent when there was no valid comparison. */
+  beatTeammateInRace: ReadonlyMap<string, boolean>;
+  beatTeammateInQualifying: ReadonlyMap<string, boolean>;
 }
 
 /**
@@ -209,6 +227,31 @@ export function settleBet(
       return facts.mostOvertakesDriverId === null
         ? null
         : facts.mostOvertakesDriverId === selection;
+
+    case "sprint_winner":
+    case "sprint_points": {
+      // No sprint that weekend: void rather than lose. Backing a driver in a
+      // session that never happened is not a losing bet.
+      if (facts.sprintPositions.size === 0) return null;
+      const sprintPosition = facts.sprintPositions.get(selection) ?? null;
+      if (sprintPosition === null) return false;
+      return marketId === "sprint_winner" ? sprintPosition === 1 : sprintPosition <= 8;
+    }
+
+    case "reached_q2": {
+      const reached = facts.qualifyingReached.get(selection);
+      return reached === undefined ? null : reached !== "Q1";
+    }
+
+    case "beats_teammate_race": {
+      const beat = facts.beatTeammateInRace.get(selection);
+      return beat === undefined ? null : beat;
+    }
+
+    case "beats_teammate_qualifying": {
+      const beat = facts.beatTeammateInQualifying.get(selection);
+      return beat === undefined ? null : beat;
+    }
 
     case "safety_car":
       return (selection === "yes") === facts.safetyCarDeployed;

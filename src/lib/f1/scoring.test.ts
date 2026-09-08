@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  DNF_PENALTY,
+  REACHED_Q2_POINTS,
+  REACHED_Q3_POINTS,
+  SPRINT_DNF_PENALTY,
+  SPRINT_FASTEST_LAP_POINTS,
+  SPRINT_POINTS,
+  TEAMMATE_QUALIFYING_POINTS,
+  TEAMMATE_RACE_POINTS,
+  qualifyingProgressPoints,
+  sprintScore,
+  teammatePoints,
   backmarkerBudget,
   overtakePoints,
   positionChangePoints,
@@ -230,5 +241,126 @@ describe("reverseConstructorPoints", () => {
 
   it("pays nothing for a team that did not race", () => {
     expect(reverseConstructorPoints("absent", ["fast", "slow"])).toBe(0);
+  });
+});
+
+describe("qualifyingProgressPoints", () => {
+  it("rewards surviving each cut", () => {
+    expect(qualifyingProgressPoints("Q3")).toBe(REACHED_Q3_POINTS);
+    expect(qualifyingProgressPoints("Q2")).toBe(REACHED_Q2_POINTS);
+  });
+
+  it("gives nothing for being knocked out in Q1", () => {
+    expect(qualifyingProgressPoints("Q1")).toBe(0);
+  });
+
+  it("gives nothing when qualifying did not run", () => {
+    expect(qualifyingProgressPoints(undefined)).toBe(0);
+  });
+
+  it("fills the gap the position table leaves", () => {
+    // Reaching Q2 means roughly top 15, which scores zero from the position
+    // table since that stops at P10 — this is the point of the bonus.
+    expect(qualifyingPoints(13)).toBe(0);
+    expect(qualifyingProgressPoints("Q2")).toBeGreaterThan(0);
+  });
+});
+
+describe("sprintScore", () => {
+  const sprint = (over: Partial<NonNullable<DriverRaceInput["sprint"]>> = {}) => ({
+    position: 1,
+    classification: "finished" as const,
+    fastestLap: false,
+    ...over,
+  });
+
+  it("scores nothing when no sprint ran", () => {
+    expect(sprintScore(undefined)).toBe(0);
+  });
+
+  it("pays the sprint table, not the race table", () => {
+    expect(sprintScore(sprint({ position: 1 }))).toBe(SPRINT_POINTS[0]);
+    expect(sprintScore(sprint({ position: 1 }))).toBeLessThan(racePoints(1));
+  });
+
+  it("pays nothing below the points positions", () => {
+    expect(sprintScore(sprint({ position: SPRINT_POINTS.length + 1 }))).toBe(0);
+  });
+
+  it("adds the sprint fastest lap bonus", () => {
+    expect(sprintScore(sprint({ position: 1, fastestLap: true }))).toBe(
+      SPRINT_POINTS[0] + SPRINT_FASTEST_LAP_POINTS,
+    );
+  });
+
+  it("penalises a sprint retirement less than a race one", () => {
+    const score = sprintScore(sprint({ position: null, classification: "retired" }));
+    expect(score).toBe(SPRINT_DNF_PENALTY);
+    expect(Math.abs(SPRINT_DNF_PENALTY)).toBeLessThan(Math.abs(DNF_PENALTY));
+  });
+});
+
+describe("teammatePoints", () => {
+  const base = driver();
+
+  it("rewards beating a teammate in each session", () => {
+    expect(teammatePoints({ ...base, beatTeammateInRace: true })).toBe(TEAMMATE_RACE_POINTS);
+    expect(teammatePoints({ ...base, beatTeammateInQualifying: true })).toBe(
+      TEAMMATE_QUALIFYING_POINTS,
+    );
+  });
+
+  it("stacks both", () => {
+    expect(
+      teammatePoints({ ...base, beatTeammateInRace: true, beatTeammateInQualifying: true }),
+    ).toBe(TEAMMATE_RACE_POINTS + TEAMMATE_QUALIFYING_POINTS);
+  });
+
+  it("gives nothing when there was no comparison to make", () => {
+    // Undefined means no valid teammate, which must not read as "lost".
+    expect(teammatePoints(base)).toBe(0);
+  });
+
+  it("stays small against a race win", () => {
+    const both = TEAMMATE_RACE_POINTS + TEAMMATE_QUALIFYING_POINTS;
+    expect(both).toBeLessThan(racePoints(1) / 2);
+  });
+});
+
+describe("scoreDriver with the new components", () => {
+  it("adds sprint, progression and teammate points to the total", () => {
+    const score = scoreDriver(
+      driver({
+        qualifyingPosition: 1,
+        gridPosition: 1,
+        finishPosition: 1,
+        qualifyingReached: "Q3",
+        sprint: { position: 1, classification: "finished", fastestLap: false },
+        beatTeammateInRace: true,
+        beatTeammateInQualifying: true,
+      }),
+    );
+
+    expect(score.qualifyingProgress).toBe(REACHED_Q3_POINTS);
+    expect(score.sprint).toBe(SPRINT_POINTS[0]);
+    expect(score.teammate).toBe(TEAMMATE_RACE_POINTS + TEAMMATE_QUALIFYING_POINTS);
+    expect(score.total).toBe(
+      score.qualifying +
+        score.qualifyingProgress +
+        score.race +
+        score.sprint +
+        score.positionsGained +
+        score.overtakes +
+        score.fastestLap +
+        score.driverOfTheDay +
+        score.teammate +
+        score.penalties,
+    );
+  });
+
+  it("is unchanged on a non-sprint weekend with no teammate data", () => {
+    const score = scoreDriver(driver({ qualifyingPosition: 5, finishPosition: 5 }));
+    expect(score.sprint).toBe(0);
+    expect(score.teammate).toBe(0);
   });
 });

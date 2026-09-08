@@ -2,6 +2,13 @@ import Link from "next/link";
 
 import {
   DNF_PENALTY,
+  REACHED_Q2_POINTS,
+  REACHED_Q3_POINTS,
+  SPRINT_DNF_PENALTY,
+  SPRINT_FASTEST_LAP_POINTS,
+  SPRINT_POINTS,
+  TEAMMATE_QUALIFYING_POINTS,
+  TEAMMATE_RACE_POINTS,
   FASTEST_LAP_POINTS,
   OVERTAKE_DIVISOR,
   QUALIFYING_NO_TIME_PENALTY,
@@ -86,6 +93,39 @@ export default function RulesPage() {
           ))}
           <Row label={`P${RACE_POINTS.length + 1} and below`} value="0" />
         </div>
+
+        <p className="pt-2 text-zinc-900 dark:text-zinc-100">Sprint races</p>
+        <p className="text-xs">
+          Six weekends a season carry a sprint. It has its own smaller table,
+          worth roughly a third of the race, and a lighter retirement penalty.
+        </p>
+        <div>
+          {SPRINT_POINTS.map((points, index) => (
+            <Row key={index} label={`Sprint P${index + 1}`} value={`+${points}`} />
+          ))}
+          <Row label="Sprint fastest lap" value={`+${SPRINT_FASTEST_LAP_POINTS}`} />
+          <Row label="Sprint retirement" value={`${SPRINT_DNF_PENALTY}`} />
+        </div>
+
+        <p className="pt-2 text-zinc-900 dark:text-zinc-100">Qualifying progress</p>
+        <div>
+          <Row label="Reaching Q2" value={`+${REACHED_Q2_POINTS}`} />
+          <Row label="Reaching Q3" value={`+${REACHED_Q3_POINTS}`} />
+        </div>
+        <p className="text-xs">
+          Reaching Q2 is worth having on its own: it means roughly the top 15,
+          which earns nothing from the position table above.
+        </p>
+
+        <p className="pt-2 text-zinc-900 dark:text-zinc-100">Against your teammate</p>
+        <div>
+          <Row label="Finishing ahead of them in the race" value={`+${TEAMMATE_RACE_POINTS}`} />
+          <Row label="Out-qualifying them" value={`+${TEAMMATE_QUALIFYING_POINTS}`} />
+        </div>
+        <p className="text-xs">
+          Same car, same strategy — the cleanest measure of the driver rather than
+          the machinery, which is what makes a midfield pick worth something.
+        </p>
 
         <p className="pt-2 text-zinc-900 dark:text-zinc-100">Everything else</p>
         <div>

@@ -36,6 +36,16 @@ const facts: SettlementFacts = {
   mostOvertakesDriverId: "eighth",
   safetyCarDeployed: true,
   lapOneLeaderDriverId: "winner",
+  sprintPositions: new Map([
+    ["winner", 3],
+    ["third", 1],
+    ["eighth", 9],
+  ]),
+  beatTeammateInRace: new Map([
+    ["winner", true],
+    ["third", false],
+  ]),
+  beatTeammateInQualifying: new Map([["winner", true]]),
 };
 
 describe("settleBet", () => {

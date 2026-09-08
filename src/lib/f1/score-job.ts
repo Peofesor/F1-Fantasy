@@ -80,13 +80,64 @@ async function loadConstructorPrices(
   return new Map((data ?? []).map((row) => [row.constructor_id, Number(row.price)]));
 }
 
+/**
+ * Marks who beat the other side of their own garage.
+ *
+ * Only pairs are compared: a team running three drivers across a season still
+ * fields two per race, and a one-car entry has nobody to beat. An unclassified
+ * driver loses the race comparison to a classified one, and two retirements are
+ * settled on classification order — the car that got further finished ahead.
+ *
+ * Comparisons are left undefined rather than false when there is no valid
+ * opponent, so "did not beat a teammate" is never confused with "had none".
+ */
+function applyTeammateComparisons(
+  drivers: Map<string, DriverRaceInput>,
+  constructorDrivers: Map<string, string[]>,
+  qualifyingByDriver: Map<string, { position: number | null }>,
+): void {
+  for (const driverIds of constructorDrivers.values()) {
+    if (driverIds.length !== 2) continue;
+
+    const [a, b] = driverIds;
+    const first = drivers.get(a);
+    const second = drivers.get(b);
+    if (!first || !second) continue;
+
+    // A null finishing position sorts last, so a classified driver always beats
+    // one who is not.
+    const rank = (position: number | null) => position ?? Number.MAX_SAFE_INTEGER;
+
+    if (first.finishPosition !== second.finishPosition) {
+      const firstAhead = rank(first.finishPosition) < rank(second.finishPosition);
+      first.beatTeammateInRace = firstAhead;
+      second.beatTeammateInRace = !firstAhead;
+    }
+
+    const firstQualifying = qualifyingByDriver.get(a)?.position ?? null;
+    const secondQualifying = qualifyingByDriver.get(b)?.position ?? null;
+
+    // Neither is credited if only one of them qualified, since there was no
+    // contest to win.
+    if (
+      firstQualifying !== null &&
+      secondQualifying !== null &&
+      firstQualifying !== secondQualifying
+    ) {
+      const firstAhead = firstQualifying < secondQualifying;
+      first.beatTeammateInQualifying = firstAhead;
+      second.beatTeammateInQualifying = !firstAhead;
+    }
+  }
+}
+
 /** Assembles every fact the scoring engine needs for one round. */
 export async function loadRoundFacts(
   supabase: SupabaseClient,
   season: number,
   round: number,
 ): Promise<RoundFacts | null> {
-  const [results, qualifying, overtakes] = await Promise.all([
+  const [results, qualifying, overtakes, sprint] = await Promise.all([
     supabase
       .from("race_results")
       .select("driver_id, constructor_id, driver_number, position, grid_position, classification, fastest_lap_rank")
@@ -94,7 +145,7 @@ export async function loadRoundFacts(
       .eq("round", round),
     supabase
       .from("qualifying_results")
-      .select("driver_id, position, set_no_time")
+      .select("driver_id, position, set_no_time, highest_session_reached")
       .eq("season", season)
       .eq("round", round),
     supabase
@@ -103,6 +154,13 @@ export async function loadRoundFacts(
       .eq("season", season)
       .eq("round", round)
       .eq("on_track", true),
+    // Absent on most weekends; an empty result means no sprint ran, which is
+    // different from a sprint the driver failed to finish.
+    supabase
+      .from("sprint_results")
+      .select("driver_id, position, classification, fastest_lap_rank")
+      .eq("season", season)
+      .eq("round", round),
   ]);
 
   const resultRows = results.data ?? [];
@@ -118,15 +176,24 @@ export async function loadRoundFacts(
     overtakesByNumber.set(row.overtaking_driver_number, current + 1);
   }
 
+  const sprintByDriver = new Map((sprint.data ?? []).map((row) => [row.driver_id, row]));
+
   const drivers = new Map<string, DriverRaceInput>();
   const constructorDrivers = new Map<string, string[]>();
 
   for (const row of resultRows) {
     const qualifyingRow = qualifyingByDriver.get(row.driver_id);
+    const sprintRow = sprintByDriver.get(row.driver_id);
+
     drivers.set(row.driver_id, {
       driverId: row.driver_id,
       qualifyingPosition: qualifyingRow?.position ?? null,
       qualifyingNoTime: qualifyingRow?.set_no_time ?? false,
+      qualifyingReached: qualifyingRow?.highest_session_reached as
+        | "Q1"
+        | "Q2"
+        | "Q3"
+        | undefined,
       gridPosition: row.grid_position,
       finishPosition: row.position,
       classification: row.classification as FinishClassification,
@@ -134,12 +201,21 @@ export async function loadRoundFacts(
       // Not available from either upstream source; see spec §11.
       driverOfTheDay: false,
       overtakes: overtakesByNumber.get(row.driver_number) ?? 0,
+      sprint: sprintRow
+        ? {
+            position: sprintRow.position,
+            classification: sprintRow.classification as FinishClassification,
+            fastestLap: sprintRow.fastest_lap_rank === 1,
+          }
+        : undefined,
     });
 
     const existing = constructorDrivers.get(row.constructor_id) ?? [];
     existing.push(row.driver_id);
     constructorDrivers.set(row.constructor_id, existing);
   }
+
+  applyTeammateComparisons(drivers, constructorDrivers, qualifyingByDriver);
 
   const constructorRanking = rankConstructorsForRace(
     [...constructorDrivers.entries()].map(([constructorId, driverIds]) => ({

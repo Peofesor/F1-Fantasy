@@ -29,7 +29,7 @@ export async function loadSettlementFacts(
   season: number,
   round: number,
 ): Promise<SettlementFacts | null> {
-  const [results, qualifying, pitStops, overtakes, safetyCar, drivers] = await Promise.all([
+  const [results, qualifying, pitStops, overtakes, safetyCar, drivers, sprint] = await Promise.all([
     supabase
       .from("race_results")
       .select("driver_id, constructor_id, driver_number, position, classification, fastest_lap_rank")
@@ -37,7 +37,7 @@ export async function loadSettlementFacts(
       .eq("round", round),
     supabase
       .from("qualifying_results")
-      .select("driver_id, highest_session_reached")
+      .select("driver_id, position, highest_session_reached")
       .eq("season", season)
       .eq("round", round),
     supabase
@@ -53,12 +53,52 @@ export async function loadSettlementFacts(
       .eq("on_track", true),
     supabase.from("safety_car_events").select("message").eq("season", season).eq("round", round),
     supabase.from("drivers").select("driver_id, nationality"),
+    supabase
+      .from("sprint_results")
+      .select("driver_id, position")
+      .eq("season", season)
+      .eq("round", round),
   ]);
 
   const resultRows = results.data ?? [];
   if (resultRows.length === 0) return null;
 
   const finishPositions = new Map(resultRows.map((row) => [row.driver_id, row.position]));
+
+  // Teammate outcomes are derived the same way scoring derives them, so a bet
+  // and the points it mirrors can never disagree.
+  const byConstructor = new Map<string, typeof resultRows>();
+  for (const row of resultRows) {
+    const existing = byConstructor.get(row.constructor_id) ?? [];
+    existing.push(row);
+    byConstructor.set(row.constructor_id, existing);
+  }
+
+  const qualifyingPositions = new Map(
+    (qualifying.data ?? []).map((row) => [row.driver_id, row.position as number | null]),
+  );
+  const beatTeammateInRace = new Map<string, boolean>();
+  const beatTeammateInQualifying = new Map<string, boolean>();
+
+  for (const pair of byConstructor.values()) {
+    if (pair.length !== 2) continue;
+    const [a, b] = pair;
+    const rank = (position: number | null) => position ?? Number.MAX_SAFE_INTEGER;
+
+    if (a.position !== b.position) {
+      const aAhead = rank(a.position) < rank(b.position);
+      beatTeammateInRace.set(a.driver_id, aAhead);
+      beatTeammateInRace.set(b.driver_id, !aAhead);
+    }
+
+    const aQualifying = qualifyingPositions.get(a.driver_id) ?? null;
+    const bQualifying = qualifyingPositions.get(b.driver_id) ?? null;
+    if (aQualifying !== null && bQualifying !== null && aQualifying !== bQualifying) {
+      const aAhead = aQualifying < bQualifying;
+      beatTeammateInQualifying.set(a.driver_id, aAhead);
+      beatTeammateInQualifying.set(b.driver_id, !aAhead);
+    }
+  }
   const classifications = new Map(resultRows.map((row) => [row.driver_id, row.classification]));
 
   const winner = resultRows.find((row) => row.position === 1);
@@ -112,6 +152,11 @@ export async function loadSettlementFacts(
     // Lap-one leader has no ingested source yet, so that market always voids
     // and refunds rather than settling wrongly. See spec §8.
     lapOneLeaderDriverId: null,
+    sprintPositions: new Map(
+      (sprint.data ?? []).map((row) => [row.driver_id, row.position as number | null]),
+    ),
+    beatTeammateInRace,
+    beatTeammateInQualifying,
   };
 }
 

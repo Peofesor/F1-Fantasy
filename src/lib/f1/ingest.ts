@@ -271,6 +271,39 @@ export async function ingestRound(
   );
   counts.race_results = raceResults.length;
 
+  // --- Sprint -------------------------------------------------------------
+  // Only a handful of rounds have one; the rest return nothing and are skipped
+  // rather than treated as a failure.
+  const sprintResponse = await jolpica.getSprintResults(season, round);
+  const sprintRows = sprintResponse?.MRData.RaceTable.Races[0]?.SprintResults;
+
+  if (sprintRows?.length) {
+    await storeRaw(supabase, "jolpica", "sprint", { season, round }, sprintResponse);
+    const sprintNumbers = new Map(
+      sprintRows.map((result) => [result.Driver.driverId, Number(result.number)]),
+    );
+    const rows = toRaceResults(sprintRows).map((entry) => ({
+      season,
+      round,
+      driver_id: entry.driverId,
+      constructor_id: entry.constructorId,
+      driver_number: sprintNumbers.get(entry.driverId) ?? 0,
+      position: entry.position,
+      grid_position: entry.gridPosition,
+      points: entry.points,
+      status: entry.status,
+      classification: entry.classification,
+      fastest_lap_rank: entry.fastestLapRank,
+    }));
+    assertOk(
+      (await supabase
+        .from("sprint_results")
+        .upsert(rows, { onConflict: "season,round,driver_id" })).error,
+      "Failed to upsert sprint results",
+    );
+    counts.sprint_results = rows.length;
+  }
+
   // --- Qualifying ---------------------------------------------------------
   const qualifyingResponse = await jolpica.getQualifying(season, round);
   const qualifyingRows = qualifyingResponse?.MRData.RaceTable.Races[0]?.QualifyingResults;

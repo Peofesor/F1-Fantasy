@@ -20,8 +20,47 @@ export const QUALIFYING_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 /** Race points for P1..P10, matching the real sport. Exported for the rules page. */
 export const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
+/**
+ * Sprint points for P1..P8, matching the real sport's smaller table.
+ *
+ * Roughly a third of the win, which is the right weight: a sprint is a third
+ * the distance and cannot be worth as much as the race it precedes.
+ */
+export const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
+
 export const FASTEST_LAP_POINTS = 10;
 export const DRIVER_OF_THE_DAY_POINTS = 10;
+
+/** Scaled down from the race bonus in proportion to the sprint's points table. */
+export const SPRINT_FASTEST_LAP_POINTS = 5;
+
+/**
+ * Half the race penalty, matching the official game's own reduction. A sprint
+ * retirement costs less because there is less to lose.
+ */
+export const SPRINT_DNF_PENALTY = -10;
+
+/**
+ * Bonuses for surviving each qualifying cut.
+ *
+ * Reaching Q2 is the one that fills a real gap: it means roughly the top 15,
+ * which earns nothing from the position table since that stops at P10. Q3
+ * already earns position points, so its bonus is deliberately modest — the two
+ * together should not rival a race result.
+ */
+export const REACHED_Q2_POINTS = 2;
+export const REACHED_Q3_POINTS = 5;
+
+/**
+ * Beating the driver in the other side of your garage.
+ *
+ * Same car, same strategy calls, so it is the cleanest available measure of a
+ * driver rather than their machinery — which is exactly what a midfield pick
+ * needs to be worth something. Small on purpose: a win is worth
+ * ${RACE_POINTS[0]}, and beating a teammate should never approach that.
+ */
+export const TEAMMATE_RACE_POINTS = 3;
+export const TEAMMATE_QUALIFYING_POINTS = 2;
 
 /** Applied for a DNF, a non-classification, or a race disqualification. */
 export const DNF_PENALTY = -20;
@@ -56,15 +95,35 @@ export interface DriverRaceInput {
   driverOfTheDay: boolean;
   /** On-track overtakes, already filtered for pit-driven position changes. */
   overtakes: number;
+  /** Furthest qualifying session reached. Undefined when no qualifying ran. */
+  qualifyingReached?: "Q1" | "Q2" | "Q3";
+  /**
+   * Sprint result, present only on sprint weekends. Absent means no sprint
+   * happened — distinct from a sprint the driver failed to finish.
+   */
+  sprint?: {
+    position: number | null;
+    classification: FinishClassification;
+    fastestLap: boolean;
+  };
+  /**
+   * Teammate comparisons. Undefined when there is nobody to compare against —
+   * a one-car entry, or a teammate who did not participate.
+   */
+  beatTeammateInRace?: boolean;
+  beatTeammateInQualifying?: boolean;
 }
 
 export interface ScoreBreakdown {
   qualifying: number;
+  qualifyingProgress: number;
   race: number;
+  sprint: number;
   positionsGained: number;
   overtakes: number;
   fastestLap: number;
   driverOfTheDay: number;
+  teammate: number;
   penalties: number;
   total: number;
 }
@@ -123,19 +182,50 @@ function isClassified(classification: FinishClassification): boolean {
   return classification === "finished" || classification === "lapped";
 }
 
+/** Points for surviving the qualifying cuts, by the furthest session reached. */
+export function qualifyingProgressPoints(
+  reached: "Q1" | "Q2" | "Q3" | undefined,
+): number {
+  if (reached === "Q3") return REACHED_Q3_POINTS;
+  if (reached === "Q2") return REACHED_Q2_POINTS;
+  return 0;
+}
+
+/** Sprint contribution: its own points table, fastest lap and retirement penalty. */
+export function sprintScore(sprint: DriverRaceInput["sprint"]): number {
+  if (!sprint) return 0;
+
+  const classified = isClassified(sprint.classification);
+  const points = classified ? pointsForPosition(SPRINT_POINTS, sprint.position) : 0;
+  const fastestLap = sprint.fastestLap ? SPRINT_FASTEST_LAP_POINTS : 0;
+  const penalty = isPenalisedFinish(sprint.classification) ? SPRINT_DNF_PENALTY : 0;
+
+  return points + fastestLap + penalty;
+}
+
+export function teammatePoints(input: DriverRaceInput): number {
+  return (
+    (input.beatTeammateInRace ? TEAMMATE_RACE_POINTS : 0) +
+    (input.beatTeammateInQualifying ? TEAMMATE_QUALIFYING_POINTS : 0)
+  );
+}
+
 export function scoreDriver(input: DriverRaceInput): ScoreBreakdown {
   const penalised = isPenalisedFinish(input.classification);
   const classified = isClassified(input.classification);
 
   const breakdown: ScoreBreakdown = {
     qualifying: qualifyingPoints(input.qualifyingPosition),
+    qualifyingProgress: qualifyingProgressPoints(input.qualifyingReached),
     race: classified ? racePoints(input.finishPosition) : 0,
+    sprint: sprintScore(input.sprint),
     positionsGained: classified
       ? positionChangePoints(input.gridPosition, input.finishPosition)
       : 0,
     overtakes: overtakePoints(input.overtakes),
     fastestLap: input.fastestLap ? FASTEST_LAP_POINTS : 0,
     driverOfTheDay: input.driverOfTheDay ? DRIVER_OF_THE_DAY_POINTS : 0,
+    teammate: teammatePoints(input),
     penalties:
       (penalised ? DNF_PENALTY : 0) +
       (input.qualifyingNoTime ? QUALIFYING_NO_TIME_PENALTY : 0),
@@ -144,11 +234,14 @@ export function scoreDriver(input: DriverRaceInput): ScoreBreakdown {
 
   breakdown.total =
     breakdown.qualifying +
+    breakdown.qualifyingProgress +
     breakdown.race +
+    breakdown.sprint +
     breakdown.positionsGained +
     breakdown.overtakes +
     breakdown.fastestLap +
     breakdown.driverOfTheDay +
+    breakdown.teammate +
     breakdown.penalties;
 
   return breakdown;
