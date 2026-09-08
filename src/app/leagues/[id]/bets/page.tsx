@@ -62,6 +62,13 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     target_round: round.round,
   });
 
+  // Betting is gated on having a team, since both come out of the same cap.
+  const { data: hasRoster } = await supabase.rpc("has_complete_roster", {
+    target_member: memberId,
+    target_season: round.season,
+    target_round: round.round,
+  });
+
   const nationalities = [...new Set([...round.driverNationalities.values()])].sort();
 
   return (
@@ -90,6 +97,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         nationalities={nationalities}
         locked={Boolean(roster?.locked_at)}
         timing={(timingValue ?? "pre_qualifying") as BetTiming}
+        hasRoster={Boolean(hasRoster)}
       />
     </main>
   );

@@ -10,6 +10,8 @@ import {
   type BetTiming,
   type MarketId,
 } from "@/lib/f1/betting";
+import Link from "next/link";
+
 import { cancelBet, placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
@@ -32,6 +34,7 @@ export function BetsPanel({
   nationalities,
   locked,
   timing,
+  hasRoster,
 }: {
   leagueId: string;
   round: number;
@@ -43,6 +46,8 @@ export function BetsPanel({
   locked: boolean;
   /** Which odds window a bet placed now falls in, decided by the clock. */
   timing: BetTiming;
+  /** Whether a full roster is saved for this round. Betting waits on it. */
+  hasRoster: boolean;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
   const [cancelState, cancelAction] = useActionState<BetState, FormData>(cancelBet, null);
@@ -137,6 +142,19 @@ export function BetsPanel({
 
       {locked ? (
         <p className="mt-3 text-xs text-zinc-500">Round locked — no more bets.</p>
+      ) : !hasRoster ? (
+        <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <strong>Pick your team first.</strong> Bets and drivers come out of the same cost cap,
+          and the team is the bigger claim on it — betting first could leave you unable to field
+          a legal one.{" "}
+          <Link
+            href={`/leagues/${leagueId}/roster`}
+            className="underline underline-offset-2"
+          >
+            Build your roster
+          </Link>
+          .
+        </p>
       ) : bank < 1 ? (
         <p className="mt-3 text-xs text-zinc-500">No cap in the bank to bet with.</p>
       ) : (

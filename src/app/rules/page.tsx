@@ -234,7 +234,9 @@ export default function RulesPage() {
 
       <Section title="Betting">
         <p>
-          Stakes come from your bank — the cap not tied up in your roster — and are capped at{" "}
+          You need a full roster for the round before you can bet: both come out of the same cost
+          cap, and the team is the bigger claim on it. Stakes come from your bank — the cap not
+          tied up in your roster — and are capped at{" "}
           {Math.round(MAX_STAKE_FRACTION * 100)}% of it per bet. Bets placed before qualifying pay{" "}
           {PRE_QUALIFYING_BONUS}× the listed odds, because you are guessing with less information.
         </p>

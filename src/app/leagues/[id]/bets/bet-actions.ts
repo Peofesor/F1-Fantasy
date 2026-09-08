@@ -56,6 +56,21 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   // The bank is the uncommitted balance. Cap tied up in a roster is not
   // available to bet with — a member cannot stake money that is currently a
   // driver (spec §8).
+  // The roster is the bigger claim on the same cost cap, and it is not
+  // optional the way a bet is. Betting first could leave a member unable to
+  // field a legal team, so the team comes first.
+  const { data: hasRoster } = await supabase.rpc("has_complete_roster", {
+    target_member: membership.id,
+    target_season: league.season,
+    target_round: round,
+  });
+
+  if (!hasRoster) {
+    return {
+      error: "Save a full roster for this round before betting — it is paid from the same cap.",
+    };
+  }
+
   const { data: timingValue } = await supabase.rpc("current_bet_timing", {
     target_season: league.season,
     target_round: round,

@@ -288,6 +288,7 @@ Note the free allowance is tracked on the roster (`transfers_used`), not derived
 ## 8. Betting (Wetten)
 
 - Stakes and payouts are in cost cap directly (drawn from spare/uncommitted cap), capped per bet.
+- **A bet requires a complete roster for that round.** Both come out of the same cap and the roster is the larger claim on it — at ~117 for the cheapest legal team against a 150 budget, a single maximum stake is enough to make fielding a team impossible. Betting is optional and fielding a team is not, so the team goes first. Enforced by an RLS policy (`has_complete_roster`), not only in the Server Action, since an action takes a direct POST and this is a rule about money.
 - Two timing tiers, as in the original notes: pre-qualifying bets (higher payout, more risk) and pre-race bets (lower payout).
 - All bet types from the original notes ship for v1 — none of them are structurally complex, they're all straightforward prediction markets against race outcomes:
   - Fastest lap
