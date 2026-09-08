@@ -121,28 +121,29 @@ Prices are **derived from form**, not imported: no upstream source publishes F1 
 - **Known interaction with the backmarker slot:** because price now tracks expected finishing position, and the backmarker slot pays out *more* for a worse finish, the cheapest driver is also the highest-paying backmarker. That makes the slot a weaker decision than intended and is worth revisiting — but it is a scoring-balance question, not a pricing one, and the flat floor it replaced was degenerate in its own way (seven identically-priced drivers).
 - Recalculated after every race, same cadence as tiers. Owning a driver whose price rises grows your cost cap; a price drop shrinks it (§2).
 
-### Starting cost cap: 145
+### Starting cost cap: 160
 
-Set from measured roster costs rather than picked. The original placeholder of 100 admitted **only the cheapest legal roster** — a budget permitting exactly one affordable team is a forced selection, not a choice — and was raised to 130 against prices at 2026 round 13:
+Set from measured roster costs rather than picked. The original placeholder of 100 admitted **only the cheapest legal roster** — a budget permitting exactly one affordable team is a forced selection, not a choice — and was raised to 130 against prices at 2026 round 13, where the cheapest legal roster cost 88.6.
 
-| Roster archetype | Cost |
-|---|---|
-| Cheapest legal | 88.6 |
-| Stars and scrubs | 111.8 |
-| Balanced | 116.6 |
-| Every premium pick | 206.5 |
+Moving prices onto finishing position (§5) lifted the cheap seats, because a driver who never scores is no longer pinned to the floor. Costed against real prices at 2026 round 14:
 
-Moving prices onto finishing position (§5) lifted the cheap seats, because a driver who never scores is no longer pinned to the floor. Measured at 2026 round 14 under the new prices:
+| Archetype | Cost | 130 | 145 | 160 |
+|---|---|---|---|---|
+| Cheapest legal | 116.9 | yes | yes | yes |
+| 1 premium top driver | 122.7 | yes | yes | yes |
+| 2 premium top drivers | 132.1 | no | yes | yes |
+| 2 premium + best team | 137.2 | no | yes | yes |
+| 3 premium top drivers | 139.9 | no | yes | yes |
+| Balanced (median everywhere) | 143.6 | no | yes | yes |
+| Dearest legal | 185.9 | no | no | no |
 
-| | Old prices | New prices |
-|---|---|---|
-| Cheapest legal roster | 104.5 | **116.9** |
-| Dearest legal roster | ~186 | ~186 |
-| Headroom at a 130 cap | 25.5 | 13.1 |
+At 130 only the cheapest roster and a single premium driver are reachable — **a median team does not fit at all**, which is exactly the failure the cap was raised from 100 to avoid.
 
-130 was calibrated so the cheapest roster sat at about **80% of the cap**, leaving roughly a fifth of the budget as real spending room. Holding that ratio against the new floor gives 116.9 / 0.8 ≈ 146, rounded to **145**. Left at 130 the budget would have admitted barely more than the cheapest team.
+**An interim value of 145 was wrong and is superseded.** It came from assuming 130 had been calibrated so the cheapest roster sat at ~80% of the cap, but that ratio was measured at round 14 under the *new* prices; the actual calibration was done at round 13, where 88.6 / 130 is 68%. Scaling from a figure the design never used produced a cap that still only cleared the balanced roster by 1.4 — affording exactly one balanced team is the same failure wearing a larger number, and playing the game surfaced it immediately.
 
-This changes the default for **new** leagues only. An existing league's opening cap is already recorded in its ledger, so raising it mid-season would need a deliberate top-up entry rather than a schema default.
+At **160** every archetype above is comfortably reachable while buying every premium pick stays 26 out of reach, so giving something up remains mandatory.
+
+Leagues already under way were credited the difference as a `cap_adjustment` ledger entry rather than by rewriting their opening balance, so the ledger still explains how a member's balance got where it is.
 
 Note that constructors are a larger lever than expected: a set of three ranges from 15.0 to 74.0, rivalling the driver spread, so "expensive drivers with cheap teams" is a genuine strategy.
 
@@ -199,7 +200,7 @@ All other chips follow a shared rule: **1 free use per season by default; additi
 
 ### Chip prices and limits
 
-Prices are set relative to the 145 cost cap. A mid-price driver is around 15, so a chip at 10–20 costs about one roster upgrade — enough to be a real decision, not enough to decide a season on its own. The strongest effects sit at the top of the range, the safety nets at the bottom.
+Prices are set relative to the 160 cost cap. A mid-price driver is around 15, so a chip at 10–20 costs about one roster upgrade — enough to be a real decision, not enough to decide a season on its own. The strongest effects sit at the top of the range, the safety nets at the bottom.
 
 | Chip | Price | Free uses | Season cap |
 |---|---|---|---|

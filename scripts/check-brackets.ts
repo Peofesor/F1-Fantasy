@@ -50,10 +50,10 @@ async function main(): Promise<void> {
     constructorTiers: context.constructorTiers,
     driverPrices: context.driverPrices,
     constructorPrices: context.constructorPrices,
-    costCap: 130,
+    costCap: 160,
   });
 
-  console.log("cheapest legal roster costs", result.cost.toFixed(1), "of 130 —", result.errors);
+  console.log("cheapest legal roster costs", result.cost.toFixed(1), "of 160 —", result.errors);
 
   // The dearest legal roster must exceed the cap, or the budget imposes no
   // trade-off at all and every player fields the same best-of-everything team.
@@ -78,12 +78,12 @@ async function main(): Promise<void> {
       constructorTiers: context.constructorTiers,
       driverPrices: context.driverPrices,
       constructorPrices: context.constructorPrices,
-      costCap: 130,
+      costCap: 160,
     },
   ).cost;
 
-  console.log("dearest legal roster costs", dearestCost.toFixed(1), "of 130");
-  console.log("headroom above the cheapest:", (130 - result.cost).toFixed(1));
+  console.log("dearest legal roster costs", dearestCost.toFixed(1), "of 160");
+  console.log("headroom above the cheapest:", (160 - result.cost).toFixed(1));
 }
 
 main().catch((error) => {
