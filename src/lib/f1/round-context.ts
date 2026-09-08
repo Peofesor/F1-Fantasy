@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assignTiers,
   buildSeedRanks,
+  formPoints,
   rollingWindowPoints,
   TOP_CONSTRUCTOR_BRACKET_SIZE,
   type RoundPoints,
@@ -92,7 +93,7 @@ export async function loadRoundContext(
       // window that straddles the season boundary.
       supabase
         .from("race_results")
-        .select("season, round, driver_id, constructor_id, points")
+        .select("season, round, driver_id, constructor_id, position")
         .in("season", [season - 1, season]),
       supabase.from("driver_standings").select("driver_id, position").eq("season", season - 1),
       supabase
@@ -124,7 +125,7 @@ export async function loadRoundContext(
     season: row.season,
     round: row.round,
     driverId: row.driver_id,
-    points: Number(row.points),
+    points: formPoints(row.position === null ? null : Number(row.position)),
   }));
 
   const seeds = buildSeedRanks(
@@ -150,7 +151,7 @@ export async function loadRoundContext(
     season: row.season,
     round: row.round,
     driverId: row.constructor_id,
-    points: Number(row.points),
+    points: formPoints(row.position === null ? null : Number(row.position)),
   }));
   const constructorFormMap = rollingWindowPoints(constructorPoints, {
     season: round.season,

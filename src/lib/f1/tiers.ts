@@ -5,8 +5,10 @@
  * top bracket, everyone else the mid bracket. The backmarker slot is
  * unrestricted, so only these two brackets are enforced.
  *
- * Ordering comes from points scored in the last 5 race weekends rather than
- * current-season standings. Standings cannot rank anyone at round one — the
+ * Ordering comes from finishing positions over the last 5 race weekends rather
+ * than current-season standings. Positions are valued by the championship
+ * points table, extended below tenth so the third of the grid that scores
+ * nothing is still ranked (see `formPoints`). Standings cannot rank anyone at round one — the
  * whole field is on zero points and formally unranked — and early standings are
  * close to noise besides: measured on 2025, the top 6 after round 1 matched the
  * season-final top 6 only 3 of 6 times, reaching 6/6 only by round 8. Since
@@ -14,7 +16,47 @@
  * that noise would be actively hostile.
  */
 
+import { RACE_POINTS } from "./scoring";
+
 export type Tier = "top" | "mid";
+
+/**
+ * Form value of the best position that pays no championship points.
+ *
+ * Championship points stop at tenth, but a third of the grid finishes below it
+ * every weekend: measured on 2026 round 14, seven of twenty-three drivers had
+ * scored nothing in the window and were therefore priced identically at the
+ * floor, which left a player choosing between Sainz, Albon, Ocon and Bearman
+ * with no signal at all. Continuing the table below tenth separates them.
+ *
+ * Half of tenth place, decaying geometrically, is chosen so the tail can never
+ * outweigh the sharp end: a driver who finishes eleventh in all five weekends
+ * of the window earns 2.5, which beats a single two-point finish but not a
+ * six-point one. On the real 2026 field this moves nobody between brackets and
+ * leaves the top of the price band untouched, while spreading the seven
+ * floor-priced drivers across 5.9–6.6.
+ */
+export const FORM_TAIL_FIRST = 0.5;
+
+/** How quickly the tail falls away with each position below the points. */
+export const FORM_TAIL_DECAY = 0.8;
+
+/**
+ * The form value of one race finish.
+ *
+ * This is the signal behind price and tier, not what a player scores — that is
+ * ./scoring.ts, which is a different and much richer calculation. Keeping them
+ * separate matters: fantasy points carry a -20 DNF penalty that drives the back
+ * of the grid deeply negative (Stroll sat at -88 over the 2026 round-14 window),
+ * which would price ten drivers at the floor rather than seven.
+ *
+ * A driver who did not finish has no position and scores nothing for that race.
+ */
+export function formPoints(position: number | null): number {
+  if (position === null || position < 1) return 0;
+  if (position <= RACE_POINTS.length) return RACE_POINTS[position - 1];
+  return FORM_TAIL_FIRST * Math.pow(FORM_TAIL_DECAY, position - RACE_POINTS.length - 1);
+}
 
 /** Default bracket size. The mid bracket is simply everyone below it. */
 export const TOP_BRACKET_SIZE = 8;

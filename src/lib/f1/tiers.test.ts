@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   assignTiers,
   buildSeedRanks,
+  formPoints,
+  ROLLING_WINDOW_ROUNDS,
   orderDrivers,
   rollingWindowPoints,
   tierSwaps,
@@ -218,5 +220,45 @@ describe("tierSwaps", () => {
       { demoted: "b", promoted: "x" },
       { demoted: "c", promoted: "y" },
     ]);
+  });
+});
+
+describe("formPoints", () => {
+  it("matches the championship table down to tenth", () => {
+    expect(formPoints(1)).toBe(25);
+    expect(formPoints(2)).toBe(18);
+    expect(formPoints(10)).toBe(1);
+  });
+
+  it("keeps paying below tenth so the back of the grid is still ranked", () => {
+    // Seven of twenty-three drivers had zero championship points in the 2026
+    // round-14 window, which priced them all identically at the floor.
+    expect(formPoints(11)).toBeGreaterThan(0);
+    expect(formPoints(20)).toBeGreaterThan(0);
+  });
+
+  it("ranks every position strictly ahead of the one behind it", () => {
+    for (let position = 1; position < 22; position++) {
+      expect(formPoints(position)).toBeGreaterThan(formPoints(position + 1));
+    }
+  });
+
+  it("keeps the tail smaller than the points it sits beneath", () => {
+    // A whole window of eleventh places is worth beating a single ninth place
+    // but not a single eighth. That bound is the point of the tail: it ranks
+    // the drivers championship points cannot see without ever becoming a
+    // rival currency to them.
+    const perfectTail = formPoints(11) * ROLLING_WINDOW_ROUNDS;
+    expect(perfectTail).toBeGreaterThan(formPoints(9));
+    expect(perfectTail).toBeLessThan(formPoints(8));
+  });
+
+  it("scores nothing for a driver who did not finish", () => {
+    expect(formPoints(null)).toBe(0);
+  });
+
+  it("treats a nonsensical position as unscored rather than throwing", () => {
+    expect(formPoints(0)).toBe(0);
+    expect(formPoints(-3)).toBe(0);
   });
 });

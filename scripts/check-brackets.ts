@@ -53,7 +53,37 @@ async function main(): Promise<void> {
     costCap: 130,
   });
 
-  console.log("cheapest legal roster costs", result.cost, "of 130 —", result.errors);
+  console.log("cheapest legal roster costs", result.cost.toFixed(1), "of 130 —", result.errors);
+
+  // The dearest legal roster must exceed the cap, or the budget imposes no
+  // trade-off at all and every player fields the same best-of-everything team.
+  const dearest = (ids: string[], prices: Map<string, number>, count: number) =>
+    [...ids].sort((a, b) => (prices.get(b) ?? 0) - (prices.get(a) ?? 0)).slice(0, count);
+
+  const dTop = dearest(ofTier(context.tiers, "top"), context.driverPrices, 3);
+  const dMid = dearest(ofTier(context.tiers, "mid"), context.driverPrices, 4);
+  const dTopTeam = dearest(ofTier(context.constructorTiers, "top"), context.constructorPrices, 1);
+  const dMidTeams = dearest(ofTier(context.constructorTiers, "mid"), context.constructorPrices, 2);
+
+  const dearestCost = validateRoster(
+    {
+      top: dTop,
+      mid: dMid.slice(0, 3),
+      backmarker: dMid[3],
+      constructors: [dTopTeam[0], dMidTeams[0]],
+      reverseConstructor: dMidTeams[1],
+    },
+    {
+      tiers: context.tiers,
+      constructorTiers: context.constructorTiers,
+      driverPrices: context.driverPrices,
+      constructorPrices: context.constructorPrices,
+      costCap: 130,
+    },
+  ).cost;
+
+  console.log("dearest legal roster costs", dearestCost.toFixed(1), "of 130");
+  console.log("headroom above the cheapest:", (130 - result.cost).toFixed(1));
 }
 
 main().catch((error) => {

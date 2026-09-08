@@ -110,14 +110,20 @@ Grouping by bracket makes the composition rule legible at a glance: each row is 
 Prices are **derived from form**, not imported: no upstream source publishes F1 Fantasy prices, and hand-entered ones would go stale every week.
 
 - The signal is the **same rolling 5-race window that drives tier assignment**. Using one signal for both is deliberate — computing them separately would let a driver be top-bracket while priced like a backmarker.
+- The window values **finishing position, not championship points**. Championship points stop at tenth, and about a third of the grid finishes below it every weekend: at 2026 round 14, **seven of twenty-three drivers had scored nothing** in the window and were therefore priced identically at the floor — a player choosing between Sainz, Albon, Ocon and Bearman had no signal whatsoever. Positions are valued by the championship table, **extended below tenth** at half of tenth place (0.5) decaying by 0.8 per position, so eleventh is worth 0.5 and twentieth about 0.07.
+  - **Why a tail rather than pure position:** a linear position score says a consistent P8 beats an inconsistent podium-getter. Tested on the real 2026 window it ranked Lindblad (13 championship points) above Verstappen (48), which is plainly wrong. The championship table already encodes that the sharp end is worth far more, and the tail only extends it.
+  - **Why not our own fantasy points:** they would seem the natural choice — price should track what a driver actually earns you — but the −20 DNF penalty drives the back of the grid deeply negative (Stroll sat at **−88** over the same window). Clamping at zero priced *ten* drivers at the floor, worse than what it replaced.
+  - **Bound on the tail:** a full window of eleventh places is worth 2.5 — enough to beat a single ninth place, not enough to beat an eighth. The tail breaks ties beneath the points; it never becomes a rival currency to them.
+  - **Measured effect** on 2026 round 14: distinct prices went from 15/23 to 22/23, drivers at the floor from 7 to 1, and **no driver changed bracket** — the top 8 and the top-4 constructor split are identical.
 - Form is normalised against the strongest competitor in the field, so a quiet run of races doesn't make everyone cheap.
 - **Bands**: drivers 4–28, constructors 5–26.
-- **Curve**: normalised form is raised to the power **0.5** before mapping onto the band. F1 points are heavily top-weighted (25 for a win against 1 for tenth), so a linear map bunches everyone below the leader near the floor; the exponent compresses the top and spreads the midfield, which is where roster decisions are actually made.
+- **Curve**: normalised form is raised to the power **0.5** before mapping onto the band. The points table is heavily top-weighted (25 for a win against 1 for tenth), so a linear map bunches everyone below the leader near the floor; the exponent compresses the top and spreads the midfield, which is where roster decisions are actually made.
+- **Known interaction with the backmarker slot:** because price now tracks expected finishing position, and the backmarker slot pays out *more* for a worse finish, the cheapest driver is also the highest-paying backmarker. That makes the slot a weaker decision than intended and is worth revisiting — but it is a scoring-balance question, not a pricing one, and the flat floor it replaced was degenerate in its own way (seven identically-priced drivers).
 - Recalculated after every race, same cadence as tiers. Owning a driver whose price rises grows your cost cap; a price drop shrinks it (§2).
 
-### Starting cost cap: 130
+### Starting cost cap: 145
 
-Set from measured roster costs at 2026 round 13 rather than picked:
+Set from measured roster costs rather than picked. The original placeholder of 100 admitted **only the cheapest legal roster** — a budget permitting exactly one affordable team is a forced selection, not a choice — and was raised to 130 against prices at 2026 round 13:
 
 | Roster archetype | Cost |
 |---|---|
@@ -126,7 +132,17 @@ Set from measured roster costs at 2026 round 13 rather than picked:
 | Balanced | 116.6 |
 | Every premium pick | 206.5 |
 
-The original placeholder of 100 admitted **only the cheapest legal roster** — a budget permitting exactly one affordable team is a forced selection, not a choice. At 130 the first three archetypes are all reachable while an all-premium roster stays far out of reach.
+Moving prices onto finishing position (§5) lifted the cheap seats, because a driver who never scores is no longer pinned to the floor. Measured at 2026 round 14 under the new prices:
+
+| | Old prices | New prices |
+|---|---|---|
+| Cheapest legal roster | 104.5 | **116.9** |
+| Dearest legal roster | ~186 | ~186 |
+| Headroom at a 130 cap | 25.5 | 13.1 |
+
+130 was calibrated so the cheapest roster sat at about **80% of the cap**, leaving roughly a fifth of the budget as real spending room. Holding that ratio against the new floor gives 116.9 / 0.8 ≈ 146, rounded to **145**. Left at 130 the budget would have admitted barely more than the cheapest team.
+
+This changes the default for **new** leagues only. An existing league's opening cap is already recorded in its ledger, so raising it mid-season would need a deliberate top-up entry rather than a schema default.
 
 Note that constructors are a larger lever than expected: a set of three ranges from 15.0 to 74.0, rivalling the driver spread, so "expensive drivers with cheap teams" is a genuine strategy.
 
@@ -183,7 +199,7 @@ All other chips follow a shared rule: **1 free use per season by default; additi
 
 ### Chip prices and limits
 
-Prices are set relative to the 130 cost cap. A mid-price driver is around 15, so a chip at 10–20 costs about one roster upgrade — enough to be a real decision, not enough to decide a season on its own. The strongest effects sit at the top of the range, the safety nets at the bottom.
+Prices are set relative to the 145 cost cap. A mid-price driver is around 15, so a chip at 10–20 costs about one roster upgrade — enough to be a real decision, not enough to decide a season on its own. The strongest effects sit at the top of the range, the safety nets at the bottom.
 
 | Chip | Price | Free uses | Season cap |
 |---|---|---|---|

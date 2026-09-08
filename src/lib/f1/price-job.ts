@@ -5,7 +5,7 @@ import {
   DRIVER_PRICE_BAND,
   priceField,
 } from "./pricing";
-import { rollingWindowPoints, type RoundKey, type RoundPoints } from "./tiers";
+import { formPoints, rollingWindowPoints, type RoundKey, type RoundPoints } from "./tiers";
 
 /**
  * Price population.
@@ -76,7 +76,7 @@ interface ResultRow {
   round: number;
   driver_id: string;
   constructor_id: string;
-  points: number | string;
+  position: number | null;
 }
 
 /**
@@ -93,7 +93,7 @@ async function loadResults(supabase: SupabaseClient): Promise<ResultRow[]> {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("race_results")
-      .select("season, round, driver_id, constructor_id, points")
+      .select("season, round, driver_id, constructor_id, position")
       .order("season")
       .order("round")
       .order("driver_id")
@@ -132,16 +132,16 @@ export async function populatePrices(
     season: row.season,
     round: row.round,
     driverId: row.driver_id,
-    points: Number(row.points),
+    points: formPoints(row.position === null ? null : Number(row.position)),
   }));
 
-  // A constructor's round score is its drivers' combined points, matching the
+  // A constructor's round score is its drivers' combined form, matching the
   // real sport. There is no per-round constructor total stored upstream.
   const constructorPoints: RoundPoints[] = results.map((row) => ({
     season: row.season,
     round: row.round,
     driverId: row.constructor_id,
-    points: Number(row.points),
+    points: formPoints(row.position === null ? null : Number(row.position)),
   }));
 
   const { data: roundRows, error } = await supabase
