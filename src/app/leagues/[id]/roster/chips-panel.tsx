@@ -70,9 +70,7 @@ export function ChipsPanel({
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium">{chip.name}</span>
                 <span className="shrink-0 text-xs text-zinc-500">
-                  {chip.unlimited
-                    ? "unlimited"
-                    : `${chip.freeRemaining + chip.purchasedRemaining} left · ${chip.usedThisSeason} played`}
+                  {`${chip.freeRemaining + chip.purchasedRemaining} left · ${chip.usedThisSeason} played`}
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-zinc-500">{chip.description}</p>
@@ -132,8 +130,7 @@ export function ChipsPanel({
 
                   {/* No season limit: another use can always be bought, and
                       price is what keeps it from being free. */}
-                  {!chip.unlimited && (
-                      <form action={buyAction}>
+                  <form action={buyAction}>
                         <input type="hidden" name="leagueId" value={leagueId} />
                         <input type="hidden" name="chipId" value={chip.chipId} />
                         <button
@@ -142,8 +139,7 @@ export function ChipsPanel({
                         >
                           Buy for {chip.price}
                         </button>
-                      </form>
-                    )}
+                  </form>
                 </div>
               )}
             </li>

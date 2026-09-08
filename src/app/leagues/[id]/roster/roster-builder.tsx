@@ -85,6 +85,15 @@ type SlotKind = "top" | "mid" | "backmarker" | "constructorTop" | "constructorMi
 
 const DRIVER_KINDS: SlotKind[] = ["top", "mid", "backmarker"];
 
+/**
+ * Slots that can carry the weekly 2x nomination.
+ *
+ * The backmarker pays cost cap rather than points, so doubling it would double
+ * nothing; the reverse-scored team is excluded for the same reason its scoring
+ * is inverted in the first place.
+ */
+const BOOSTABLE_KINDS: SlotKind[] = ["top", "mid", "constructorTop", "constructorMid"];
+
 interface Slot {
   kind: SlotKind;
   index: number;
@@ -116,6 +125,9 @@ interface Draft {
   constructorTop: string | null;
   constructorMid: string | null;
   reverseConstructor: string | null;
+  /** The weekly 2x nominations, picked here rather than played as chips. */
+  turboDriverId: string | null;
+  boostConstructorId: string | null;
 }
 
 function padded(ids: readonly string[], length: number): (string | null)[] {
@@ -130,6 +142,8 @@ function toDraft(selection: RosterSelection): Draft {
     constructorTop: selection.constructors[0] ?? null,
     constructorMid: selection.constructors[1] ?? null,
     reverseConstructor: selection.reverseConstructor,
+    turboDriverId: selection.turboDriverId,
+    boostConstructorId: selection.boostConstructorId,
   };
 }
 
@@ -145,6 +159,8 @@ function toSelection(draft: Draft): RosterSelection {
     backmarker: draft.backmarker,
     constructors: filled([draft.constructorTop, draft.constructorMid]),
     reverseConstructor: draft.reverseConstructor,
+    turboDriverId: draft.turboDriverId,
+    boostConstructorId: draft.boostConstructorId,
   };
 }
 
@@ -236,21 +252,50 @@ export function RosterBuilder({
       const replaceAt = (list: (string | null)[], index: number) =>
         list.map((existing, position) => (position === index ? id : existing));
 
+      // A nomination follows its holder: swapping a nominated pick moves the 2x
+      // onto whoever takes the slot, so the boost is never silently dropped.
+      // Clearing the slot, or swapping into one that cannot be boosted, drops
+      // it and the roster reads as incomplete until it is set again.
+      const held = slot.occupantId;
+      const isDriverSlot = DRIVER_KINDS.includes(slot.kind);
+      const canBoost = BOOSTABLE_KINDS.includes(slot.kind);
+      const nominations = {
+        turboDriverId:
+          isDriverSlot && current.turboDriverId === held
+            ? (canBoost ? id : null)
+            : current.turboDriverId,
+        boostConstructorId:
+          !isDriverSlot && current.boostConstructorId === held
+            ? (canBoost ? id : null)
+            : current.boostConstructorId,
+      };
+
       switch (slot.kind) {
         case "top":
-          return { ...current, top: replaceAt(current.top, slot.index) };
+          return { ...current, ...nominations, top: replaceAt(current.top, slot.index) };
         case "mid":
-          return { ...current, mid: replaceAt(current.mid, slot.index) };
+          return { ...current, ...nominations, mid: replaceAt(current.mid, slot.index) };
         case "backmarker":
-          return { ...current, backmarker: id };
+          return { ...current, ...nominations, backmarker: id };
         case "constructorTop":
-          return { ...current, constructorTop: id };
+          return { ...current, ...nominations, constructorTop: id };
         case "constructorMid":
-          return { ...current, constructorMid: id };
+          return { ...current, ...nominations, constructorMid: id };
         case "reverse":
-          return { ...current, reverseConstructor: id };
+          return { ...current, ...nominations, reverseConstructor: id };
       }
     });
+  }
+
+  /** Moves the 2x nomination onto a slot's occupant. */
+  function nominate(slot: Slot) {
+    const id = slot.occupantId;
+    if (!id || !BOOSTABLE_KINDS.includes(slot.kind)) return;
+    setDraft((current) =>
+      DRIVER_KINDS.includes(slot.kind)
+        ? { ...current, turboDriverId: id }
+        : { ...current, boostConstructorId: id },
+    );
   }
 
   /** Options legally allowed in a slot, excluding anyone already on the roster. */
@@ -330,6 +375,12 @@ export function RosterBuilder({
             name="reverseConstructor"
             value={selection.reverseConstructor ?? ""}
           />
+          <input type="hidden" name="turboDriverId" value={selection.turboDriverId ?? ""} />
+          <input
+            type="hidden"
+            name="boostConstructorId"
+            value={selection.boostConstructorId ?? ""}
+          />
           <button
             disabled={!validation.valid || saving || locked}
             className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
@@ -381,8 +432,15 @@ export function RosterBuilder({
                     slot={slot}
                     option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
                     locked={locked}
+                    boostable={BOOSTABLE_KINDS.includes(slot.kind)}
+                    boosted={
+                      slot.occupantId !== null &&
+                      (slot.occupantId === draft.turboDriverId ||
+                        slot.occupantId === draft.boostConstructorId)
+                    }
                     onOpen={() => setOpenSlot(slot)}
                     onClear={() => setSlot(slot, null)}
+                    onBoost={() => nominate(slot)}
                   />
                 );
               })}
@@ -520,14 +578,20 @@ function SlotCard({
   slot,
   option,
   locked,
+  boostable,
+  boosted,
   onOpen,
   onClear,
+  onBoost,
 }: {
   slot: Slot;
   option?: PickOption;
   locked: boolean;
+  boostable: boolean;
+  boosted: boolean;
   onOpen: () => void;
   onClear: () => void;
+  onBoost: () => void;
 }) {
   const accent = option?.colour ? `#${option.colour}` : "#a1a1aa";
 
@@ -548,7 +612,11 @@ function SlotCard({
   }
 
   return (
-    <div className="relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <div
+      className={`relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border ${
+        boosted ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
+      }`}
+    >
       <span className="h-1 w-full shrink-0" style={{ backgroundColor: accent }} />
 
       <button
@@ -574,6 +642,21 @@ function SlotCard({
           className="absolute right-1 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-900/70 text-xs text-white"
         >
           ×
+        </button>
+      )}
+
+      {boostable && (
+        <button
+          type="button"
+          disabled={locked || boosted}
+          onClick={onBoost}
+          aria-pressed={boosted}
+          aria-label={boosted ? `${option.name} scores double` : `Double ${option.name}`}
+          className={`absolute left-1 top-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+            boosted ? "bg-amber-400 text-zinc-900" : "bg-zinc-900/70 text-white disabled:opacity-40"
+          }`}
+        >
+          2x
         </button>
       )}
     </div>

@@ -1,9 +1,13 @@
 /**
  * Chips.
  *
- * Two chips are unlimited and always available (Turbo Driver and its
- * constructor twin); every other chip starts with one free use per season and
- * further uses must be bought from the store.
+ * Every chip starts with one free use per season and further uses must be
+ * bought from the store.
+ *
+ * The weekly 2x nominations (one driver, one constructor) are deliberately not
+ * chips. They were free and unlimited, so playing them was never a decision —
+ * only something to forget. They live on the roster instead, and their effects
+ * are still applied here through `ActiveChips`.
  *
  * There is no season limit on how often a chip may be played. The only limit is
  * per race: one chip of a kind per round, so two multipliers can never stack on
@@ -13,8 +17,6 @@
  */
 
 export type ChipId =
-  | "turbo_driver"
-  | "konstruktor_boost"
   | "super_driver"
   | "final_fix"
   | "autopilot"
@@ -26,8 +28,6 @@ export interface ChipDefinition {
   id: ChipId;
   name: string;
   description: string;
-  /** Unlimited chips are always available and never bought. */
-  unlimited: boolean;
   /** Free uses granted at the start of a season. */
   freeUses: number;
   /** Cost cap charged per extra use bought from the store. */
@@ -37,89 +37,65 @@ export interface ChipDefinition {
 }
 
 /**
- * Chip prices are set relative to the 160 cost cap.
+ * Chip prices run 1–3 against a 160 cost cap.
  *
- * A mid-price driver is around 15, so a chip at 10–20 costs about one roster
- * upgrade: enough to be a real decision, not enough to decide a season. The
- * strongest effects (SuperDriver's 3x, and lifting the cap entirely) sit at the
- * top of that range; the safety-net chips sit at the bottom.
+ * A single chip is therefore cheap — deliberately, since a chip you cannot
+ * afford to use is just a menu item. The brake is repetition, not the one-off:
+ * with no season limit, playing SuperDriver every remaining round of a
+ * 23-round season costs 22 x 3 = 66, over a third of the budget, which is the
+ * same as giving up a premium driver for the year. One chip is a small
+ * decision; a habit is a large one.
  *
- * Price is the only brake on repeat use. A member who banks cost cap by
- * fielding a cheap roster can buy the same chip every week — but that is a
- * trade they paid for in roster quality, which is the decision the store exists
- * to create.
+ * Within the range, strength sets the price: the 3x and the cap lift sit at 3,
+ * the ones that change what you may pick at 2, and the safety net at 1.
  */
 export const CHIPS: Record<ChipId, ChipDefinition> = {
-  turbo_driver: {
-    id: "turbo_driver",
-    name: "Turbo Driver",
-    description: "Doubles one top- or mid-slot driver's points for the round.",
-    unlimited: true,
-    freeUses: Infinity,
-    price: 0,
-    target: "driver",
-  },
-  konstruktor_boost: {
-    id: "konstruktor_boost",
-    name: "Konstruktor Boost",
-    description: "Doubles one constructor's points for the round.",
-    unlimited: true,
-    freeUses: Infinity,
-    price: 0,
-    target: "constructor",
-  },
   super_driver: {
     id: "super_driver",
     name: "SuperDriver",
     description: "Triples one driver's points for the round.",
-    unlimited: false,
     freeUses: 1,
-    price: 20,
+    price: 3,
     target: "driver",
   },
   final_fix: {
     id: "final_fix",
     name: "Final Fix",
     description: "Change one roster slot after qualifying has run.",
-    unlimited: false,
     freeUses: 1,
-    price: 15,
+    price: 2,
     target: "none",
   },
   autopilot: {
     id: "autopilot",
     name: "Autopilot",
     description: "Your highest-scoring driver is doubled automatically.",
-    unlimited: false,
     freeUses: 1,
-    price: 15,
+    price: 2,
     target: "none",
   },
   no_negative: {
     id: "no_negative",
     name: "No Negative",
     description: "Negative points are cancelled across your whole roster.",
-    unlimited: false,
     freeUses: 1,
-    price: 10,
+    price: 1,
     target: "none",
   },
   wildcard: {
     id: "wildcard",
     name: "Wildcard",
     description: "Unlimited free roster changes for this round.",
-    unlimited: false,
     freeUses: 1,
-    price: 12,
+    price: 2,
     target: "none",
   },
   unlimited_cap: {
     id: "unlimited_cap",
     name: "Unlimited Cost Cap",
     description: "No spending limit this round. Tier requirements still apply.",
-    unlimited: false,
     freeUses: 1,
-    price: 20,
+    price: 3,
     target: "none",
   },
 };
@@ -164,18 +140,6 @@ export function chipAvailability(
     (entry) => entry.chipId === chipId && entry.round === round,
   );
 
-  if (chip.unlimited) {
-    return {
-      chip,
-      usedThisSeason,
-      freeRemaining: Infinity,
-      purchasedRemaining: 0,
-      available: !playedThisRound,
-      costToPlay: 0,
-      reason: playedThisRound ? "Already played this round" : undefined,
-    };
-  }
-
   const freeRemaining = Math.max(0, chip.freeUses - usedThisSeason);
   const purchasedRemaining = Math.max(0, purchased - Math.max(0, usedThisSeason - chip.freeUses));
 
@@ -202,10 +166,6 @@ export function canPurchase(
   balance: number,
 ): { allowed: boolean; price: number; reason?: string } {
   const chip = CHIPS[chipId];
-  if (chip.unlimited) {
-    return { allowed: false, price: 0, reason: "Always available — nothing to buy" };
-  }
-
   if (balance < chip.price) {
     return { allowed: false, price: chip.price, reason: "Not enough cost cap" };
   }
@@ -224,7 +184,6 @@ export interface ChipRow {
   chipId: ChipId;
   name: string;
   description: string;
-  unlimited: boolean;
   price: number;
   target: "driver" | "constructor" | "none";
   usedThisSeason: number;
@@ -245,11 +204,10 @@ export function toChipRow(
     chipId: state.chip.id,
     name: state.chip.name,
     description: state.chip.description,
-    unlimited: state.chip.unlimited,
     price: state.chip.price,
     target: state.chip.target,
     usedThisSeason: state.usedThisSeason,
-    freeRemaining: state.chip.unlimited ? 0 : state.freeRemaining,
+    freeRemaining: state.freeRemaining,
     purchasedRemaining: state.purchasedRemaining,
     available: state.available,
     reason: state.reason,
@@ -259,9 +217,9 @@ export function toChipRow(
 }
 
 export interface ActiveChips {
-  /** Driver whose score is doubled. */
+  /** Driver nominated on the roster to score double. Not a chip. */
   turboDriverId?: string;
-  /** Constructor whose score is doubled. */
+  /** Constructor nominated on the roster to score double. Not a chip. */
   konstruktorBoostId?: string;
   /** Driver whose score is tripled. */
   superDriverId?: string;

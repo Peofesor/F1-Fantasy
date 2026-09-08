@@ -46,6 +46,8 @@ const legal: RosterSelection = {
   backmarker: "m4",
   constructors: ["c1", "c2"],
   reverseConstructor: "c3",
+  turboDriverId: "t1",
+  boostConstructorId: "c1",
 };
 
 describe("validateRoster", () => {
@@ -163,5 +165,43 @@ describe("availableSlotFor", () => {
 
   it("offers nothing when every slot is taken", () => {
     expect(availableSlotFor("t4", legal, tiers)).toBeNull();
+  });
+});
+
+describe("weekly 2x nominations", () => {
+  it("requires both nominations for a complete roster", () => {
+    const result = validateRoster(
+      { ...legal, turboDriverId: null, boostConstructorId: null },
+      context,
+    );
+    expect(result.complete).toBe(false);
+    expect(result.errors).toContain("Nominate a driver to score double.");
+    expect(result.errors).toContain("Nominate a constructor to score double.");
+  });
+
+  it("accepts a nomination on any scoring driver slot", () => {
+    expect(validateRoster({ ...legal, turboDriverId: "m2" }, context).valid).toBe(true);
+  });
+
+  it("rejects nominating the backmarker", () => {
+    // It pays cost cap rather than points, so doubling it would double nothing.
+    const result = validateRoster({ ...legal, turboDriverId: "m4" }, context);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("not one of your scoring drivers"))).toBe(true);
+  });
+
+  it("rejects nominating a driver who is not on the roster at all", () => {
+    const result = validateRoster({ ...legal, turboDriverId: "t4" }, context);
+    expect(result.errors.some((e) => e.includes("not one of your scoring drivers"))).toBe(true);
+  });
+
+  it("rejects nominating the reverse-scored constructor", () => {
+    const result = validateRoster({ ...legal, boostConstructorId: "c3" }, context);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("not one of your scoring teams"))).toBe(true);
+  });
+
+  it("accepts either normally-scored constructor", () => {
+    expect(validateRoster({ ...legal, boostConstructorId: "c2" }, context).valid).toBe(true);
   });
 });

@@ -30,6 +30,14 @@ export interface RosterSelection {
   constructors: readonly string[];
   /** One constructor scored on its per-race placing. */
   reverseConstructor: string | null;
+  /**
+   * The weekly 2x nominations, chosen alongside the team rather than played as
+   * chips. Both are free and always available, so leaving them unset is never
+   * anything but worse — which is exactly why they are required rather than
+   * optional, and why the picker asks for them every round.
+   */
+  turboDriverId: string | null;
+  boostConstructorId: string | null;
 }
 
 export interface RosterContext {
@@ -56,7 +64,24 @@ export const EMPTY_SELECTION: RosterSelection = {
   backmarker: null,
   constructors: [],
   reverseConstructor: null,
+  turboDriverId: null,
+  boostConstructorId: null,
 };
+
+/**
+ * Drivers eligible for the 2x nomination: the scoring slots only.
+ *
+ * The backmarker is excluded because it pays cost cap rather than points, so
+ * doubling it would double nothing.
+ */
+export function boostableDrivers(selection: RosterSelection): string[] {
+  return [...selection.top, ...selection.mid];
+}
+
+/** Constructors eligible for the 2x nomination: the normally-scored pair. */
+export function boostableConstructors(selection: RosterSelection): string[] {
+  return [...selection.constructors];
+}
 
 /** Every driver on the roster, in slot order. */
 export function selectedDrivers(selection: RosterSelection): string[] {
@@ -128,6 +153,17 @@ export function validateRoster(
   if (selection.reverseConstructor === null) {
     errors.push("Pick a reverse-scored constructor.");
   }
+  if (selection.turboDriverId === null) {
+    errors.push("Nominate a driver to score double.");
+  } else if (!boostableDrivers(selection).includes(selection.turboDriverId)) {
+    // The backmarker pays cost cap rather than points, so it is not boostable.
+    errors.push(`${selection.turboDriverId} is not one of your scoring drivers.`);
+  }
+  if (selection.boostConstructorId === null) {
+    errors.push("Nominate a constructor to score double.");
+  } else if (!boostableConstructors(selection).includes(selection.boostConstructorId)) {
+    errors.push(`${selection.boostConstructorId} is not one of your scoring teams.`);
+  }
 
   // Tier membership. The backmarker slot is deliberately unrestricted.
   for (const driverId of selection.top) {
@@ -168,7 +204,9 @@ export function validateRoster(
     selection.mid.length === MID_SLOTS &&
     selection.backmarker !== null &&
     selection.constructors.length === CONSTRUCTOR_SLOTS &&
-    selection.reverseConstructor !== null;
+    selection.reverseConstructor !== null &&
+    selection.turboDriverId !== null &&
+    selection.boostConstructorId !== null;
 
   return { errors, cost, remaining, complete, valid: errors.length === 0 };
 }

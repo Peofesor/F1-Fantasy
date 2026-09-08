@@ -39,6 +39,8 @@ const selection: RosterSelection = {
   backmarker: "backmarker",
   constructors: ["fastteam"],
   reverseConstructor: "slowteam",
+  turboDriverId: null,
+  boostConstructorId: null,
 };
 
 describe("constructorScore", () => {

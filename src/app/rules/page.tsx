@@ -83,6 +83,21 @@ export default function RulesPage() {
         </p>
       </Section>
 
+      <Section title="Your weekly 2× picks">
+        <p>
+          Every round you also nominate <strong>one driver</strong> and{" "}
+          <strong>one team</strong> to score double. Tap the 2× badge on a card. Both are free,
+          both are required, and the doubling is applied for you when the round is scored — there
+          is no chip to remember to play.
+        </p>
+        <p>
+          The backmarker and the reverse-scored team cannot be nominated: they pay cost cap rather
+          than points, so doubling them would double nothing. Swapping a nominated pick moves the
+          2× onto whoever replaces them, and your nominations carry into next round with the rest
+          of the roster.
+        </p>
+      </Section>
+
       <Section title="What earns points in a weekend">
         <p className="text-zinc-900 dark:text-zinc-100">Qualifying position</p>
         <div>
@@ -195,13 +210,13 @@ export default function RulesPage() {
             <Row
               key={chip.id}
               label={`${chip.name} — ${chip.description}`}
-              value={chip.unlimited ? "free" : `${chip.price}`}
+              value={`${chip.price}`}
             />
           ))}
         </div>
         <p className="pt-1 text-xs">
           One free use of each per season, then buy more with cost cap — there is no season
-          limit. One chip of a kind per round. Multipliers apply before No Negative, so doubling a
+          limit. One chip of a kind per round, and SuperDriver stacks on top of your weekly 2×. Multipliers apply before No Negative, so doubling a
           negative score and then cancelling it leaves you at zero rather than deeper in the hole.
         </p>
       </Section>

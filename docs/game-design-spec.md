@@ -99,11 +99,25 @@ Grouping by bracket makes the composition rule legible at a glance: each row is 
 
 ### Explicitly dropped from the original roster ideas
 - Draft mode and everything tied to it (each-driver-pickable-2x rule, bench/reserve slots).
-- "Turbo Driver" and "Underdog" as roster-slot concepts (both repurposed/removed — see §6 for the surviving Turbo Driver chip).
+- "Turbo Driver" and "Underdog" as roster-slot concepts. Underdog is gone; Turbo Driver became a chip and then, in the end, the weekly 2× nomination on the roster (§4a).
 - Rookie slot.
 - A driver locked for the whole season (or every 5 races).
 - "P1 not pickable" restriction — superseded by the tier system, which already prevents an all-top-driver roster.
 - Standalone "Negativ-Fahrer" (2 free extra reverse-scoring picks) — fully replaced by the single backmarker slot.
+
+## 4a. The weekly 2× nominations
+
+Each week, alongside picking the team, you nominate **one driver to score double** and **one constructor to score double**. The doubling then applies automatically when the round is scored.
+
+These were originally the Turbo Driver and Konstruktor Boost chips. They were the only two chips that were free *and* unlimited, which meant playing them was never a decision — there was no reason not to, every single round. A choice with one correct answer is not a chip; it is a step you can forget to take, and forgetting cost you points for nothing. Making them part of the roster removes the trap and keeps the decision that actually mattered: *which* driver and *which* team.
+
+- **Stored on `rosters`**, not as a flag on `roster_slots` — exactly one of each may exist, which a column enforces for free.
+- **Required for a complete roster.** Both are free, so leaving one unset is never anything but worse; the picker asks for them rather than letting you forfeit them silently.
+- **The backmarker cannot be nominated**, since it pays cost cap rather than points — doubling it would double nothing. The reverse-scored constructor is excluded for the same reason.
+- **A nomination follows its holder.** Swapping a nominated pick moves the 2× onto whoever takes the slot; clearing the slot drops it and the roster reads as incomplete until it is set again.
+- **It carries forward** with the rest of the roster, following an auto-swapped driver onto their replacement, so a member who never opens the app still fields a multiplier.
+
+Both may be active at once — they are separate roster fields, not competing chip plays. SuperDriver can still stack on top, since it is a bought chip and a genuine decision.
 
 ## 5. Driver & constructor pricing
 
@@ -180,14 +194,9 @@ Measured over three real 2026 races (R11–R13) with three fixed rosters, totals
 
 ## 6. Chips
 
-Two chips are **unlimited-use, always available, weekly-repeatable**:
+Turbo Driver and Konstruktor Boost began here as unlimited, always-available chips. They are **no longer chips at all** — being free *and* unlimited made playing them a non-decision, so they became the weekly 2× nominations on the roster (§4a).
 
-| Chip | Effect |
-|---|---|
-| **Turbo Driver** | 2x points for one week, applied to any driver in your top-3 or mid-3 slots (not the backmarker). One boost per week total (not one for top and one for mid simultaneously). |
-| **Konstruktor-Boost** | Same as Turbo Driver, applied to one of your constructors instead. |
-
-All other chips follow a shared rule: **1 free use per season by default; additional uses must be bought via the store** (spending cost cap), with a cap on total rebuys per season (e.g. ~3) to prevent a currency-rich player from spamming a strong effect.
+Every remaining chip follows a shared rule: **1 free use per season; additional uses are bought from the store** with cost cap. There is **no cap on rebuys** — an earlier draft capped them at ~3 per season, but price already charges for repetition, and a hard limit on top removed a strategy rather than balancing one.
 
 | Chip | Effect |
 |---|---|
@@ -200,18 +209,20 @@ All other chips follow a shared rule: **1 free use per season by default; additi
 
 ### Chip prices and limits
 
-Prices are set relative to the 160 cost cap. A mid-price driver is around 15, so a chip at 10–20 costs about one roster upgrade — enough to be a real decision, not enough to decide a season on its own. The strongest effects sit at the top of the range, the safety nets at the bottom.
+Prices run **1–3** against a 160 cost cap. A single chip is deliberately cheap: a chip you cannot afford to use is only a menu item. The brake is repetition, not the one-off — with no season limit, playing SuperDriver every remaining round of a 23-round season costs 22 × 3 = 66, over a third of the budget, which is the same as giving up a premium driver for the year. One chip is a small decision; a habit is a large one.
+
+Within the range, strength sets the price: the 3× and the cap lift at 3, the ones that change what you may pick at 2, the safety net at 1.
 
 | Chip | Price | Free uses |
 |---|---|---|
-| Turbo Driver | — | unlimited |
-| Konstruktor Boost | — | unlimited |
-| SuperDriver | 20 | 1 |
-| Unlimited Cost Cap | 20 | 1 |
-| Final Fix | 15 | 1 |
-| Autopilot | 15 | 1 |
-| Wildcard | 12 | 1 |
-| No Negative | 10 | 1 |
+| SuperDriver | 3 | 1 |
+| Unlimited Cost Cap | 3 | 1 |
+| Final Fix | 2 | 1 |
+| Autopilot | 2 | 1 |
+| Wildcard | 2 | 1 |
+| No Negative | 1 | 1 |
+
+Turbo Driver and Konstruktor Boost are **no longer chips** — see §4a.
 
 **There is no season limit on chip use.** The only limit is per race: one chip of a given kind per round, since stacking two multipliers on one result swings far beyond what the scoring model is balanced for.
 

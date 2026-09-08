@@ -108,6 +108,8 @@ function parseSelection(formData: FormData): RosterSelection {
     backmarker: single("backmarker"),
     constructors: list("constructors"),
     reverseConstructor: single("reverseConstructor"),
+    turboDriverId: single("turboDriverId"),
+    boostConstructorId: single("boostConstructorId"),
   };
 }
 
@@ -362,16 +364,20 @@ export async function saveRoster(
     constructorPrices: context.constructorPrices,
   });
 
-  // Consumed allowance persists, so a second save this round does not reset it.
-  if (transfers.changes > 0 || locked) {
-    await supabase
-      .from("rosters")
-      .update({
-        transfers_used: roster.transfers_used + transfers.changes,
-        ...(locked ? { final_fix_used: true } : {}),
-      })
-      .eq("id", roster.id);
-  }
+  // The 2x nominations sit on the roster row, so they are written on every
+  // save; consumed transfer allowance persists, so a second save this round
+  // does not reset it.
+  await supabase
+    .from("rosters")
+    .update({
+      turbo_driver_id: selection.turboDriverId,
+      boost_constructor_id: selection.boostConstructorId,
+      ...(transfers.changes > 0
+        ? { transfers_used: roster.transfers_used + transfers.changes }
+        : {}),
+      ...(locked ? { final_fix_used: true } : {}),
+    })
+    .eq("id", roster.id);
 
   revalidatePath(`/leagues/${leagueId}/roster`);
   return { ok: true, savedAt: new Date().toISOString() };
