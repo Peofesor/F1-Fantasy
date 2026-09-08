@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { checkStake, MARKETS, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import {
+  checkStake,
+  MARKETS,
+  roundStake,
+  type BetTiming,
+  type MarketId,
+} from "@/lib/f1/betting";
 import { loadMarketHistory } from "@/lib/f1/bet-history";
 import { oddsFor } from "@/lib/f1/bet-odds";
 import { ledgerBalance } from "@/lib/f1/ledger";
@@ -29,7 +35,9 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   const leagueId = String(formData.get("leagueId") ?? "");
   const marketId = String(formData.get("marketId") ?? "");
   const selection = String(formData.get("selection") ?? "").trim();
-  const stake = Number(formData.get("stake"));
+  // Rounded to the ledger's step before anything is checked or charged, so a
+  // hand-rolled POST cannot bill a member 2.13456.
+  const stake = roundStake(Number(formData.get("stake")));
   const round = Number(formData.get("round"));
   // Which odds window this bet falls in is read from the database, never from
   // the form: once betting runs past qualifying, a submitted value could claim
@@ -123,7 +131,7 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     note: `${MARKETS[marketId].name} · ${selection}`,
   });
 
-  revalidatePath(`/leagues/${leagueId}/bets`);
+  revalidatePath(`/leagues/${leagueId}/paddock`);
   return {
     ok: true,
     message: `Bet placed on ${MARKETS[marketId].name} at ${odds.toFixed(1)}.`,
@@ -197,6 +205,6 @@ export async function cancelBet(
     note: `Withdrew bet · ${MARKETS[marketId]?.name ?? marketId}`,
   });
 
-  revalidatePath(`/leagues/${leagueId}/bets`);
+  revalidatePath(`/leagues/${leagueId}/paddock`);
   return { ok: true, message: `Bet withdrawn, ${Number(bet.stake).toFixed(1)} returned.` };
 }

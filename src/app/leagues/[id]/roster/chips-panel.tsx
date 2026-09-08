@@ -3,13 +3,12 @@
 import { useActionState, useState } from "react";
 
 import type { ChipRow } from "@/lib/f1/chips";
-import { buyChip, cancelChip, playChip, type ChipState } from "./chip-actions";
+import { cancelChip, playChip, type ChipState } from "./chip-actions";
 
 export function ChipsPanel({
   leagueId,
   round,
   chips,
-  balance,
   driverOptions,
   constructorOptions,
   locked,
@@ -17,13 +16,11 @@ export function ChipsPanel({
   leagueId: string;
   round: number;
   chips: ChipRow[];
-  balance: number;
   driverOptions: { id: string; name: string }[];
   constructorOptions: { id: string; name: string }[];
   locked: boolean;
 }) {
   const [playState, playAction] = useActionState<ChipState, FormData>(playChip, null);
-  const [buyState, buyAction] = useActionState<ChipState, FormData>(buyChip, null);
   const [cancelState, cancelAction] = useActionState<ChipState, FormData>(cancelChip, null);
   const [targets, setTargets] = useState<Record<string, string>>({});
   // Playing or buying a chip spends cost cap and cannot be undone once the
@@ -53,14 +50,13 @@ export function ChipsPanel({
     setPending({ title, detail, confirmLabel, form: event.currentTarget });
   }
 
-  const message = playState ?? buyState ?? cancelState;
+  const message = playState ?? cancelState;
 
   return (
     // Titled by the sheet that opens it, so it carries no heading of its own.
     <section>
       <p className="text-xs text-zinc-500">
-        One free use each per season, then buy more with cost cap. No season
-        limit — the only rule is one chip of a kind per round.
+        One free use each per season. Buy more in the paddock. One chip of a kind per round.
       </p>
 
       {message && (
@@ -179,28 +175,7 @@ export function ChipsPanel({
                     </span>
                   )}
 
-                  {/* No season limit: another use can always be bought, and
-                      price is what keeps it from being free. */}
-                  <form
-                    action={buyAction}
-                    onSubmit={(event) =>
-                      confirmFirst(
-                        event,
-                        `Buy another ${chip.name}?`,
-                        `${chip.price} comes off your cost cap, leaving ${(balance - chip.price).toFixed(1)}. It buys one more use, not a play — you still choose the round.`,
-                        `Buy for ${chip.price}`,
-                      )
-                    }
-                  >
-                        <input type="hidden" name="leagueId" value={leagueId} />
-                        <input type="hidden" name="chipId" value={chip.chipId} />
-                        <button
-                          disabled={balance < chip.price}
-                          className="rounded-md border border-zinc-300 px-3 py-1 text-xs disabled:opacity-40 dark:border-zinc-700"
-                        >
-                          Buy for {chip.price}
-                        </button>
-                  </form>
+
                 </div>
               )}
             </li>

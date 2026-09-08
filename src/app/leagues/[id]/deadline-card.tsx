@@ -94,7 +94,7 @@ export function DeadlineCard({
         now !== null &&
         quali.getTime() - now.getTime() < 86_400_000,
     },
-    { label: "Bets", at: race, href: `/leagues/${leagueId}/bets`, urgent: false },
+    { label: "Bets close", at: race, href: `/leagues/${leagueId}/paddock`, urgent: false },
   ];
 
   return (

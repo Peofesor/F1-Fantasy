@@ -1,20 +1,28 @@
 import { MARKETS, MARKET_LIST, type BetTiming, type MarketId } from "@/lib/f1/betting";
 import { loadMarketHistory } from "@/lib/f1/bet-history";
 import { oddsFor } from "@/lib/f1/bet-odds";
+import {
+  CHIP_LIST,
+  chipAvailability,
+  toChipRow,
+  type ChipId,
+  type ChipUsage,
+} from "@/lib/f1/chips";
 import { loadMemberContext } from "../member-context";
+import { ChipStore } from "./chip-store";
 import { LeagueNav } from "../league-nav";
 import { BetsPanel, type PlacedBet } from "./bets-panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets">) {
+export default async function BetsPage({ params }: PageProps<"/leagues/[id]/paddock">) {
   const { id } = await params;
   const { supabase, memberId, league, round, balance } = await loadMemberContext(id);
 
   if (!round) {
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-4">
-        <LeagueNav leagueId={league.id} active="bets" />
+        <LeagueNav leagueId={league.id} active="paddock" />
         <p className="text-sm text-zinc-500">
           No rounds ingested for {league.season} yet, so there is nothing to bet on.
         </p>
@@ -99,17 +107,44 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     name: round.constructorNames.get(constructorId) ?? constructorId,
   }));
 
+  // Chip inventory, so the store can show what is already in hand.
+  const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
+    supabase
+      .from("chip_plays")
+      .select("chip_id, round")
+      .eq("member_id", memberId)
+      .eq("season", round.season),
+    supabase.from("chip_purchases").select("chip_id").eq("member_id", memberId),
+  ]);
+
+  const usage: ChipUsage[] = (chipPlays ?? []).map((play) => ({
+    chipId: play.chip_id as ChipId,
+    round: play.round,
+  }));
+
+  const chipRows = CHIP_LIST.map((definition) => {
+    const owned = (chipPurchases ?? []).filter((row) => row.chip_id === definition.id).length;
+    return toChipRow(
+      chipAvailability(definition.id, usage, owned, round.round),
+      (chipPlays ?? []).some(
+        (play) => play.chip_id === definition.id && play.round === round.round,
+      ),
+    );
+  });
+
   const nationalities = [...new Set([...round.driverNationalities.values()])].sort();
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-2 pt-2">
-        <LeagueNav leagueId={league.id} active="bets" />
-        <h1 className="text-xl font-semibold tracking-tight">Bets</h1>
+        <LeagueNav leagueId={league.id} active="paddock" />
+        <h1 className="text-xl font-semibold tracking-tight">Paddock</h1>
         <p className="text-sm text-zinc-500">
           {round.raceName} · round {round.round}
         </p>
       </header>
+
+      <ChipStore leagueId={league.id} chips={chipRows} balance={balance} />
 
       <BetsPanel
         leagueId={league.id}

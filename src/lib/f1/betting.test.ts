@@ -8,6 +8,7 @@ import {
   settle,
   settleBet,
   type SettlementFacts,
+  roundStake,
 } from "./betting";
 
 const facts: SettlementFacts = {
@@ -170,10 +171,44 @@ describe("checkStake", () => {
   });
 
   it("rejects a stake below the minimum", () => {
-    expect(checkStake(0.5, 100).allowed).toBe(false);
+    // The minimum is a tenth of a million now, matching the step the rest of
+    // the ledger already rounds to.
+    expect(checkStake(0.05, 100).allowed).toBe(false);
+    expect(checkStake(0.5, 100).allowed).toBe(true);
   });
 
   it("rejects betting with an empty bank", () => {
     expect(checkStake(1, 0).allowed).toBe(false);
+  });
+});
+
+describe("roundStake", () => {
+  it("keeps a tenth intact", () => {
+    expect(roundStake(2.1)).toBeCloseTo(2.1, 5);
+    expect(roundStake(0.1)).toBeCloseTo(0.1, 5);
+  });
+
+  it("rounds down, never up", () => {
+    // Rounding up would charge cap the member did not offer, and on an all-in
+    // bet it would charge cap they do not have.
+    expect(roundStake(2.19)).toBeCloseTo(2.1, 5);
+    expect(roundStake(2.99)).toBeCloseTo(2.9, 5);
+  });
+
+  it("survives the usual floating-point trap", () => {
+    // 0.3 / 0.1 is 2.9999… in binary; a naive floor would make this 0.2.
+    expect(roundStake(0.3)).toBeCloseTo(0.3, 5);
+    expect(roundStake(0.7)).toBeCloseTo(0.7, 5);
+    expect(roundStake(29.4)).toBeCloseTo(29.4, 5);
+  });
+
+  it("accepts a tenth as the smallest stake", () => {
+    expect(checkStake(0.1, 10).allowed).toBe(true);
+    expect(checkStake(0.05, 10).allowed).toBe(false);
+  });
+
+  it("lets a tenth-sized bank be staked in full", () => {
+    expect(maxStake(0.1)).toBeCloseTo(0.1, 5);
+    expect(checkStake(0.1, 0.1).allowed).toBe(true);
   });
 });

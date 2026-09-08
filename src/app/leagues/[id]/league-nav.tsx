@@ -1,18 +1,19 @@
 import Link from "next/link";
 
-type Section = "hub" | "roster" | "bets";
+type Section = "hub" | "roster" | "paddock";
 
 const TABS: { key: Section; label: string; path: string }[] = [
   { key: "hub", label: "League", path: "" },
   { key: "roster", label: "Roster", path: "/roster" },
-  { key: "bets", label: "Bets", path: "/bets" },
+  { key: "paddock", label: "Paddock", path: "/paddock" },
 ];
 
 /**
  * Tabs across every league page.
  *
- * Bets used to sit at the bottom of the roster page, below seven pickers,
- * where it was not reachable without scrolling past the thing you came to do.
+ * The paddock — where chips are bought and bets are placed — used to sit at
+ * the bottom of the roster page, below seven pickers, where it was not
+ * reachable without scrolling past the thing you came to do.
  *
  * Chips are deliberately not a tab. They act on the roster you are looking at —
  * doubling a driver, changing a slot after qualifying — so they open as a sheet

@@ -6,6 +6,7 @@ import {
   MARKET_LIST,
   maxStake,
   MIN_STAKE,
+  STAKE_STEP,
 
   PRE_QUALIFYING_BONUS,
   type BetTiming,
@@ -177,7 +178,7 @@ export function BetsPanel({
           </Link>
           .
         </p>
-      ) : bank < 1 ? (
+      ) : bank < MIN_STAKE ? (
         <p className="mt-3 text-xs text-zinc-500">No cap in the bank to bet with.</p>
       ) : (
         <form action={formAction} className="mt-3 space-y-2">
@@ -230,7 +231,7 @@ export function BetsPanel({
                 name="stake"
                 min={MIN_STAKE}
                 max={limit}
-                step={0.5}
+                step={STAKE_STEP}
                 value={stake}
                 onChange={(event) => setStake(Number(event.target.value))}
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"

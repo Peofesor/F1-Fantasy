@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
+import { buildLeagueStats } from "@/lib/f1/league-stats";
 import { DeadlineCard } from "./deadline-card";
+import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
@@ -72,6 +73,27 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     : { data: [] };
 
   const capBalance = ledgerBalance(ledgerRows ?? []);
+
+  // Every member's ledger, for the cost cap panel. Balances are visible to the
+  // league only in aggregate over time here — the figure that stays private is
+  // a rival's spare cap right now, which is what would reveal their next move,
+  // and by the time a round is scored the money has already been spent.
+  const { data: allLedger } = await supabase
+    .from("cost_cap_entries")
+    .select("member_id, round, amount")
+    .in("member_id", memberIds);
+
+  const stats = buildLeagueStats(
+    (roster ?? []).map((member) => ({ id: member.id, name: member.name })),
+    (scoreRows ?? [])
+      .filter((row) => memberIds.includes(row.member_id))
+      .map((row) => ({ memberId: row.member_id, round: row.round, points: Number(row.points) })),
+    (allLedger ?? []).map((row) => ({
+      memberId: row.member_id,
+      round: row.round,
+      amount: Number(row.amount),
+    })),
+  );
 
   // The next round a member can still act on, with the two deadlines that
   // apply to it: qualifying closes the roster, the race start closes betting.
@@ -143,20 +165,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         <span className="tabular-nums text-lg font-semibold">{capBalance.toFixed(1)}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Link
-          href={`/leagues/${league.id}/roster`}
-          className="rounded-xl bg-zinc-900 px-3 py-3 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          Roster
-        </Link>
-        <Link
-          href={`/leagues/${league.id}/bets`}
-          className="rounded-xl border border-zinc-200 px-3 py-3 text-center text-sm font-medium dark:border-zinc-800"
-        >
-          Bets
-        </Link>
-      </div>
+      <StatsCard series={stats} />
 
       <Standings
         rows={standings}

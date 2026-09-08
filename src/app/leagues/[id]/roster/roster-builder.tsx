@@ -625,7 +625,6 @@ export function RosterBuilder({
               leagueId={leagueId}
               round={round}
               chips={chips}
-              balance={balance}
               driverOptions={chipDriverOptions}
               constructorOptions={chipConstructorOptions}
               locked={locked}

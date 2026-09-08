@@ -122,11 +122,31 @@ export const PRE_QUALIFYING_BONUS = 1.1;
  * between 1 and 0.4.
  */
 export function maxStake(bank: number): number {
-  return Math.floor(bank * 10) / 10;
+  return roundStake(bank);
 }
 
-/** Smallest stake worth recording. */
-export const MIN_STAKE = 1;
+/**
+ * Cost cap is counted in millions, and a tenth of one is a real amount to bet.
+ *
+ * The whole ledger already works to a tenth — prices, payouts and the bank are
+ * all rounded there — so a whole million was a coarser step than anything else
+ * in the game.
+ */
+export const STAKE_STEP = 0.1;
+
+/** Smallest stake worth recording: one step. */
+export const MIN_STAKE = STAKE_STEP;
+
+/**
+ * Rounds a stake to the step the rest of the ledger uses.
+ *
+ * Down, not to nearest: rounding a stake up would take cap the member did not
+ * offer, and on an all-in bet it would take cap they do not have.
+ */
+export function roundStake(stake: number): number {
+  if (!Number.isFinite(stake)) return NaN;
+  return Math.floor(stake / STAKE_STEP + 1e-9) * STAKE_STEP;
+}
 
 export interface StakeCheck {
   allowed: boolean;
@@ -137,7 +157,7 @@ export interface StakeCheck {
 export function checkStake(stake: number, bank: number): StakeCheck {
   const max = maxStake(bank);
   if (!Number.isFinite(stake) || stake < MIN_STAKE) {
-    return { allowed: false, max, reason: `Minimum stake is ${MIN_STAKE}.` };
+    return { allowed: false, max, reason: `Minimum stake is ${MIN_STAKE.toFixed(1)}.` };
   }
   if (stake > max) {
     return { allowed: false, max, reason: "You cannot stake more cap than your bank holds." };

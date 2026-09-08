@@ -58,10 +58,33 @@ export const MIN_ODDS = 0.01;
 export const SMOOTHING = 1;
 
 export interface MarketRecord {
-  /** How often this selection has produced the outcome. */
+  /**
+   * How often this selection has produced the outcome, weighted by how recent
+   * each attempt was — so these are not whole numbers.
+   */
   won: number;
-  /** How many chances it has had. */
+  /** How many chances it has had, on the same weighting. */
   total: number;
+}
+
+/**
+ * How quickly an old race stops counting.
+ *
+ * Half-life in races: a result this many races ago counts half as much as one
+ * from the last round. Without it, a driver's first season buries their
+ * current form — Antonelli made the points in 11 of 13 rounds in 2026 but only
+ * 14 of 24 as a rookie in 2025, and the unweighted 68% priced him as though he
+ * still were one.
+ *
+ * Ten is under half a season, so last year still shapes the price without
+ * deciding it, and a driver who has genuinely changed is repriced within a
+ * handful of rounds.
+ */
+export const RECENCY_HALF_LIFE_RACES = 10;
+
+/** What a result that many races back is worth against the newest one. */
+export function recencyWeight(racesAgo: number): number {
+  return Math.pow(0.5, Math.max(0, racesAgo) / RECENCY_HALF_LIFE_RACES);
 }
 
 /**
