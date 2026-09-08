@@ -5,13 +5,14 @@ import { useActionState, useState } from "react";
 import {
   MARKET_LIST,
   maxStake,
-  payout,
+
   PRE_QUALIFYING_BONUS,
   type BetTiming,
   type MarketId,
 } from "@/lib/f1/betting";
 import Link from "next/link";
 
+import { payoutAt } from "@/lib/f1/bet-odds";
 import { cancelBet, placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
@@ -35,6 +36,7 @@ export function BetsPanel({
   locked,
   timing,
   hasRoster,
+  odds,
 }: {
   leagueId: string;
   round: number;
@@ -48,13 +50,19 @@ export function BetsPanel({
   timing: BetTiming;
   /** Whether a full roster is saved for this round. Betting waits on it. */
   hasRoster: boolean;
+  /** Price per market per selection. Missing entries fall back to the listed odds. */
+  odds: Record<string, Record<string, number>>;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
   const [cancelState, cancelAction] = useActionState<BetState, FormData>(cancelBet, null);
   const [marketId, setMarketId] = useState<MarketId>("race_winner");
   const [stake, setStake] = useState(5);
+  // Controlled so the price can follow the pick: odds are per selection now.
+  const [selection, setSelection] = useState("");
 
   const market = MARKET_LIST.find((entry) => entry.id === marketId)!;
+  // The price follows the selection, so an unpicked market shows the listed one.
+  const selectedOdds = (selection && odds[marketId]?.[selection]) || market.odds;
   const placed = new Set(bets.map((bet) => bet.marketId));
   const limit = maxStake(bank);
 
@@ -165,7 +173,11 @@ export function BetsPanel({
           <select
             name="marketId"
             value={marketId}
-            onChange={(event) => setMarketId(event.target.value as MarketId)}
+            onChange={(event) => {
+              setMarketId(event.target.value as MarketId);
+              // A driver priced for the old market would show the wrong odds.
+              setSelection("");
+            }}
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           >
             {MARKET_LIST.map((entry) => (
@@ -180,14 +192,20 @@ export function BetsPanel({
           <select
             name="selection"
             required
+            value={selection}
+            onChange={(event) => setSelection(event.target.value)}
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           >
             <option value="">Choose…</option>
-            {options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
+            {options.map((option) => {
+              const price = odds[marketId]?.[option.id];
+              return (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                  {price ? ` — ${price.toFixed(1)}x` : ""}
+                </option>
+              );
+            })}
           </select>
 
           <div className="flex items-center gap-2">
@@ -226,7 +244,9 @@ export function BetsPanel({
           </p>
 
           <p className="text-xs text-zinc-500">
-            Returns {payout(stake, marketId, timing).toFixed(1)} if it lands.
+            {selection
+              ? `Returns ${payoutAt(stake, selectedOdds, timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1).toFixed(1)} if it lands, at ${selectedOdds.toFixed(1)}x.`
+              : "Pick who it is on to see the price — odds follow the driver."}
           </p>
 
           {state && "error" in state && (

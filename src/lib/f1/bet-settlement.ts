@@ -170,7 +170,7 @@ export async function settleRound(
 
   const { data: bets, error } = await supabase
     .from("bets")
-    .select("id, member_id, market_id, selection, stake, timing")
+    .select("id, member_id, market_id, selection, stake, timing, odds")
     .eq("season", season)
     .eq("round", round)
     .is("outcome", null);
@@ -196,6 +196,9 @@ export async function settleRound(
       Number(bet.stake),
       bet.timing as BetTiming,
       facts,
+      // The price agreed when the bet was struck. Bets from before prices were
+      // per-selection carry none and fall back to the market's listed odds.
+      bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
     );
 
     const { error: updateError } = await supabase

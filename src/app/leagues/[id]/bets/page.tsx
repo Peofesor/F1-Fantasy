@@ -1,4 +1,6 @@
-import { MARKETS, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { MARKETS, MARKET_LIST, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { loadMarketHistory } from "@/lib/f1/bet-history";
+import { oddsFor } from "@/lib/f1/bet-odds";
 import { loadMemberContext } from "../member-context";
 import { LeagueNav } from "../league-nav";
 import { BetsPanel, type PlacedBet } from "./bets-panel";
@@ -69,6 +71,21 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     target_round: round.round,
   });
 
+  // Odds are per selection now, so every option carries its own price. Priced
+  // once here rather than per option in the client, which cannot see history.
+  const history = await loadMarketHistory(supabase, round.season);
+  const odds: Record<string, Record<string, number>> = {};
+  for (const market of MARKET_LIST) {
+    const bySelection = history.get(market.id);
+    if (!bySelection) continue;
+    odds[market.id] = Object.fromEntries(
+      [...bySelection.keys()].map((selection) => [
+        selection,
+        oddsFor(market.id, bySelection.get(selection)),
+      ]),
+    );
+  }
+
   const nationalities = [...new Set([...round.driverNationalities.values()])].sort();
 
   return (
@@ -98,6 +115,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         locked={Boolean(roster?.locked_at)}
         timing={(timingValue ?? "pre_qualifying") as BetTiming}
         hasRoster={Boolean(hasRoster)}
+        odds={odds}
       />
     </main>
   );

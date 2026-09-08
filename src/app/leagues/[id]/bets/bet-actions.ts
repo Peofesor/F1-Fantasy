@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { checkStake, MARKETS, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { loadMarketHistory } from "@/lib/f1/bet-history";
+import { oddsFor } from "@/lib/f1/bet-odds";
 import { ledgerBalance } from "@/lib/f1/ledger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
@@ -86,6 +88,11 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   const check = checkStake(stake, bank);
   if (!check.allowed) return { error: check.reason ?? "Stake not allowed." };
 
+  // Priced here rather than taken from the form: the odds decide the payout,
+  // so a submitted value would be a submitted payout.
+  const history = await loadMarketHistory(supabase, league.season);
+  const odds = oddsFor(marketId, history.get(marketId)?.get(selection));
+
   // RLS refuses the insert once the race has started, and refuses a row whose
   // timing disagrees with the clock, so both rules hold against a direct POST.
   const { error } = await supabase.from("bets").insert({
@@ -96,6 +103,7 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     selection,
     stake,
     timing,
+    odds,
   });
 
   if (error) {
@@ -116,7 +124,10 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   });
 
   revalidatePath(`/leagues/${leagueId}/bets`);
-  return { ok: true, message: `Bet placed on ${MARKETS[marketId].name}.` };
+  return {
+    ok: true,
+    message: `Bet placed on ${MARKETS[marketId].name} at ${odds.toFixed(1)}.`,
+  };
 }
 
 /**

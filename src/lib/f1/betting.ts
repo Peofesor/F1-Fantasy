@@ -29,6 +29,8 @@ export type MarketId =
   | "beats_teammate_race"
   | "beats_teammate_qualifying";
 
+import { payoutAt } from "./bet-odds";
+
 export type BetTiming = "pre_qualifying" | "pre_race";
 
 export interface MarketDefinition {
@@ -94,10 +96,15 @@ export const MARKET_LIST = Object.values(MARKETS).filter((market) => market.avai
 export const ALL_MARKETS = Object.values(MARKETS);
 
 /**
- * Pre-qualifying bets pay more, because they are placed before the grid is
- * known and therefore carry genuinely more risk (spec §8).
+ * Pre-qualifying bets pay a little more, because they are placed before the
+ * grid is known and therefore carry genuinely more risk (spec §8).
+ *
+ * It was 1.5, which quietly undid the house margin: prices are now derived from
+ * how often a selection actually does the thing, so multiplying a fair price by
+ * half again made every market profitable to somebody. At 1.1 the incentive to
+ * commit early survives without turning betting into a way to print cost cap.
  */
-export const PRE_QUALIFYING_BONUS = 1.5;
+export const PRE_QUALIFYING_BONUS = 1.1;
 
 /**
  * The most of the bank a single bet may risk.
@@ -135,11 +142,15 @@ export function checkStake(stake: number, bank: number): StakeCheck {
   return { allowed: true, max };
 }
 
-/** Total returned on a winning bet: the stake back plus winnings. */
+/**
+ * Total returned on a winning bet at a market's listed price.
+ *
+ * Prices are per selection now (see ./bet-odds.ts), so this is the fallback for
+ * a selection with no history rather than the usual path.
+ */
 export function payout(stake: number, marketId: MarketId, timing: BetTiming): number {
-  const multiplier =
-    MARKETS[marketId].odds * (timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1);
-  return Math.round(stake * (1 + multiplier) * 10) / 10;
+  const bonus = timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1;
+  return payoutAt(stake, MARKETS[marketId].odds, bonus);
 }
 
 /** Everything settlement needs, all of it already ingested. */
@@ -277,6 +288,11 @@ export function settle(
   stake: number,
   timing: BetTiming,
   facts: SettlementFacts,
+  /**
+   * The odds struck when the bet was placed. Null for bets from before prices
+   * were per-selection, which settle at the market's listed price.
+   */
+  agreedOdds: number | null = null,
 ): SettledBet {
   const result = settleBet(marketId, selection, facts);
 
@@ -284,5 +300,8 @@ export function settle(
   // be blamed for a source that did not publish.
   if (result === null) return { outcome: "void", returned: stake };
   if (!result) return { outcome: "lost", returned: 0 };
-  return { outcome: "won", returned: payout(stake, marketId, timing) };
+
+  const odds = agreedOdds ?? MARKETS[marketId].odds;
+  const bonus = timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1;
+  return { outcome: "won", returned: payoutAt(stake, odds, bonus) };
 }
