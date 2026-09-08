@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { MarketId } from "./betting";
-import { recencyWeight, type MarketRecord } from "./bet-odds";
+import { ODDS_WINDOW_RACES, type MarketRecord } from "./bet-odds";
 
 /**
  * How often each selection has produced each market's outcome.
@@ -9,10 +9,13 @@ import { recencyWeight, type MarketRecord } from "./bet-odds";
  * Read from ingested results rather than kept as a running counter, so a
  * corrected result changes the price the same way it changes the score.
  *
- * Every attempt is weighted by how recent it was. A flat two-season count
- * priced a driver on a career rather than on current form: Antonelli made the
- * points in 11 of 13 rounds in 2026 and 14 of 24 as a rookie the year before,
- * and the flat 68% offered odds on a driver who no longer exists.
+ * Only the last ten race weekends count. A flat two-season tally priced a
+ * driver on a career rather than on form: Antonelli made the points in 11 of 13
+ * rounds in 2026 and 14 of 24 as a rookie the year before, and the combined 68%
+ * offered odds on a driver who no longer exists.
+ *
+ * A window rather than a decay curve, because a player can check a window. Ten
+ * races is a results page they can scroll.
  */
 export type MarketHistory = Map<MarketId, Map<string, MarketRecord>>;
 
@@ -47,13 +50,22 @@ export async function loadMarketHistory(
   const order = new Map<string, number>();
   (rounds.data ?? []).forEach((row, index) => order.set(`${row.season}:${row.round}`, index));
 
-  // Aged against the last round that actually ran, not the last one on the
-  // calendar. Counting from a race still months away pushed every real result
-  // further into the past and flattened the weighting it exists to create.
+  // Measured from the last round that actually ran, not the last one on the
+  // calendar: counting from a race still months away would push real results
+  // out of a window they belong in.
   const raced = (races.data ?? [])
     .map((row) => order.get(`${row.season}:${row.round}`))
     .filter((index): index is number => index !== undefined);
   const latest = raced.length ? Math.max(...raced) : 0;
+  const earliest = latest - ODDS_WINDOW_RACES + 1;
+
+  /** Whether a weekend falls inside the window a price is read from. */
+  const inWindow = (season: number, round: number) => {
+    const index = order.get(`${season}:${round}`);
+    // A result from a round the calendar does not list cannot be placed, so it
+    // is treated as current rather than silently dropped.
+    return index === undefined || index >= earliest;
+  };
 
   const attempts: Partial<Record<MarketId, Attempt[]>> = {};
   const push = (market: MarketId, attempt: Attempt) => {
@@ -91,14 +103,11 @@ export async function loadMarketHistory(
   for (const [market, list] of Object.entries(attempts) as [MarketId, Attempt[]][]) {
     const bySelection = new Map<string, MarketRecord>();
     for (const attempt of list) {
-      const index = order.get(`${attempt.season}:${attempt.round}`);
-      // A result from a round the calendar does not list cannot be aged, so it
-      // is treated as current rather than dropped.
-      const weight = recencyWeight(index === undefined ? 0 : latest - index);
+      if (!inWindow(attempt.season, attempt.round)) continue;
 
       const current = bySelection.get(attempt.selection) ?? { won: 0, total: 0 };
-      current.total += weight;
-      if (attempt.won) current.won += weight;
+      current.total += 1;
+      if (attempt.won) current.won += 1;
       bySelection.set(attempt.selection, current);
     }
     history.set(market, bySelection);

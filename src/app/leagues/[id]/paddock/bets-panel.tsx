@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import {
+  checkStake,
   MARKET_LIST,
   maxStake,
   MIN_STAKE,
@@ -97,6 +98,14 @@ export function BetsPanel({
   const selectedOdds = (selection && odds[marketId]?.[selection]) || market.odds;
   const placed = new Set(bets.map((bet) => bet.marketId));
   const limit = maxStake(bank, leagueLimit);
+
+  // Why the button is off, in the same words the server uses when it refuses.
+  const stakeCheck = checkStake(stake, bank, leagueLimit);
+  const blockedReason = !selection
+    ? "Choose who the bet is on."
+    : stakeCheck.allowed
+      ? null
+      : (stakeCheck.reason ?? "That stake is not allowed.");
 
   const rawOptions =
     market.selection === "driver"
@@ -323,8 +332,17 @@ export function BetsPanel({
             <p className="text-xs text-emerald-600 dark:text-emerald-400">{state.message}</p>
           )}
 
+          {/* A greyed-out button that does not say why is a dead end. The same
+              check that disables it names the reason, using the wording the
+              server would have returned. */}
+          {blockedReason && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              {blockedReason}
+            </p>
+          )}
+
           <button
-            disabled={pending || stake > limit}
+            disabled={pending || blockedReason !== null}
             className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
           >
             {pending ? "Placing…" : "Place bet"}

@@ -68,24 +68,20 @@ export interface MarketRecord {
 }
 
 /**
- * How quickly an old race stops counting.
+ * How far back a price looks: the last ten race weekends, and nothing before.
  *
- * Half-life in races: a result this many races ago counts half as much as one
- * from the last round. Without it, a driver's first season buries their
- * current form — Antonelli made the points in 11 of 13 rounds in 2026 but only
- * 14 of 24 as a rookie in 2025, and the unweighted 68% priced him as though he
- * still were one.
+ * A flat two-season count priced a driver on a career rather than on form —
+ * Antonelli made the points in 11 of 13 rounds in 2026 but only 14 of 24 as a
+ * rookie the year before, and the combined 68% offered odds on a driver who no
+ * longer exists. This replaced an exponential decay that reached the same
+ * numbers by a route nobody could check by hand: on that same case the decay
+ * gave 0.34 and a flat ten-race window gives 0.29.
  *
- * Ten is under half a season, so last year still shapes the price without
- * deciding it, and a driver who has genuinely changed is repriced within a
- * handful of rounds.
+ * A hard window is worth the small loss of smoothness because it is a rule a
+ * player can verify. "The last ten races" can be counted on a results page;
+ * "a half-life of ten races" cannot.
  */
-export const RECENCY_HALF_LIFE_RACES = 10;
-
-/** What a result that many races back is worth against the newest one. */
-export function recencyWeight(racesAgo: number): number {
-  return Math.pow(0.5, Math.max(0, racesAgo) / RECENCY_HALF_LIFE_RACES);
-}
+export const ODDS_WINDOW_RACES = 10;
 
 /**
  * Turns a record into the price offered on it.

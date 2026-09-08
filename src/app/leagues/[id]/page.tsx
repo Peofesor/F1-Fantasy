@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { buildLeagueStats } from "@/lib/f1/league-stats";
 import { DeadlineCard } from "./deadline-card";
+import type { ChipAllowance } from "@/lib/f1/chips";
 import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
@@ -26,7 +27,9 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   // absence of a row is the authorisation check.
   const { data: league } = await supabase
     .from("leagues")
-    .select("id, name, season, mode, invite_code, starting_cost_cap, owner_id, max_stake")
+    .select(
+      "id, name, season, mode, invite_code, starting_cost_cap, owner_id, max_stake, chip_allowance",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -189,6 +192,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           leagueId={league.id}
           name={league.name}
           maxStake={league.max_stake === null ? null : Number(league.max_stake)}
+          chipAllowance={league.chip_allowance as ChipAllowance | null}
         />
       )}
 

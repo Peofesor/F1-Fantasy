@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  HOUSE_MARGIN,
-  MAX_ODDS,
-  oddsFor,
-  payoutAt,
-  RECENCY_HALF_LIFE_RACES,
-  recencyWeight,
-} from "./bet-odds";
+import { HOUSE_MARGIN, MAX_ODDS, ODDS_WINDOW_RACES, oddsFor, payoutAt } from "./bet-odds";
 import { MARKETS, PRE_QUALIFYING_BONUS } from "./betting";
 
 /** What a stake is worth back on average, at these odds and this true rate. */
@@ -88,30 +81,19 @@ describe("payoutAt", () => {
   });
 });
 
-describe("recencyWeight", () => {
-  it("counts the most recent race in full", () => {
-    expect(recencyWeight(0)).toBe(1);
+describe("the pricing window", () => {
+  it("is short enough to be checked by hand", () => {
+    // The value matters less than the fact that a player can count it on a
+    // results page. An exponential decay reached similar numbers by a route
+    // nobody could verify.
+    expect(ODDS_WINDOW_RACES).toBeGreaterThanOrEqual(5);
+    expect(ODDS_WINDOW_RACES).toBeLessThanOrEqual(15);
   });
 
-  it("halves a result one half-life back", () => {
-    expect(recencyWeight(RECENCY_HALF_LIFE_RACES)).toBeCloseTo(0.5, 5);
-  });
-
-  it("keeps falling without ever reaching zero", () => {
-    expect(recencyWeight(100)).toBeGreaterThan(0);
-    expect(recencyWeight(100)).toBeLessThan(recencyWeight(50));
-  });
-
-  it("treats a race from the future as current rather than negative", () => {
-    expect(recencyWeight(-5)).toBe(1);
-  });
-
-  it("prices a driver on current form rather than a career", () => {
-    // Antonelli: 14 of 24 as a rookie, 11 of 13 the year after. Flat counting
-    // gave 68% and a price of 0.45 on an outcome he now manages 85% of the
-    // time. Weighted, the recent season is what shows.
-    const flat = { won: 25, total: 37 };
-    const weighted = { won: 10.42, total: 13.78 };
-    expect(oddsFor("top_ten", weighted)).toBeLessThan(oddsFor("top_ten", flat));
+  it("prices a driver on form rather than a career", () => {
+    // Antonelli: 25 of 37 across two seasons, but 8 of the last 10.
+    const career = { won: 25, total: 37 };
+    const recent = { won: 8, total: 10 };
+    expect(oddsFor("top_ten", recent)).toBeLessThan(oddsFor("top_ten", career));
   });
 });

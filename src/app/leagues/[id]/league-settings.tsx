@@ -2,14 +2,16 @@
 
 import { useActionState } from "react";
 
+import type { ChipAllowance } from "@/lib/f1/chips";
+import { ChipAllowanceFields } from "../chip-allowance-fields";
 import { updateLeagueSettings, type SettingsState } from "./settings-actions";
 
 /**
  * What the host can change once a league is running.
  *
- * Only shown to the owner, and only the two things that cannot rewrite a round
- * already played: the name, which is cosmetic, and the per-bet stake ceiling,
- * which only ever narrows what a future bet may risk. Mode, season and the
+ * Only shown to the owner, and only things that cannot rewrite a round already
+ * played: the name is cosmetic, the stake ceiling narrows what a future bet may
+ * risk, and a chip allowance changes what is left to play. Mode, season and the
  * opening budget are absent on purpose — changing any of them mid-season would
  * rescore history.
  */
@@ -17,10 +19,12 @@ export function LeagueSettings({
   leagueId,
   name,
   maxStake,
+  chipAllowance,
 }: {
   leagueId: string;
   name: string;
   maxStake: number | null;
+  chipAllowance: ChipAllowance | null;
 }) {
   const [state, formAction, pending] = useActionState<SettingsState, FormData>(
     updateLeagueSettings,
@@ -61,6 +65,8 @@ export function LeagueSettings({
             placed.
           </span>
         </label>
+
+        <ChipAllowanceFields allowance={chipAllowance} />
 
         {state && "error" in state && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">

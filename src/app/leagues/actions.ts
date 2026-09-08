@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { ensureProfile } from "../auth/actions";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { COST_CAP_RANGE, DEFAULT_COST_CAP } from "@/lib/f1/ledger";
+import { parseChipAllowance } from "@/lib/f1/chip-allowance";
 
 export type LeagueActionState = { error: string } | null;
 
@@ -18,6 +19,7 @@ function generateInviteCode(): string {
     () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)],
   ).join("");
 }
+
 
 export async function createLeague(
   _previous: LeagueActionState,
@@ -47,6 +49,9 @@ export async function createLeague(
     };
   }
 
+  const allowance = parseChipAllowance(formData);
+  if ("error" in allowance) return { error: allowance.error };
+
   const supabase = await createServerSupabase();
   const { data: league, error } = await supabase
     .from("leagues")
@@ -57,6 +62,7 @@ export async function createLeague(
       owner_id: user.id,
       invite_code: generateInviteCode(),
       starting_cost_cap: costCap,
+      chip_allowance: allowance,
     })
     .select("id")
     .single();

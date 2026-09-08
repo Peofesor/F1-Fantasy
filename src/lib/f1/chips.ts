@@ -106,6 +106,22 @@ export interface ChipUsage {
   round: number;
 }
 
+/**
+ * Free uses of each chip granted per half-season, as a league sets them.
+ *
+ * A missing entry means the default. Bought uses sit on top of this and do not
+ * expire at the break — you paid for those.
+ */
+export type ChipAllowance = Partial<Record<ChipId, number>>;
+
+/** What a league grants when its host has not said otherwise. */
+export const DEFAULT_ALLOWANCE_PER_HALF = 1;
+
+export function allowanceFor(allowance: ChipAllowance | null, chipId: ChipId): number {
+  const configured = allowance?.[chipId];
+  return configured === undefined ? DEFAULT_ALLOWANCE_PER_HALF : Math.max(0, configured);
+}
+
 export interface ChipAvailability {
   chip: ChipDefinition;
   usedThisSeason: number;
@@ -132,12 +148,26 @@ export function chipAvailability(
   usage: readonly ChipUsage[],
   purchased: number,
   round: number,
+  /**
+   * The rounds making up the half-season this round belongs to. Free uses are
+   * granted per half and do not carry across the summer break, so a season's
+   * worth cannot be spent by May. Omitted, the whole season counts as one half,
+   * which is what a season with no published break amounts to.
+   */
+  half: { allowance: ChipAllowance | null; rounds: readonly number[] } | null = null,
 ): ChipAvailability {
   const chip = CHIPS[chipId];
   const usedThisSeason = usage.filter((entry) => entry.chipId === chipId).length;
   const playedThisRound = usage.some(
     (entry) => entry.chipId === chipId && entry.round === round,
   );
+
+  // Plays inside this half only: what was spent before the break has no
+  // bearing on what is left after it.
+  const inHalf = (entry: ChipUsage) =>
+    half === null || half.rounds.length === 0 || half.rounds.includes(entry.round);
+  const usedThisHalf = usage.filter((entry) => entry.chipId === chipId && inHalf(entry)).length;
+  const granted = half === null ? chip.freeUses : allowanceFor(half.allowance, chipId);
 
   // One chip a weekend, not one of each. Stacking a multiplier on a safety net
   // on a roster rewrite made a single round swing further than the scoring
@@ -147,13 +177,17 @@ export function chipAvailability(
     (entry) => entry.round === round && entry.chipId !== chipId,
   );
 
-  const freeRemaining = Math.max(0, chip.freeUses - usedThisSeason);
-  const purchasedRemaining = Math.max(0, purchased - Math.max(0, usedThisSeason - chip.freeUses));
+  const freeRemaining = Math.max(0, granted - usedThisHalf);
+  // Bought uses are consumed only once the free ones for this half are gone,
+  // and are counted across the season since they were paid for.
+  const purchasedRemaining = Math.max(0, purchased - Math.max(0, usedThisSeason - granted));
 
   let reason: string | undefined;
   if (playedThisRound) reason = "Already played this round";
   else if (anotherPlayedThisRound) reason = "Another chip is already played this round";
-  else if (freeRemaining === 0 && purchasedRemaining === 0) reason = "Buy another use first";
+  else if (freeRemaining === 0 && purchasedRemaining === 0) {
+    reason = half === null ? "Buy another use first" : "None left this half — buy one";
+  }
 
   return {
     chip,

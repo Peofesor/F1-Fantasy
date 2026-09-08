@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { parseChipAllowance } from "@/lib/f1/chip-allowance";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 
 export type SettingsState = { error: string } | { ok: true; message: string } | null;
@@ -9,10 +10,11 @@ export type SettingsState = { error: string } | { ok: true; message: string } | 
 /**
  * The league settings a host may change mid-season.
  *
- * Deliberately only two. The name is cosmetic, and the stake ceiling only ever
- * narrows what a future bet may risk, so neither can rewrite a round already
- * played. Mode, season and the opening budget stay fixed for exactly that
- * reason: changing them would rescore history.
+ * Deliberately a short list, and everything on it affects only rounds still to
+ * come: the name is cosmetic, the stake ceiling narrows what a future bet may
+ * risk, and a chip allowance changes what is left to play. Mode, season and the
+ * opening budget stay fixed for the opposite reason — changing any of them
+ * would rescore history.
  */
 export async function updateLeagueSettings(
   _previous: SettingsState,
@@ -35,6 +37,9 @@ export async function updateLeagueSettings(
     return { error: "A stake limit has to be a positive number, or blank for none." };
   }
 
+  const allowance = parseChipAllowance(formData);
+  if ("error" in allowance) return { error: allowance.error };
+
   const supabase = await createServerSupabase();
 
   // The update policy already restricts this to the owner; checked here too so
@@ -52,7 +57,7 @@ export async function updateLeagueSettings(
 
   const { error } = await supabase
     .from("leagues")
-    .update({ name, max_stake: maxStake })
+    .update({ name, max_stake: maxStake, chip_allowance: allowance })
     .eq("id", leagueId);
 
   if (error) return { error: error.message };

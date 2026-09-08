@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { COST_CAP_RANGE, DEFAULT_COST_CAP } from "@/lib/f1/ledger";
+import { ChipAllowanceFields } from "./chip-allowance-fields";
 import { createLeague, joinLeague, type LeagueActionState } from "./actions";
 
 const inputClass =
@@ -62,6 +63,8 @@ export function LeagueForms() {
               className={inputClass}
             />
           </label>
+          <ChipAllowanceFields allowance={null} />
+
           <Error state={createState} />
           <button disabled={creating} className={buttonClass}>
             {creating ? "Creating…" : "Create"}

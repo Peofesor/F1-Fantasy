@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BetsPage({ params }: PageProps<"/leagues/[id]/paddock">) {
   const { id } = await params;
-  const { supabase, memberId, league, round, balance } = await loadMemberContext(id);
+  const { supabase, memberId, league, round, balance, half } = await loadMemberContext(id);
 
   if (!round) {
     return (
@@ -126,7 +126,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
   const chipRows = CHIP_LIST.map((definition) => {
     const owned = (chipPurchases ?? []).filter((row) => row.chip_id === definition.id).length;
     return toChipRow(
-      chipAvailability(definition.id, usage, owned, round.round),
+      chipAvailability(definition.id, usage, owned, round.round, half),
       (chipPlays ?? []).some(
         (play) => play.chip_id === definition.id && play.round === round.round,
       ),

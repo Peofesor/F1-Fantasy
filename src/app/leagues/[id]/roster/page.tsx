@@ -50,7 +50,7 @@ function selectionFromSlots(
 
 export default async function RosterPage({ params }: PageProps<"/leagues/[id]/roster">) {
   const { id } = await params;
-  const { supabase, memberId, league, round, balance } = await loadMemberContext(id);
+  const { supabase, memberId, league, round, balance, half } = await loadMemberContext(id);
 
   if (!round) {
     return (
@@ -112,7 +112,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
   const chipRows = CHIP_LIST.map((definition) => {
     const owned = (chipPurchases ?? []).filter((row) => row.chip_id === definition.id).length;
-    const state = chipAvailability(definition.id, usage, owned, round.round);
+    const state = chipAvailability(definition.id, usage, owned, round.round, half);
     const played = (chipPlays ?? []).find(
       (play) => play.chip_id === definition.id && play.round === round.round,
     );

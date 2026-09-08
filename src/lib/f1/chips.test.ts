@@ -184,3 +184,44 @@ describe("one chip a weekend", () => {
     expect(canPurchase("super_driver", 1, 0, 100).allowed).toBe(true);
   });
 });
+
+describe("allowance per half-season", () => {
+  const firstHalf = { allowance: null, rounds: [1, 2, 3, 4, 5] };
+  const secondHalf = { allowance: null, rounds: [6, 7, 8, 9, 10] };
+
+  it("grants one of each per half by default", () => {
+    expect(chipAvailability("super_driver", [], 0, 3, firstHalf).freeRemaining).toBe(1);
+  });
+
+  it("refills at the break", () => {
+    // Spent in the first half, available again in the second: the point of
+    // splitting is that the run-in is not left with nothing to play.
+    const usage: ChipUsage[] = [{ chipId: "super_driver", round: 2 }];
+    expect(chipAvailability("super_driver", usage, 0, 3, firstHalf).available).toBe(false);
+    expect(chipAvailability("super_driver", usage, 0, 7, secondHalf).available).toBe(true);
+  });
+
+  it("honours a league that grants more", () => {
+    const generous = { allowance: { super_driver: 3 }, rounds: [1, 2, 3, 4, 5] };
+    const usage: ChipUsage[] = [{ chipId: "super_driver", round: 2 }];
+    expect(chipAvailability("super_driver", usage, 0, 3, generous).freeRemaining).toBe(2);
+  });
+
+  it("honours a league that grants none", () => {
+    const strict = { allowance: { super_driver: 0 }, rounds: [1, 2, 3, 4, 5] };
+    const state = chipAvailability("super_driver", [], 0, 3, strict);
+    expect(state.available).toBe(false);
+    expect(state.reason).toBe("None left this half — buy one");
+  });
+
+  it("lets a bought use through once the free one is spent", () => {
+    // Bought uses are paid for, so they do not expire at the break.
+    const usage: ChipUsage[] = [{ chipId: "super_driver", round: 2 }];
+    expect(chipAvailability("super_driver", usage, 1, 3, firstHalf).available).toBe(true);
+  });
+
+  it("treats a season with no break as a single half", () => {
+    const usage: ChipUsage[] = [{ chipId: "super_driver", round: 2 }];
+    expect(chipAvailability("super_driver", usage, 0, 9, null).available).toBe(false);
+  });
+});
