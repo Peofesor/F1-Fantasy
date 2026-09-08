@@ -19,6 +19,7 @@ import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
 import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
 import { CHIP_LIST } from "@/lib/f1/chips";
 import { MARKET_LIST, PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
+import { ODDS_WINDOW_RACES } from "@/lib/f1/bet-odds";
 import { TOP_BRACKET_SIZE, TOP_CONSTRUCTOR_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
 
 /**
@@ -242,14 +243,32 @@ export default function RulesPage() {
           qualifying pay {PRE_QUALIFYING_BONUS}× the odds, because you are guessing with less
           information.
         </p>
-        <div>
+        <p>
+          <strong>Every price follows the driver, not the market.</strong> What a bet pays comes
+          from how often that selection has actually done the thing over the last{" "}
+          {ODDS_WINDOW_RACES} race weekends — so a points finish pays little on a driver who
+          always manages one and a lot on a driver who rarely does. The paddock shows the real
+          price beside every name before you commit to it.
+        </p>
+        <p>
+          A selection that comes in more often than the house can cover has no price at all and is
+          shown as unavailable. There is no number that makes a near-certainty worth betting on,
+          and offering one anyway would just be giving cost cap away.
+        </p>
+
+        {/* Markets, without prices. Listing the old fixed odds here promised a
+            number the paddock then contradicted — "Race winner 4×" above a
+            board offering 0.80 to 12.00 depending on who you picked. */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-xs">
           {MARKET_LIST.map((market) => (
-            <Row key={market.id} label={market.name} value={`${market.odds}×`} />
+            <span key={market.id}>{market.name}</span>
           ))}
         </div>
+
         <p className="pt-1 text-xs">
-          One bet per market per round, and a bet cannot be withdrawn. If the data needed to
-          settle a market never arrives, the bet is voided and your stake returned.
+          One bet per market per round. An open bet can be withdrawn until the race starts and the
+          stake comes back. If the data needed to settle a market never arrives, the bet is voided
+          and your stake returned.
         </p>
       </Section>
 
