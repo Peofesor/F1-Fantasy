@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { buildLeagueStats } from "@/lib/f1/league-stats";
 import { DeadlineCard } from "./deadline-card";
+import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
 import { currentRound } from "@/lib/f1/round-context";
@@ -193,6 +194,13 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           fixtures={fixtures}
         />
       )}
+
+      <LeaveLeague
+        leagueId={league.id}
+        isOwner={league.owner_id === user.id}
+        memberCount={roster?.length ?? 0}
+        hasHistory={(scoreRows ?? []).some((row) => row.member_id === selfMemberId)}
+      />
 
       <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
         <h2 className="text-sm font-semibold">Invite</h2>
