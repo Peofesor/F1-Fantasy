@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -258,6 +259,13 @@ export function RosterBuilder({
   const [chipsOpen, setChipsOpen] = useState(false);
   const [askingCaptains, setAskingCaptains] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
+
+  // Where a blocked navigation was heading, held while the player decides.
+  const [leavingTo, setLeavingTo] = useState<string | null>(null);
+  // What was last sent to the server, so a saved roster is not called unsaved.
+  // State rather than a ref because it is read while rendering.
+  const [submitted, setSubmitted] = useState<string | null>(null);
   const [state, formAction, saving] = useActionState<SaveState, FormData>(saveRoster, null);
 
   const { tiers, constructorTiers, driverPrices, constructorPrices, byId } = useMemo(() => {
@@ -284,6 +292,53 @@ export function RosterBuilder({
       }),
     [selection, tiers, constructorTiers, driverPrices, constructorPrices, costCap],
   );
+
+  // Unsaved means: different from what the page loaded, and different from
+  // whatever the last successful save sent. Comparing the normalised selection
+  // rather than the draft keeps a slot cleared and refilled with the same pick
+  // from counting as a change.
+  const currentSnapshot = JSON.stringify(selection);
+  const savedSnapshot = state && "ok" in state ? submitted : null;
+  const unsaved =
+    !locked &&
+    currentSnapshot !== JSON.stringify(initialSelection) &&
+    currentSnapshot !== savedSnapshot;
+
+  useEffect(() => {
+    if (!unsaved) return;
+
+    // Covers reloads, closing the tab and typing another address. The browser
+    // shows its own wording here; nothing can change that.
+    const warnOnUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+
+    /**
+     * Catches in-app navigation, which never reaches beforeunload.
+     *
+     * Captured on the document rather than wired into each link, because the
+     * links that lead away from here — the league tabs, the scoring link — are
+     * rendered by components this one does not own.
+     */
+    const warnOnLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      const link = (event.target as HTMLElement | null)?.closest("a");
+      const href = link?.getAttribute("href");
+      if (!link || !href || link.target === "_blank") return;
+      // Same-page anchors and external links are not our problem.
+      if (!href.startsWith("/")) return;
+
+      event.preventDefault();
+      setLeavingTo(href);
+    };
+
+    window.addEventListener("beforeunload", warnOnUnload);
+    document.addEventListener("click", warnOnLinkClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", warnOnUnload);
+      document.removeEventListener("click", warnOnLinkClick, true);
+    };
+  }, [unsaved]);
 
   const slots = slotsOf(draft);
   const bySlot = new Map(slots.map((slot) => [slot.kind + "-" + slot.index, slot]));
@@ -404,7 +459,12 @@ export function RosterBuilder({
             )}
           </button>
 
-          <form action={formAction} ref={formRef} className="flex-1">
+          <form
+            action={formAction}
+            ref={formRef}
+            onSubmit={() => setSubmitted(JSON.stringify(selection))}
+            className="flex-1"
+          >
           <input type="hidden" name="leagueId" value={leagueId} />
           <input type="hidden" name="top" value={selection.top.join(",")} />
           <input type="hidden" name="mid" value={selection.mid.join(",")} />
@@ -510,6 +570,37 @@ export function RosterBuilder({
             <li key={error}>{error}</li>
           ))}
         </ul>
+      )}
+
+      {leavingTo && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl dark:bg-zinc-900">
+            <h3 className="text-sm font-semibold">Leave without saving?</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Your roster changes have not been saved. Leaving this page discards them.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setLeavingTo(null)}
+                className="flex-1 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium dark:border-zinc-700"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const href = leavingTo;
+                  setLeavingTo(null);
+                  router.push(href);
+                }}
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {chipsOpen && (

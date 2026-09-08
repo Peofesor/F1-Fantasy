@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { loadRoundContext } from "@/lib/f1/round-context";
 import { validateRoster, type RosterSelection } from "@/lib/f1/roster";
+import { rosterSlotRows } from "@/lib/f1/roster-slots";
 import { EXTRA_CHANGE_FEE, ledgerBalance, rosterChangeEntries, spendableCap, summariseTransfers } from "@/lib/f1/ledger";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -81,14 +82,6 @@ async function recordRosterLedger(input: {
   );
 }
 
-interface SlotRow {
-  roster_id: string;
-  slot_type: string;
-  slot_index: number;
-  driver_id: string | null;
-  constructor_id: string | null;
-  price_paid: number;
-}
 
 function parseSelection(formData: FormData): RosterSelection {
   const list = (key: string) =>
@@ -296,48 +289,12 @@ export async function saveRoster(
     };
   }
 
-  const slots: SlotRow[] = [
-    ...selection.top.map((driverId, index) => ({
-      roster_id: roster.id,
-      slot_type: "driver_top",
-      slot_index: index + 1,
-      driver_id: driverId,
-      constructor_id: null,
-      price_paid: context.driverPrices.get(driverId) ?? 0,
-    })),
-    ...selection.mid.map((driverId, index) => ({
-      roster_id: roster.id,
-      slot_type: "driver_mid",
-      slot_index: index + 1,
-      driver_id: driverId,
-      constructor_id: null,
-      price_paid: context.driverPrices.get(driverId) ?? 0,
-    })),
-    {
-      roster_id: roster.id,
-      slot_type: "driver_backmarker",
-      slot_index: 1,
-      driver_id: selection.backmarker,
-      constructor_id: null,
-      price_paid: context.driverPrices.get(selection.backmarker!) ?? 0,
-    },
-    ...selection.constructors.map((constructorId, index) => ({
-      roster_id: roster.id,
-      slot_type: index === 0 ? "constructor_top" : "constructor_mid",
-      slot_index: index + 1,
-      driver_id: null,
-      constructor_id: constructorId,
-      price_paid: context.constructorPrices.get(constructorId) ?? 0,
-    })),
-    {
-      roster_id: roster.id,
-      slot_type: "constructor_reverse",
-      slot_index: 1,
-      driver_id: null,
-      constructor_id: selection.reverseConstructor,
-      price_paid: context.constructorPrices.get(selection.reverseConstructor!) ?? 0,
-    },
-  ];
+  const slots = rosterSlotRows(
+    roster.id,
+    selection,
+    context.driverPrices,
+    context.constructorPrices,
+  );
 
   // Replaced wholesale: slot identity is positional, so editing in place would
   // need a diff for no benefit. Deleting first also avoids tripping the
