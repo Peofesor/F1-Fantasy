@@ -25,7 +25,7 @@ interface SlotRow {
 /** Rebuilds a selection from stored slots so an existing roster reopens as picked. */
 function selectionFromSlots(
   slots: SlotRow[],
-  boosts: { turbo_driver_id: string | null; boost_constructor_id: string | null } | null,
+  captains: { top_captain_id: string | null; mid_captain_id: string | null } | null,
 ): RosterSelection {
   const ordered = [...slots].sort((a, b) => a.slot_index - b.slot_index);
   const drivers = (type: string) =>
@@ -43,8 +43,8 @@ function selectionFromSlots(
     backmarker: ordered.find((s) => s.slot_type === "driver_backmarker")?.driver_id ?? null,
     constructors: constructors.filter((value): value is string => Boolean(value)),
     reverseConstructor: constructor("constructor_reverse"),
-    turboDriverId: boosts?.turbo_driver_id ?? null,
-    boostConstructorId: boosts?.boost_constructor_id ?? null,
+    topCaptainId: captains?.top_captain_id ?? null,
+    midCaptainId: captains?.mid_captain_id ?? null,
   };
 }
 
@@ -66,7 +66,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
   const { data: existingRoster } = await supabase
     .from("rosters")
     .select(
-      "id, locked_at, transfers_used, turbo_driver_id, boost_constructor_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
+      "id, locked_at, transfers_used, top_captain_id, mid_captain_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
     )
     .eq("member_id", memberId)
     .eq("season", round.season)
@@ -131,7 +131,12 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     .map(([driverId, price]) => ({
       id: driverId,
       name: round.driverNames.get(driverId) ?? driverId,
-      subtitle: round.driverTeams.get(driverId) ?? "",
+      subtitle: (() => {
+        const constructorId = round.driverTeams.get(driverId);
+        return constructorId
+          ? (round.constructorNames.get(constructorId) ?? constructorId)
+          : "";
+      })(),
       price,
       tier: round.tiers.get(driverId) ?? "mid",
       headshotUrl: round.driverHeadshots.get(driverId),

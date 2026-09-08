@@ -42,10 +42,10 @@ function selectionFromSlots(slots: SlotRow[]): RosterSelection {
     backmarker: of("driver_backmarker")[0]?.driver_id ?? null,
     constructors: [...of("constructor_top"), ...of("constructor_mid")].map((s) => s.constructor_id ?? "").filter(Boolean),
     reverseConstructor: of("constructor_reverse")[0]?.constructor_id ?? null,
-    // The nominations are columns on the roster, not slots; scoring reads them
+    // Captains are columns on the roster, not slots; scoring reads them
     // straight off that row rather than through the selection.
-    turboDriverId: null,
-    boostConstructorId: null,
+    topCaptainId: null,
+    midCaptainId: null,
   };
 }
 
@@ -248,7 +248,7 @@ export async function scoreRound(
   const { data: rosters, error } = await supabase
     .from("rosters")
     .select(
-      "id, member_id, turbo_driver_id, boost_constructor_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
+      "id, member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
     )
     .eq("season", season)
     .eq("round", round);
@@ -280,8 +280,8 @@ export async function scoreRound(
       case "autopilot": active.autopilot = true; break;
       case "no_negative": active.noNegative = true; break;
       // final_fix, wildcard and unlimited_cap change what may be picked rather
-      // than how it scores, so they do not appear here. The 2x nominations are
-      // not chips at all — they are read off the roster below.
+      // than how it scores, so they do not appear here. Captains are not chips
+      // at all — they are read off the roster below.
     }
     chipsByMember.set(play.member_id, active);
   }
@@ -294,12 +294,13 @@ export async function scoreRound(
     const slots = (roster.roster_slots ?? []) as unknown as SlotRow[];
     const selection = selectionFromSlots(slots);
 
-    // The weekly 2x nominations live on the roster, so they apply whether or
-    // not the member played any chip this round.
+    // Captains live on the roster, so they apply whether or not the member
+    // played any chip this round.
     const active: ActiveChips = {
       ...(chipsByMember.get(roster.member_id) ?? {}),
-      turboDriverId: roster.turbo_driver_id ?? undefined,
-      konstruktorBoostId: roster.boost_constructor_id ?? undefined,
+      captainIds: [roster.top_captain_id, roster.mid_captain_id].filter(
+        (id): id is string => Boolean(id),
+      ),
     };
 
     const score = scoreRoster(selection, facts, active);

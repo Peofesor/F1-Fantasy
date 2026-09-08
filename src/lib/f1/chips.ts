@@ -4,10 +4,10 @@
  * Every chip starts with one free use per season and further uses must be
  * bought from the store.
  *
- * The weekly 2x nominations (one driver, one constructor) are deliberately not
- * chips. They were free and unlimited, so playing them was never a decision —
- * only something to forget. They live on the roster instead, and their effects
- * are still applied here through `ActiveChips`.
+ * The weekly captains (one driver per bracket) are deliberately not chips.
+ * They were free and unlimited, so playing them was never a decision — only
+ * something to forget. They live on the roster instead, and their doubling is
+ * still applied here through `ActiveChips`.
  *
  * There is no season limit on how often a chip may be played. The only limit is
  * per race: one chip of a kind per round, so two multipliers can never stack on
@@ -217,10 +217,11 @@ export function toChipRow(
 }
 
 export interface ActiveChips {
-  /** Driver nominated on the roster to score double. Not a chip. */
-  turboDriverId?: string;
-  /** Constructor nominated on the roster to score double. Not a chip. */
-  konstruktorBoostId?: string;
+  /**
+   * The roster's captains, one per driver bracket. Each scores double. Not
+   * chips — they are picked with the team.
+   */
+  captainIds?: readonly string[];
   /** Driver whose score is tripled. */
   superDriverId?: string;
   /** Doubles whichever driver scored highest, chosen after the fact. */
@@ -254,13 +255,12 @@ export function applyChips(
     );
   };
 
-  multiply(chips.turboDriverId, 2);
-  multiply(chips.konstruktorBoostId, 2);
+  for (const captainId of chips.captainIds ?? []) multiply(captainId, 2);
   multiply(chips.superDriverId, 3);
 
   if (chips.autopilot) {
     const alreadyBoosted = new Set(
-      [chips.turboDriverId, chips.superDriverId].filter(Boolean) as string[],
+      [...(chips.captainIds ?? []), chips.superDriverId].filter(Boolean) as string[],
     );
     const candidates = result.filter(
       (slot) => slot.slot.startsWith("driver_") && !alreadyBoosted.has(slot.competitorId),

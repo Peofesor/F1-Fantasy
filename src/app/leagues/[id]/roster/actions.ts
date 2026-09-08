@@ -108,8 +108,8 @@ function parseSelection(formData: FormData): RosterSelection {
     backmarker: single("backmarker"),
     constructors: list("constructors"),
     reverseConstructor: single("reverseConstructor"),
-    turboDriverId: single("turboDriverId"),
-    boostConstructorId: single("boostConstructorId"),
+    topCaptainId: single("topCaptainId"),
+    midCaptainId: single("midCaptainId"),
   };
 }
 
@@ -364,14 +364,14 @@ export async function saveRoster(
     constructorPrices: context.constructorPrices,
   });
 
-  // The 2x nominations sit on the roster row, so they are written on every
-  // save; consumed transfer allowance persists, so a second save this round
-  // does not reset it.
+  // Captains sit on the roster row, so they are written on every save;
+  // consumed transfer allowance persists, so a second save this round does not
+  // reset it.
   await supabase
     .from("rosters")
     .update({
-      turbo_driver_id: selection.turboDriverId,
-      boost_constructor_id: selection.boostConstructorId,
+      top_captain_id: selection.topCaptainId,
+      mid_captain_id: selection.midCaptainId,
       ...(transfers.changes > 0
         ? { transfers_used: roster.transfers_used + transfers.changes }
         : {}),

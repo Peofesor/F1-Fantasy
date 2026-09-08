@@ -105,19 +105,27 @@ Grouping by bracket makes the composition rule legible at a glance: each row is 
 - "P1 not pickable" restriction — superseded by the tier system, which already prevents an all-top-driver roster.
 - Standalone "Negativ-Fahrer" (2 free extra reverse-scoring picks) — fully replaced by the single backmarker slot.
 
-## 4a. The weekly 2× nominations
+## 4a. Bracket captains
 
-Each week, alongside picking the team, you nominate **one driver to score double** and **one constructor to score double**. The doubling then applies automatically when the round is scored.
+Each week, alongside picking the team, you name **one captain per driver bracket** — one of your three top drivers and one of your three midfield drivers. Both score **double**, applied automatically when the round is scored.
 
 These were originally the Turbo Driver and Konstruktor Boost chips. They were the only two chips that were free *and* unlimited, which meant playing them was never a decision — there was no reason not to, every single round. A choice with one correct answer is not a chip; it is a step you can forget to take, and forgetting cost you points for nothing. Making them part of the roster removes the trap and keeps the decision that actually mattered: *which* driver and *which* team.
 
 - **Stored on `rosters`**, not as a flag on `roster_slots` — exactly one of each may exist, which a column enforces for free.
 - **Required for a complete roster.** Both are free, so leaving one unset is never anything but worse; the picker asks for them rather than letting you forfeit them silently.
-- **The backmarker cannot be nominated**, since it pays cost cap rather than points — doubling it would double nothing. The reverse-scored constructor is excluded for the same reason.
-- **A nomination follows its holder.** Swapping a nominated pick moves the 2× onto whoever takes the slot; clearing the slot drops it and the roster reads as incomplete until it is set again.
-- **It carries forward** with the rest of the roster, following an auto-swapped driver onto their replacement, so a member who never opens the app still fields a multiplier.
+- **One per bracket, not one overall.** A single nomination had a dominant answer: the dearest top-bracket driver is almost always the highest scorer, so the pick made itself. A mid captain competes only against the other two mid drivers, which is a decision on its own terms.
+- **Constructors cannot be captained.** A constructor already scores its two drivers combined, so it swings about twice as hard as a driver slot before any multiplier — doubling that again let one slot decide the round. An earlier draft had a constructor boost; it was dropped rather than moved.
+- **The backmarker cannot be captained**, since it pays cost cap rather than points — doubling it would double nothing.
+- **A captaincy follows its holder.** Swapping the captain moves the armband onto whoever takes the slot; clearing the slot drops it and the roster reads as incomplete until it is set again.
+- **It carries forward** with the rest of the roster, following an auto-swapped driver onto their replacement, so a member who never opens the app still fields two multipliers.
 
-Both may be active at once — they are separate roster fields, not competing chip plays. SuperDriver can still stack on top, since it is a bought chip and a genuine decision.
+Both captains are active at once — they are separate roster fields, not competing chip plays. SuperDriver can still stack on top, since it is a bought chip and a genuine decision.
+
+### Price and form sort alike
+
+The picker's option table shows **Price** and **Form (pts last 5 races)** as separate sortable columns, but they are very nearly the same ordering: price is *derived* from form (§5), and `priceFromForm` is strictly increasing, so a higher form is always a higher price. Measured on the real 2026 round-14 field, the two orderings agree on 21 of 23 drivers and differ only where rounding to 0.1 ties two prices — Hamilton and Russell both cost 23.9, and form separates them at 57.00 against 57.04.
+
+So form sorts as a tie-breaker on price rather than as an independent axis. Both columns are still shown because they answer different questions — what a driver costs, and what he actually returned — but no ordering built from price and form together can carry information that form alone does not, as long as price is a pure function of form.
 
 ## 5. Driver & constructor pricing
 
@@ -222,7 +230,7 @@ Within the range, strength sets the price: the 3× and the cap lift at 3, the on
 | Wildcard | 2 | 1 |
 | No Negative | 1 | 1 |
 
-Turbo Driver and Konstruktor Boost are **no longer chips** — see §4a.
+Turbo Driver and Konstruktor Boost are **no longer chips**. Turbo Driver became the bracket captaincies (§4a); the constructor boost was dropped outright.
 
 **There is no season limit on chip use.** The only limit is per race: one chip of a given kind per round, since stacking two multipliers on one result swings far beyond what the scoring model is balanced for.
 

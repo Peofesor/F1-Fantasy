@@ -118,7 +118,7 @@ export async function carryForwardRosters(
     const { data: previous } = await supabase
       .from("rosters")
       .select(
-        "id, round, turbo_driver_id, boost_constructor_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
+        "id, round, top_captain_id, mid_captain_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
       )
       .eq("member_id", member.id)
       .eq("season", season)
@@ -186,8 +186,8 @@ export async function carryForwardRosters(
 
     const { error: slotError } = await supabase.from("roster_slots").insert(carried);
 
-    // The 2x nominations carry over too, following an auto-swapped pick onto
-    // its replacement. A member who never opens the app keeps the boost they
+    // Captains carry over too, following an auto-swapped driver onto their
+    // replacement. A member who never opens the app keeps the captains they
     // chose rather than fielding a team with no multiplier at all.
     const swapped = new Map(report.autoSwapped.map((swap) => [swap.out, swap.in]));
     const stillHeld = new Set(
@@ -203,8 +203,8 @@ export async function carryForwardRosters(
     await supabase
       .from("rosters")
       .update({
-        turbo_driver_id: follow(previous?.turbo_driver_id ?? null),
-        boost_constructor_id: follow(previous?.boost_constructor_id ?? null),
+        top_captain_id: follow(previous?.top_captain_id ?? null),
+        mid_captain_id: follow(previous?.mid_captain_id ?? null),
       })
       .eq("id", created.id);
 

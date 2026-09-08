@@ -31,13 +31,20 @@ export interface RosterSelection {
   /** One constructor scored on its per-race placing. */
   reverseConstructor: string | null;
   /**
-   * The weekly 2x nominations, chosen alongside the team rather than played as
-   * chips. Both are free and always available, so leaving them unset is never
-   * anything but worse — which is exactly why they are required rather than
-   * optional, and why the picker asks for them every round.
+   * The weekly captains: one driver per bracket, each scoring double.
+   *
+   * Chosen alongside the team rather than played as chips. Both are free and
+   * always available, so leaving one unset is never anything but worse — which
+   * is why they are required rather than optional, and why the picker asks for
+   * them every round.
+   *
+   * One per bracket rather than one overall: a single nomination had a dominant
+   * answer, since the dearest top driver is almost always the highest scorer. A
+   * mid captain competes only against the other two mid drivers, so it is a
+   * decision on its own terms.
    */
-  turboDriverId: string | null;
-  boostConstructorId: string | null;
+  topCaptainId: string | null;
+  midCaptainId: string | null;
 }
 
 export interface RosterContext {
@@ -64,23 +71,21 @@ export const EMPTY_SELECTION: RosterSelection = {
   backmarker: null,
   constructors: [],
   reverseConstructor: null,
-  turboDriverId: null,
-  boostConstructorId: null,
+  topCaptainId: null,
+  midCaptainId: null,
 };
 
 /**
- * Drivers eligible for the 2x nomination: the scoring slots only.
+ * The captains actually on a roster, in bracket order.
  *
- * The backmarker is excluded because it pays cost cap rather than points, so
- * doubling it would double nothing.
+ * Constructors cannot be captained: a constructor already scores its two
+ * drivers combined, so it swings about twice as hard as a driver slot before
+ * any multiplier. Doubling that again let one slot decide the round.
  */
-export function boostableDrivers(selection: RosterSelection): string[] {
-  return [...selection.top, ...selection.mid];
-}
-
-/** Constructors eligible for the 2x nomination: the normally-scored pair. */
-export function boostableConstructors(selection: RosterSelection): string[] {
-  return [...selection.constructors];
+export function captains(selection: RosterSelection): string[] {
+  return [selection.topCaptainId, selection.midCaptainId].filter(
+    (id): id is string => id !== null,
+  );
 }
 
 /** Every driver on the roster, in slot order. */
@@ -153,16 +158,15 @@ export function validateRoster(
   if (selection.reverseConstructor === null) {
     errors.push("Pick a reverse-scored constructor.");
   }
-  if (selection.turboDriverId === null) {
-    errors.push("Nominate a driver to score double.");
-  } else if (!boostableDrivers(selection).includes(selection.turboDriverId)) {
-    // The backmarker pays cost cap rather than points, so it is not boostable.
-    errors.push(`${selection.turboDriverId} is not one of your scoring drivers.`);
+  if (selection.topCaptainId === null) {
+    errors.push("Pick a captain from your top drivers.");
+  } else if (!selection.top.includes(selection.topCaptainId)) {
+    errors.push(`${selection.topCaptainId} is not one of your top drivers.`);
   }
-  if (selection.boostConstructorId === null) {
-    errors.push("Nominate a constructor to score double.");
-  } else if (!boostableConstructors(selection).includes(selection.boostConstructorId)) {
-    errors.push(`${selection.boostConstructorId} is not one of your scoring teams.`);
+  if (selection.midCaptainId === null) {
+    errors.push("Pick a captain from your midfield drivers.");
+  } else if (!selection.mid.includes(selection.midCaptainId)) {
+    errors.push(`${selection.midCaptainId} is not one of your midfield drivers.`);
   }
 
   // Tier membership. The backmarker slot is deliberately unrestricted.
@@ -205,8 +209,8 @@ export function validateRoster(
     selection.backmarker !== null &&
     selection.constructors.length === CONSTRUCTOR_SLOTS &&
     selection.reverseConstructor !== null &&
-    selection.turboDriverId !== null &&
-    selection.boostConstructorId !== null;
+    selection.topCaptainId !== null &&
+    selection.midCaptainId !== null;
 
   return { errors, cost, remaining, complete, valid: errors.length === 0 };
 }

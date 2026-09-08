@@ -18,23 +18,24 @@ describe("applyChips", () => {
     expect(applyChips(slots, {})).toEqual(slots);
   });
 
-  it("doubles the nominated driver", () => {
-    const result = applyChips(slots, { turboDriverId: "star" });
+  it("doubles a captain", () => {
+    const result = applyChips(slots, { captainIds: ["star"] });
     expect(pointsFor(result, "star")).toBe(120);
     expect(pointsFor(result, "solid")).toBe(30);
   });
 
-  it("doubles the nominated constructor", () => {
-    const result = applyChips(slots, { konstruktorBoostId: "team" });
-    expect(pointsFor(result, "team")).toBe(80);
+  it("doubles both captains at once", () => {
+    // One per bracket, so both apply on the same round.
+    const result = applyChips(slots, { captainIds: ["star", "dud"] });
+    expect(pointsFor(result, "star")).toBe(120);
+    expect(pointsFor(result, "dud")).toBe(-40);
   });
 
-  it("applies both weekly nominations at once", () => {
-    // They are separate roster fields, not competing chip plays, so nothing
-    // makes them mutually exclusive.
-    const result = applyChips(slots, { turboDriverId: "star", konstruktorBoostId: "team" });
-    expect(pointsFor(result, "star")).toBe(120);
-    expect(pointsFor(result, "team")).toBe(80);
+  it("leaves constructors alone", () => {
+    // A constructor already scores its two drivers combined; doubling that on
+    // top let one slot decide the round.
+    const result = applyChips(slots, { captainIds: ["star"] });
+    expect(pointsFor(result, "team")).toBe(40);
   });
 
   it("triples with SuperDriver", () => {
@@ -48,7 +49,7 @@ describe("applyChips", () => {
   it("multiplies before cancelling negatives", () => {
     // The other order would double a -20 that had already been cancelled,
     // reintroducing the negative the chip exists to prevent.
-    const result = applyChips(slots, { turboDriverId: "dud", noNegative: true });
+    const result = applyChips(slots, { captainIds: ["dud"], noNegative: true });
     expect(pointsFor(result, "dud")).toBe(0);
   });
 
@@ -56,8 +57,8 @@ describe("applyChips", () => {
     expect(pointsFor(applyChips(slots, { autopilot: true }), "star")).toBe(120);
   });
 
-  it("does not let Autopilot compound on an already-boosted driver", () => {
-    const result = applyChips(slots, { autopilot: true, turboDriverId: "star" });
+  it("does not let Autopilot compound on a captain", () => {
+    const result = applyChips(slots, { autopilot: true, captainIds: ["star"] });
     expect(pointsFor(result, "star")).toBe(120);
     // It falls to the best driver not already covered.
     expect(pointsFor(result, "solid")).toBe(60);
@@ -68,8 +69,8 @@ describe("applyChips", () => {
     expect(applyChips(bleak, { autopilot: true })).toEqual(bleak);
   });
 
-  it("ignores a nomination for someone not on the roster", () => {
-    expect(applyChips(slots, { turboDriverId: "ghost" })).toEqual(slots);
+  it("ignores a captain who is not on the roster", () => {
+    expect(applyChips(slots, { captainIds: ["ghost"] })).toEqual(slots);
   });
 });
 

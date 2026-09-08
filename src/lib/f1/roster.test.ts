@@ -46,8 +46,8 @@ const legal: RosterSelection = {
   backmarker: "m4",
   constructors: ["c1", "c2"],
   reverseConstructor: "c3",
-  turboDriverId: "t1",
-  boostConstructorId: "c1",
+  topCaptainId: "t1",
+  midCaptainId: "m1",
 };
 
 describe("validateRoster", () => {
@@ -168,40 +168,44 @@ describe("availableSlotFor", () => {
   });
 });
 
-describe("weekly 2x nominations", () => {
-  it("requires both nominations for a complete roster", () => {
+describe("bracket captains", () => {
+  it("requires a captain in each bracket for a complete roster", () => {
     const result = validateRoster(
-      { ...legal, turboDriverId: null, boostConstructorId: null },
+      { ...legal, topCaptainId: null, midCaptainId: null },
       context,
     );
     expect(result.complete).toBe(false);
-    expect(result.errors).toContain("Nominate a driver to score double.");
-    expect(result.errors).toContain("Nominate a constructor to score double.");
+    expect(result.errors).toContain("Pick a captain from your top drivers.");
+    expect(result.errors).toContain("Pick a captain from your midfield drivers.");
   });
 
-  it("accepts a nomination on any scoring driver slot", () => {
-    expect(validateRoster({ ...legal, turboDriverId: "m2" }, context).valid).toBe(true);
+  it("accepts any of the three drivers in a bracket", () => {
+    expect(validateRoster({ ...legal, topCaptainId: "t3" }, context).valid).toBe(true);
+    expect(validateRoster({ ...legal, midCaptainId: "m3" }, context).valid).toBe(true);
   });
 
-  it("rejects nominating the backmarker", () => {
+  it("rejects a mid driver as the top captain", () => {
+    // The armband belongs to its own bracket, or the mid choice would collapse
+    // into "whoever scores most overall" again.
+    const result = validateRoster({ ...legal, topCaptainId: "m1" }, context);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("not one of your top drivers"))).toBe(true);
+  });
+
+  it("rejects a top driver as the mid captain", () => {
+    const result = validateRoster({ ...legal, midCaptainId: "t1" }, context);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("not one of your midfield drivers"))).toBe(true);
+  });
+
+  it("rejects the backmarker as a captain", () => {
     // It pays cost cap rather than points, so doubling it would double nothing.
-    const result = validateRoster({ ...legal, turboDriverId: "m4" }, context);
+    const result = validateRoster({ ...legal, midCaptainId: "m4" }, context);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("not one of your scoring drivers"))).toBe(true);
   });
 
-  it("rejects nominating a driver who is not on the roster at all", () => {
-    const result = validateRoster({ ...legal, turboDriverId: "t4" }, context);
-    expect(result.errors.some((e) => e.includes("not one of your scoring drivers"))).toBe(true);
-  });
-
-  it("rejects nominating the reverse-scored constructor", () => {
-    const result = validateRoster({ ...legal, boostConstructorId: "c3" }, context);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("not one of your scoring teams"))).toBe(true);
-  });
-
-  it("accepts either normally-scored constructor", () => {
-    expect(validateRoster({ ...legal, boostConstructorId: "c2" }, context).valid).toBe(true);
+  it("rejects a driver who is not on the roster at all", () => {
+    const result = validateRoster({ ...legal, topCaptainId: "t4" }, context);
+    expect(result.errors.some((e) => e.includes("not one of your top drivers"))).toBe(true);
   });
 });

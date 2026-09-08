@@ -83,18 +83,23 @@ export default function RulesPage() {
         </p>
       </Section>
 
-      <Section title="Your weekly 2× picks">
+      <Section title="Your captains">
         <p>
-          Every round you also nominate <strong>one driver</strong> and{" "}
-          <strong>one team</strong> to score double. Tap the 2× badge on a card. Both are free,
-          both are required, and the doubling is applied for you when the round is scored — there
-          is no chip to remember to play.
+          Every round you name <strong>one captain among your top drivers</strong> and{" "}
+          <strong>one among your midfield drivers</strong>. Tap the 2× badge on a card. Both score
+          double, both are free, both are required, and the doubling is applied for you when the
+          round is scored — there is no chip to remember to play.
         </p>
         <p>
-          The backmarker and the reverse-scored team cannot be nominated: they pay cost cap rather
-          than points, so doubling them would double nothing. Swapping a nominated pick moves the
-          2× onto whoever replaces them, and your nominations carry into next round with the rest
-          of the roster.
+          One per bracket rather than one overall, so the midfield choice is a real decision
+          instead of always being your most expensive driver. Teams cannot be captained: a team
+          already scores its two drivers combined, so doubling that on top would let one slot
+          decide the round. The backmarker cannot either, since it pays cost cap rather than
+          points.
+        </p>
+        <p>
+          Swapping a captain moves the armband onto whoever replaces them, and your captains carry
+          into next round with the rest of the roster.
         </p>
       </Section>
 
@@ -216,7 +221,7 @@ export default function RulesPage() {
         </div>
         <p className="pt-1 text-xs">
           One free use of each per season, then buy more with cost cap — there is no season
-          limit. One chip of a kind per round, and SuperDriver stacks on top of your weekly 2×. Multipliers apply before No Negative, so doubling a
+          limit. One chip of a kind per round, and SuperDriver stacks on top of a captaincy. Multipliers apply before No Negative, so doubling a
           negative score and then cancelling it leaves you at zero rather than deeper in the hole.
         </p>
       </Section>

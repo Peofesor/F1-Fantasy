@@ -37,11 +37,24 @@ export interface PickOption {
 
 type SortField = "price" | "form" | "name";
 
+/** Column headings, which double as the sort controls. */
 const SORT_LABELS: Record<SortField, string> = {
+  name: "Name",
   price: "Price",
   form: "Form",
-  name: "Name",
 };
+
+/** The second line under a heading, where one is needed to explain the figure. */
+const SORT_SUBLABELS: Partial<Record<SortField, string>> = {
+  form: "Pts last 5 races",
+};
+
+/**
+ * Column widths, shared by the heading row and every option row so the two line
+ * up. A plain list let each row size its own columns, which put the headings
+ * over nothing in particular.
+ */
+const TABLE_COLUMNS = "grid-cols-[1fr_3.25rem_4.25rem]";
 
 /**
  * Default direction per field.
@@ -86,13 +99,14 @@ type SlotKind = "top" | "mid" | "backmarker" | "constructorTop" | "constructorMi
 const DRIVER_KINDS: SlotKind[] = ["top", "mid", "backmarker"];
 
 /**
- * Slots that can carry the weekly 2x nomination.
+ * Slots that can carry a captaincy.
  *
- * The backmarker pays cost cap rather than points, so doubling it would double
- * nothing; the reverse-scored team is excluded for the same reason its scoring
- * is inverted in the first place.
+ * One captain per driver bracket. The backmarker is excluded because it pays
+ * cost cap rather than points, so doubling it would double nothing, and
+ * constructors are excluded because one already scores its two drivers
+ * combined — doubling that on top let a single slot decide the round.
  */
-const BOOSTABLE_KINDS: SlotKind[] = ["top", "mid", "constructorTop", "constructorMid"];
+const CAPTAINABLE_KINDS: SlotKind[] = ["top", "mid"];
 
 interface Slot {
   kind: SlotKind;
@@ -125,9 +139,9 @@ interface Draft {
   constructorTop: string | null;
   constructorMid: string | null;
   reverseConstructor: string | null;
-  /** The weekly 2x nominations, picked here rather than played as chips. */
-  turboDriverId: string | null;
-  boostConstructorId: string | null;
+  /** One captain per driver bracket, picked here rather than played as chips. */
+  topCaptainId: string | null;
+  midCaptainId: string | null;
 }
 
 function padded(ids: readonly string[], length: number): (string | null)[] {
@@ -142,8 +156,8 @@ function toDraft(selection: RosterSelection): Draft {
     constructorTop: selection.constructors[0] ?? null,
     constructorMid: selection.constructors[1] ?? null,
     reverseConstructor: selection.reverseConstructor,
-    turboDriverId: selection.turboDriverId,
-    boostConstructorId: selection.boostConstructorId,
+    topCaptainId: selection.topCaptainId,
+    midCaptainId: selection.midCaptainId,
   };
 }
 
@@ -159,8 +173,8 @@ function toSelection(draft: Draft): RosterSelection {
     backmarker: draft.backmarker,
     constructors: filled([draft.constructorTop, draft.constructorMid]),
     reverseConstructor: draft.reverseConstructor,
-    turboDriverId: draft.turboDriverId,
-    boostConstructorId: draft.boostConstructorId,
+    topCaptainId: draft.topCaptainId,
+    midCaptainId: draft.midCaptainId,
   };
 }
 
@@ -200,12 +214,12 @@ function slotsOf(draft: Draft): Slot[] {
 const ROWS: { title: string; hint: string; groups: SlotKind[][]; filler?: number }[] = [
   {
     title: "Top",
-    hint: "3 drivers + 1 team",
+    hint: "3 drivers + 1 team · tap 2x for captain",
     groups: [["top", "top", "top"], ["constructorTop"]],
   },
   {
     title: "Midfield",
-    hint: "3 drivers + 1 team",
+    hint: "3 drivers + 1 team · tap 2x for captain",
     groups: [["mid", "mid", "mid"], ["constructorMid"]],
   },
   {
@@ -273,22 +287,16 @@ export function RosterBuilder({
       const replaceAt = (list: (string | null)[], index: number) =>
         list.map((existing, position) => (position === index ? id : existing));
 
-      // A nomination follows its holder: swapping a nominated pick moves the 2x
-      // onto whoever takes the slot, so the boost is never silently dropped.
-      // Clearing the slot, or swapping into one that cannot be boosted, drops
-      // it and the roster reads as incomplete until it is set again.
+      // A captaincy follows its holder: swapping the captain moves the armband
+      // onto whoever takes the slot, so it is never silently dropped. Clearing
+      // the slot drops it, and the roster reads as incomplete until it is set
+      // again.
       const held = slot.occupantId;
-      const isDriverSlot = DRIVER_KINDS.includes(slot.kind);
-      const canBoost = BOOSTABLE_KINDS.includes(slot.kind);
       const nominations = {
-        turboDriverId:
-          isDriverSlot && current.turboDriverId === held
-            ? (canBoost ? id : null)
-            : current.turboDriverId,
-        boostConstructorId:
-          !isDriverSlot && current.boostConstructorId === held
-            ? (canBoost ? id : null)
-            : current.boostConstructorId,
+        topCaptainId:
+          slot.kind === "top" && current.topCaptainId === held ? id : current.topCaptainId,
+        midCaptainId:
+          slot.kind === "mid" && current.midCaptainId === held ? id : current.midCaptainId,
       };
 
       switch (slot.kind) {
@@ -308,14 +316,12 @@ export function RosterBuilder({
     });
   }
 
-  /** Moves the 2x nomination onto a slot's occupant. */
+  /** Hands the armband to a slot's occupant, within its own bracket. */
   function nominate(slot: Slot) {
     const id = slot.occupantId;
-    if (!id || !BOOSTABLE_KINDS.includes(slot.kind)) return;
+    if (!id || !CAPTAINABLE_KINDS.includes(slot.kind)) return;
     setDraft((current) =>
-      DRIVER_KINDS.includes(slot.kind)
-        ? { ...current, turboDriverId: id }
-        : { ...current, boostConstructorId: id },
+      slot.kind === "top" ? { ...current, topCaptainId: id } : { ...current, midCaptainId: id },
     );
   }
 
@@ -396,12 +402,8 @@ export function RosterBuilder({
             name="reverseConstructor"
             value={selection.reverseConstructor ?? ""}
           />
-          <input type="hidden" name="turboDriverId" value={selection.turboDriverId ?? ""} />
-          <input
-            type="hidden"
-            name="boostConstructorId"
-            value={selection.boostConstructorId ?? ""}
-          />
+          <input type="hidden" name="topCaptainId" value={selection.topCaptainId ?? ""} />
+          <input type="hidden" name="midCaptainId" value={selection.midCaptainId ?? ""} />
           <button
             disabled={!validation.valid || saving || locked}
             className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
@@ -464,15 +466,15 @@ export function RosterBuilder({
                         slot={slot}
                         option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
                         locked={locked}
-                        boostable={BOOSTABLE_KINDS.includes(slot.kind)}
-                        boosted={
+                        captainable={CAPTAINABLE_KINDS.includes(slot.kind)}
+                        captain={
                           slot.occupantId !== null &&
-                          (slot.occupantId === draft.turboDriverId ||
-                            slot.occupantId === draft.boostConstructorId)
+                          (slot.occupantId === draft.topCaptainId ||
+                            slot.occupantId === draft.midCaptainId)
                         }
                         onOpen={() => setOpenSlot(slot)}
                         onClear={() => setSlot(slot, null)}
-                        onBoost={() => nominate(slot)}
+                        onCaptain={() => nominate(slot)}
                       />
                     );
                   })}
@@ -632,20 +634,20 @@ function SlotCard({
   slot,
   option,
   locked,
-  boostable,
-  boosted,
+  captainable,
+  captain,
   onOpen,
   onClear,
-  onBoost,
+  onCaptain,
 }: {
   slot: Slot;
   option?: PickOption;
   locked: boolean;
-  boostable: boolean;
-  boosted: boolean;
+  captainable: boolean;
+  captain: boolean;
   onOpen: () => void;
   onClear: () => void;
-  onBoost: () => void;
+  onCaptain: () => void;
 }) {
   const accent = option?.colour ? `#${option.colour}` : "#a1a1aa";
 
@@ -668,7 +670,7 @@ function SlotCard({
   return (
     <div
       className={`relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border ${
-        boosted ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
+        captain ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
       <span className="h-1 w-full shrink-0" style={{ backgroundColor: accent }} />
@@ -699,15 +701,17 @@ function SlotCard({
         </button>
       )}
 
-      {boostable && (
+      {captainable && (
         <button
           type="button"
-          disabled={locked || boosted}
-          onClick={onBoost}
-          aria-pressed={boosted}
-          aria-label={boosted ? `${option.name} scores double` : `Double ${option.name}`}
+          disabled={locked || captain}
+          onClick={onCaptain}
+          aria-pressed={captain}
+          aria-label={
+            captain ? `${option.name} is captain, scoring double` : `Make ${option.name} captain`
+          }
           className={`absolute left-1 top-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-            boosted ? "bg-amber-400 text-zinc-900" : "bg-zinc-900/70 text-white disabled:opacity-40"
+            captain ? "bg-amber-400 text-zinc-900" : "bg-zinc-900/70 text-white disabled:opacity-40"
           }`}
         >
           2x
@@ -782,30 +786,41 @@ function ChooserSheet({
           </button>
         </div>
 
-        <div className="mt-3 flex gap-1.5">
-          {(Object.keys(SORT_LABELS) as SortField[]).map((field) => {
-            const active = field === sortField;
-            return (
-              <button
-                key={field}
-                type="button"
-                onClick={() => chooseSort(field)}
-                aria-pressed={active}
-                className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition ${
-                  active
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
-                }`}
-              >
-                {SORT_LABELS[field]}
-                {active && <span aria-hidden>{descending ? "↓" : "↑"}</span>}
-              </button>
-            );
-          })}
-        </div>
       </header>
 
-      <ul className="flex-1 overflow-y-auto p-2">
+      <div
+        className={`grid ${TABLE_COLUMNS} items-end gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800`}
+      >
+        {(Object.keys(SORT_LABELS) as SortField[]).map((field) => {
+          const active = field === sortField;
+          const sublabel = SORT_SUBLABELS[field];
+          return (
+            <button
+              key={field}
+              type="button"
+              onClick={() => chooseSort(field)}
+              aria-label={
+                active
+                  ? `Sorted by ${SORT_LABELS[field].toLowerCase()}, ${descending ? "highest" : "lowest"} first. Tap to reverse.`
+                  : `Sort by ${SORT_LABELS[field].toLowerCase()}`
+              }
+              className={`text-[11px] font-medium leading-tight ${
+                field === "name" ? "text-left" : "text-right"
+              } ${active ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500"}`}
+            >
+              <span>
+                {SORT_LABELS[field]}
+                {active && <span aria-hidden> {descending ? "↓" : "↑"}</span>}
+              </span>
+              {sublabel && (
+                <span className="block text-[9px] font-normal text-zinc-500">{sublabel}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <ul className="flex-1 overflow-y-auto">
         {sorted.map((option) => {
           const affordable = option.price <= budget;
           return (
@@ -814,18 +829,23 @@ function ChooserSheet({
                 type="button"
                 disabled={!affordable}
                 onClick={() => onPick(option.id)}
-                className="flex w-full items-center gap-3 rounded-lg p-2 text-left disabled:opacity-40"
+                className={`grid w-full ${TABLE_COLUMNS} items-center gap-2 px-3 py-2 text-left disabled:opacity-40`}
               >
-                <Avatar option={option} size={40} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{option.name}</span>
-                  <span className="block truncate text-xs text-zinc-500">
-                    {option.subtitle}
-                    {option.subtitle ? " · " : ""}
-                    {option.form.toFixed(0)} pts last 5
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Avatar option={option} size={34} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{option.name}</span>
+                    {option.subtitle && (
+                      <span className="block truncate text-xs text-zinc-500">
+                        {option.subtitle}
+                      </span>
+                    )}
                   </span>
                 </span>
-                <span className="shrink-0 tabular-nums text-sm">{option.price.toFixed(1)}</span>
+                <span className="text-right tabular-nums text-sm">{option.price.toFixed(1)}</span>
+                <span className="text-right tabular-nums text-sm text-zinc-500">
+                  {option.form.toFixed(0)}
+                </span>
               </button>
             </li>
           );

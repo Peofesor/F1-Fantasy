@@ -43,8 +43,8 @@ async function main(): Promise<void> {
     backmarker: midDrivers[3],
     constructors: [topTeam[0], midTeams[0]],
     reverseConstructor: midTeams[1],
-    turboDriverId: topDrivers[0],
-    boostConstructorId: topTeam[0],
+    topCaptainId: topDrivers[0],
+    midCaptainId: midDrivers[0],
   };
 
   const result = validateRoster(selection, {
@@ -74,8 +74,8 @@ async function main(): Promise<void> {
       backmarker: dMid[3],
       constructors: [dTopTeam[0], dMidTeams[0]],
       reverseConstructor: dMidTeams[1],
-      turboDriverId: dTop[0],
-      boostConstructorId: dTopTeam[0],
+      topCaptainId: dTop[0],
+      midCaptainId: dMid[0],
     },
     {
       tiers: context.tiers,
