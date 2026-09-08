@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { ensureProfile } from "../auth/actions";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
+import { COST_CAP_RANGE, DEFAULT_COST_CAP } from "@/lib/f1/ledger";
 
 export type LeagueActionState = { error: string } | null;
 
@@ -31,15 +32,32 @@ export async function createLeague(
   const name = String(formData.get("name") ?? "").trim();
   const mode = String(formData.get("mode") ?? "");
   const season = Number(formData.get("season") ?? new Date().getUTCFullYear());
+  const rawCap = String(formData.get("costCap") ?? "").trim();
+  const costCap = rawCap === "" ? DEFAULT_COST_CAP : Number(rawCap);
 
   if (!name) return { error: "Give the league a name." };
   if (mode !== "duel" && mode !== "free_for_all") return { error: "Pick a mode." };
   if (!Number.isInteger(season)) return { error: "Season must be a year." };
 
+  // Checked here and not only in the form: a Server Action takes a direct POST,
+  // and the opening balance is granted from this figure by a database trigger.
+  if (!Number.isFinite(costCap) || costCap < COST_CAP_RANGE.min || costCap > COST_CAP_RANGE.max) {
+    return {
+      error: `Budget must be between ${COST_CAP_RANGE.min} and ${COST_CAP_RANGE.max}.`,
+    };
+  }
+
   const supabase = await createServerSupabase();
   const { data: league, error } = await supabase
     .from("leagues")
-    .insert({ name, mode, season, owner_id: user.id, invite_code: generateInviteCode() })
+    .insert({
+      name,
+      mode,
+      season,
+      owner_id: user.id,
+      invite_code: generateInviteCode(),
+      starting_cost_cap: costCap,
+    })
     .select("id")
     .single();
 

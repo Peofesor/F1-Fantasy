@@ -87,7 +87,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   }));
 
   return (
-    <main className="mx-auto max-w-2xl space-y-5 p-4 pb-16">
+    <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
       <header className="space-y-2 pt-2">
         <LeagueNav leagueId={league.id} active="hub" />
         <h1 className="text-2xl font-semibold tracking-tight">{league.name}</h1>

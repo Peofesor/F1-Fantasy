@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { COST_CAP_RANGE, DEFAULT_COST_CAP } from "@/lib/f1/ledger";
 import { createLeague, joinLeague, type LeagueActionState } from "./actions";
 
 const inputClass =
@@ -47,13 +48,28 @@ export function LeagueForms() {
             <option value="duel">Duel — weekly head-to-head</option>
             <option value="free_for_all">Free-for-all — cumulative points</option>
           </select>
+          <label className="block space-y-1">
+            <span className="text-xs text-zinc-500">
+              Budget per member ({COST_CAP_RANGE.min}–{COST_CAP_RANGE.max})
+            </span>
+            <input
+              name="costCap"
+              type="number"
+              step="5"
+              min={COST_CAP_RANGE.min}
+              max={COST_CAP_RANGE.max}
+              defaultValue={DEFAULT_COST_CAP}
+              className={inputClass}
+            />
+          </label>
           <Error state={createState} />
           <button disabled={creating} className={buttonClass}>
             {creating ? "Creating…" : "Create"}
           </button>
         </form>
         <p className="text-xs text-zinc-500">
-          Mode is locked for the season — the two score differently.
+          Mode and budget are locked for the season: both change how the whole
+          league scores, so they cannot move once anyone has picked a team.
         </p>
       </section>
 

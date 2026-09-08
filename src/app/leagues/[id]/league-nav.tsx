@@ -21,7 +21,7 @@ const TABS: { key: Section; label: string; path: string }[] = [
  */
 export function LeagueNav({ leagueId, active }: { leagueId: string; active: Section }) {
   return (
-    <nav className="flex gap-1.5 overflow-x-auto">
+    <nav className="flex justify-center gap-1.5">
       {TABS.map((tab) => {
         const isActive = tab.key === active;
         return (

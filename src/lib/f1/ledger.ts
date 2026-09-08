@@ -199,6 +199,21 @@ export function backmarkerPayoutEntry(
  * Validating a roster against the bank alone double-counts the purchase and
  * makes every held roster look unaffordable the moment it is bought.
  */
+/**
+ * What a league's opening cost cap may be set to.
+ *
+ * The floor is above the cheapest legal roster (~117 at 2026 round 14) so a
+ * league can never be created that cannot field a team at all. The ceiling sits
+ * above the dearest legal roster (~186), since a cap that buys every premium
+ * pick removes the trade-off the budget exists to create — but it is left
+ * reachable, because a host who wants a no-constraints league should be able to
+ * say so deliberately.
+ */
+export const COST_CAP_RANGE = { min: 120, max: 250 } as const;
+
+/** The default when a host does not choose one. */
+export const DEFAULT_COST_CAP = 160;
+
 export function spendableCap(balance: number, heldRosterValue: number): number {
   return round1(balance + heldRosterValue);
 }
