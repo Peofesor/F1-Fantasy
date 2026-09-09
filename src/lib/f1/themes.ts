@@ -25,20 +25,15 @@ export interface LeagueTheme {
   accent: string;
   /** What stays readable on top of the accent. */
   ink: string;
-  /**
-   * A lighter wash for tinted surfaces, where the full accent would shout.
-   * Kept explicit rather than derived so each scheme can be judged by eye.
-   */
-  wash: string;
 }
 
 export const THEMES: LeagueTheme[] = [
-  { id: "graphite", name: "Graphite", accent: "#18181b", ink: "#ffffff", wash: "#f4f4f5" },
-  { id: "scarlet", name: "Scarlet", accent: "#c8102e", ink: "#ffffff", wash: "#fdecef" },
-  { id: "papaya", name: "Papaya", accent: "#ff8000", ink: "#1c1300", wash: "#fff3e3" },
-  { id: "petrol", name: "Petrol", accent: "#00a19c", ink: "#04211f", wash: "#e4f6f5" },
-  { id: "midnight", name: "Midnight", accent: "#1b3a8f", ink: "#ffffff", wash: "#e9edfa" },
-  { id: "blossom", name: "Blossom", accent: "#e5399b", ink: "#2a0416", wash: "#fdeaf4" },
+  { id: "graphite", name: "Graphite", accent: "#18181b", ink: "#ffffff" },
+  { id: "scarlet", name: "Scarlet", accent: "#c8102e", ink: "#ffffff" },
+  { id: "papaya", name: "Papaya", accent: "#ff8000", ink: "#1c1300" },
+  { id: "petrol", name: "Petrol", accent: "#00a19c", ink: "#04211f" },
+  { id: "midnight", name: "Midnight", accent: "#1b3a8f", ink: "#ffffff" },
+  { id: "blossom", name: "Blossom", accent: "#e5399b", ink: "#2a0416" },
 ];
 
 /** The scheme a league without a choice gets: the greyscale it had before. */
@@ -59,6 +54,5 @@ export function themeVariables(theme: LeagueTheme): React.CSSProperties {
   return {
     "--accent": theme.accent,
     "--accent-ink": theme.ink,
-    "--accent-wash": theme.wash,
   } as React.CSSProperties;
 }
