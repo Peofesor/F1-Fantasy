@@ -28,7 +28,7 @@ export function ChipStore({
   const [pending, setPending] = useState<{ chip: ChipRow; form: HTMLFormElement } | null>(null);
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       <h2 className="text-sm font-semibold">Chips</h2>
       <p className="mt-0.5 text-xs text-zinc-500">
         Free uses are granted per half-season and again after the summer break. Buy more here,

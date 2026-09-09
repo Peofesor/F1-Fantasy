@@ -3,6 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* The league colour, overridden per league by its layout. Graphite here, so
+     a page outside any league tints to something indistinguishable from the
+     plain surface rather than losing its background to an invalid color-mix. */
+  --accent: #18181b;
+  --accent-ink: #ffffff;
 }
 
 @theme inline {

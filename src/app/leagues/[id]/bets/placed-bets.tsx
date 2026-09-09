@@ -40,7 +40,7 @@ export function PlacedBets({
 
   if (bets.length === 0) {
     return (
-      <section className="rounded-xl border border-dashed border-zinc-300 p-6 text-center dark:border-zinc-700">
+      <section className="rounded-xl border border-dashed border-zinc-300 p-6 text-center dark:border-zinc-700 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <p className="text-sm text-zinc-500">No bets on this round yet.</p>
       </section>
     );
@@ -66,7 +66,7 @@ export function PlacedBets({
         {bets.map((bet) => (
           <li
             key={bet.marketId}
-            className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800"
+            className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]"
           >
             <div className="flex items-baseline justify-between gap-3">
               <span className="min-w-0 text-sm font-medium">{bet.marketName}</span>

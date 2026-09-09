@@ -157,7 +157,7 @@ export function StatsCard({ series }: { series: MemberSeries[] }) {
 
   if (series.length === 0 || series[0].points.length < 2) {
     return (
-      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Season so far</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Nothing to plot yet — this needs at least two scored rounds.
@@ -172,7 +172,7 @@ export function StatsCard({ series }: { series: MemberSeries[] }) {
   }));
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       {/* Both modes are chosen steps from the same ramps, not an automatic
           flip: the dark values were validated against the dark surface. */}
       <style>{`

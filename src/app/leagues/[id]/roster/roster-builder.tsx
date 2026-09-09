@@ -1065,11 +1065,11 @@ function DetailSheet({
 
       <div className="flex-1 overflow-y-auto p-3">
         <div className="mb-3 grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+          <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
             <span className="block text-xs text-zinc-500">Price</span>
             <span className="tabular-nums text-lg font-semibold">{option.price.toFixed(1)}</span>
           </div>
-          <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+          <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
             <span className="block text-xs text-zinc-500">Season points</span>
             <span className="tabular-nums text-lg font-semibold">
               {season === null
@@ -1099,7 +1099,7 @@ function DetailSheet({
         )}
 
         {rounds.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
             <div className="grid grid-cols-[1fr_2.75rem_2.75rem_2.75rem] gap-1 border-b border-zinc-200 px-3 py-2 text-[10px] font-medium text-zinc-500 dark:border-zinc-800">
               {/* "Race" twice — once for the name, once for the points — read
                   as a repeated column. The points columns say what they are. */}

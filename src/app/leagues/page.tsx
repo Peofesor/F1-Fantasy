@@ -56,7 +56,7 @@ export default async function LeaguesPage() {
               <li key={membership.id}>
                 <Link
                   href={`/leagues/${membership.leagues.id}`}
-                  className="block rounded-xl border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800"
+                  className="block rounded-xl border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]"
                 >
                   <span className="font-medium">{membership.leagues.name}</span>
                   <span className="mt-0.5 block text-sm text-zinc-500">

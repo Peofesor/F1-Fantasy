@@ -31,16 +31,10 @@ export default async function LeagueLayout({
   return (
     <div
       style={themeVariables(theme)}
-      // The ground is tinted too, not just the controls. Mixed from the accent
-      // rather than stored as a second colour, so it follows the page into dark
-      // mode instead of needing a light and a dark value per scheme:
-      // --background is whatever the page currently uses, and the accent is stirred
-      // into it.
-      //
-      // 7% is deliberately weak. The tint has to read as a colour without
-      // costing contrast against the cards and body text sitting on it, and
-      // anything stronger turned the greys muddy rather than tinted.
-      className="min-h-full bg-[color-mix(in_oklab,var(--accent)_7%,var(--background))]"
+      // The ground stays as it is; the colour shows on the cards instead, which
+      // keeps the page dark and lets each surface carry the league's identity
+      // without washing the whole screen.
+      className="contents"
     >
       {children}
     </div>

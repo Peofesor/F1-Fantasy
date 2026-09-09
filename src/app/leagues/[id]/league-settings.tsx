@@ -39,7 +39,7 @@ export function LeagueSettings({
     "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       <h2 className="text-sm font-semibold">League settings</h2>
       <p className="mt-0.5 text-xs text-zinc-500">
         Yours to change because you created this league.

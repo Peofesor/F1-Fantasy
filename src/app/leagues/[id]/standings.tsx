@@ -21,7 +21,7 @@ export function Standings({
   const scored = rows.some((row) => row.roundsPlayed > 0);
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       <h2 className="text-sm font-semibold">Standings</h2>
       <p className="mt-0.5 text-xs text-zinc-500">
         {mode === "duel"

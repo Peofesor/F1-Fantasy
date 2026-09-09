@@ -43,7 +43,7 @@ export function LeagueForms() {
           the main event and made joining look like the afterthought, which is
           backwards: most people arrive here with a code. So it is one button,
           and the settings live behind it. */}
-      <section className="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Start a league</h2>
         <p className="text-xs text-zinc-500">
           You set the budget, the mode and how many chips everyone gets. Mode and budget are fixed
@@ -59,7 +59,7 @@ export function LeagueForms() {
         <Error state={createState} />
       </section>
 
-      <section className="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Join with a code</h2>
         <form action={joinAction} className="space-y-3">
           <input

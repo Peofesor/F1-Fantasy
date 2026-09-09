@@ -162,7 +162,7 @@ export function BetsPanel({
   });
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold">Bets</h2>
         <span className="text-xs text-zinc-500">

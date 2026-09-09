@@ -65,7 +65,7 @@ export function SchedulePanel({
 
   if (!drawn) {
     return (
-      <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
+      <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Fixtures</h2>
         <p className="mt-1 text-sm text-zinc-500">
           {isOwner
@@ -78,7 +78,7 @@ export function SchedulePanel({
   }
 
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       <h2 className="text-sm font-semibold">Fixtures</h2>
       <p className="mt-0.5 text-xs text-zinc-500">
         One opponent a race. Rounds already raced are settled and never change.

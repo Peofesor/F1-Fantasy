@@ -246,7 +246,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         currentMemberId={selfMemberId}
       />
 
-      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Members</h2>
         <ul className="mt-2 space-y-1 text-sm">
           {roster?.map((member) => (
@@ -283,7 +283,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         hasHistory={(scoreRows ?? []).some((row) => row.member_id === selfMemberId)}
       />
 
-      <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
+      <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Invite</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Share this code so friends can join:{" "}

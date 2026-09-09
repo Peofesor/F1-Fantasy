@@ -34,7 +34,7 @@ export function MatchupCard({
 }) {
   if (!opponent) {
     return (
-      <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
+      <section className="rounded-xl border border-dashed border-zinc-300 p-4 dark:border-zinc-700 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
         <h2 className="text-sm font-semibold">Next matchup</h2>
         {/* A bye and an undrawn schedule look identical from here — no
             opponent — but only one of them is something to act on. With an odd
@@ -51,7 +51,7 @@ export function MatchupCard({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <section className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
       <div className="flex items-baseline justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">Next matchup</h2>
         <span className="text-xs text-zinc-500">
