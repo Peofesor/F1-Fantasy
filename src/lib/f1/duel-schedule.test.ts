@@ -88,3 +88,38 @@ describe("generateDuelSchedule", () => {
     expect([...fixtureCounts(fixtures).values()]).toEqual([4, 4]);
   });
 });
+
+describe("everyone plays every week", () => {
+  /**
+   * The property the format rests on, checked across league sizes rather than
+   * at one of them: a round pairs every member, and the only member without a
+   * game is the one an odd count leaves over.
+   */
+  it("leaves nobody idle except the odd one out, at any league size", () => {
+    const rounds = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
+    for (let size = 2; size <= 9; size++) {
+      const members = Array.from({ length: size }, (_, index) => `m${index}`);
+      const fixtures = generateDuelSchedule(members, rounds);
+      const expectedIdle = size % 2 === 1 ? 1 : 0;
+
+      for (const round of rounds) {
+        const playing = new Set<string>();
+        for (const fixture of fixtures.filter((entry) => entry.round === round)) {
+          playing.add(fixture.homeMemberId);
+          playing.add(fixture.awayMemberId);
+        }
+
+        const idle = members.filter((member) => !playing.has(member));
+        expect(idle.length, `size ${size}, round ${round}: ${idle.join(",")} idle`).toBe(
+          expectedIdle,
+        );
+
+        // And nobody is scheduled twice in the same weekend, which the pairing
+        // count alone would not catch.
+        const scheduled = fixtures.filter((entry) => entry.round === round).length * 2;
+        expect(scheduled, `size ${size}, round ${round}`).toBe(playing.size);
+      }
+    }
+  });
+});
