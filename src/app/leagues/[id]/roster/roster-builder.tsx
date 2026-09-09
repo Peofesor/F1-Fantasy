@@ -860,7 +860,7 @@ function SlotCard({
 
   return (
     <div
-      className={`relative flex aspect-[3/4] min-h-[5.75rem] flex-col overflow-hidden rounded-xl border ${
+      className={`@container relative flex aspect-[3/4] min-h-[5.75rem] flex-col overflow-hidden rounded-xl border ${
         captain ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
@@ -870,7 +870,7 @@ function SlotCard({
         type="button"
         disabled={locked}
         onClick={onOpen}
-        className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center [--avatar:2.25rem] sm:[--avatar:3rem] lg:[--avatar:3.75rem]"
+        className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center [--avatar:min(68cqw,7rem)]"
       >
         <Avatar option={option} size={80} />
         <span className="mt-1 w-full shrink-0 truncate text-[11px] font-medium leading-tight">
