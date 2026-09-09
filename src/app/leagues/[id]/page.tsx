@@ -10,6 +10,8 @@ import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
 import { MatchupCard, type MatchupPick, type Side } from "./matchup-card";
 import { MembersPanel } from "./members-panel";
+import { RoundBetsCard, type RoundBet } from "./round-bets-card";
+import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
@@ -276,6 +278,35 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     };
   };
 
+
+  const { data: roundBetRows } = next
+    ? await supabase
+        .from("bets")
+        .select("member_id, market_id, selection, stake, odds, outcome")
+        .in("member_id", memberIds)
+        .eq("season", next.season)
+        .eq("round", next.round)
+    : { data: null };
+
+  const roundBets: RoundBet[] = (roundBetRows ?? []).map((bet) => {
+    const marketId = bet.market_id as MarketId;
+    return {
+      memberId: bet.member_id,
+      memberName: nameByMemberId.get(bet.member_id) ?? "Unknown",
+      isSelf: bet.member_id === selfMemberId,
+      market: MARKETS[marketId]?.name ?? marketId,
+      // Selections are stored as ids; the reference names are already loaded
+      // for the matchup card above.
+      selection:
+        drivers.get(bet.selection)?.name ??
+        constructors.get(bet.selection)?.name ??
+        bet.selection,
+      stake: Number(bet.stake),
+      odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
+      outcome: bet.outcome,
+    };
+  });
+
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
       <header className="space-y-2 pt-2">
@@ -295,6 +326,14 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           qualifyingAt={nextRound.qualifying_at}
           raceAt={raceAt}
           rosterSaved={Boolean(savedRoster)}
+        />
+      )}
+
+      {next && nextRound && (
+        <RoundBetsCard
+          leagueId={league.id}
+          raceName={nextRound.race_name}
+          bets={roundBets}
         />
       )}
 
