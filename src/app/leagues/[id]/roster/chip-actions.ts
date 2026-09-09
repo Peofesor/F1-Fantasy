@@ -108,7 +108,7 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
     .limit(1)
     .maybeSingle();
 
-  await admin.from("cost_cap_entries").insert({
+  const { error: chargeError } = await admin.from("cost_cap_entries").insert({
     member_id: context.memberId,
     season: context.season,
     round: firstRound?.round ?? 1,
@@ -116,6 +116,20 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
     reason: "chip_purchase",
     note: CHIPS[chipId].name,
   });
+
+  // The chip is already in hand, so an ignored failure here hands it over
+  // free. Handing it back is the consistent outcome, and the purchase row is
+  // the only thing that has to be undone.
+  if (chargeError) {
+    await admin
+      .from("chip_purchases")
+      .delete()
+      .eq("member_id", context.memberId)
+      .eq("chip_id", chipId)
+      .eq("price_paid", check.price);
+
+    return { error: "Could not take the price from your cap, so the chip was not bought." };
+  }
 
   revalidatePath(`/leagues/${leagueId}/roster`);
   return { ok: true, message: `Bought ${CHIPS[chipId].name}.` };

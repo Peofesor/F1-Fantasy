@@ -70,7 +70,7 @@ async function recordRosterLedger(input: {
   if (entries.length === 0) return;
 
   const admin = createAdminClient();
-  await admin.from("cost_cap_entries").insert(
+  const { error } = await admin.from("cost_cap_entries").insert(
     entries.map((entry) => ({
       member_id: entry.memberId,
       season: entry.season,
@@ -80,6 +80,20 @@ async function recordRosterLedger(input: {
       note: entry.note ?? null,
     })),
   );
+
+  // Raised, not ignored. This is the only thing that charges for a roster, and
+  // the slots are already written by the time it runs — so a swallowed failure
+  // hands out a free team and says nothing. It did exactly that: a member
+  // joined, saved eleven picks, and kept their full opening budget, which the
+  // roster page then added to the value of the squad they had not paid for and
+  // showed as double the league's cap.
+  //
+  // Letting it throw is the lesser evil. The save reports an error the member
+  // can act on, and the roster is recoverable; a silent one is not detectable
+  // from inside the game at all.
+  if (error) {
+    throw new Error(`Could not record the cost of this roster: ${error.message}`);
+  }
 }
 
 

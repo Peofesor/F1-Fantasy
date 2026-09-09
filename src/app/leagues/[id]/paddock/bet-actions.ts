@@ -145,7 +145,7 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   // Charged with the service role: cost_cap_entries grants no INSERT to
   // authenticated, and the amount is the validated stake, not form input.
   const admin = createAdminClient();
-  await admin.from("cost_cap_entries").insert({
+  const { error: chargeError } = await admin.from("cost_cap_entries").insert({
     member_id: membership.id,
     season: league.season,
     round,
@@ -153,6 +153,21 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     reason: "bet_stake",
     note: `${MARKETS[marketId].name} · ${selection}`,
   });
+
+  // The bet exists by now, so a failed charge would leave a free bet standing.
+  // Withdrawing it is the only way back to a consistent state — reporting the
+  // error while leaving the bet in place would be worse than not taking it.
+  if (chargeError) {
+    await admin
+      .from("bets")
+      .delete()
+      .eq("member_id", membership.id)
+      .eq("season", league.season)
+      .eq("round", round)
+      .eq("market_id", marketId);
+
+    return { error: "Could not take the stake from your bank, so the bet was not placed." };
+  }
 
   revalidatePath(`/leagues/${leagueId}/paddock`);
   return {
@@ -219,7 +234,7 @@ export async function cancelBet(
   if (!count) return { error: "The race has started — that bet is locked in." };
 
   const admin = createAdminClient();
-  await admin.from("cost_cap_entries").insert({
+  const { error: refundError } = await admin.from("cost_cap_entries").insert({
     member_id: membership.id,
     season: league.season,
     round,
@@ -227,6 +242,15 @@ export async function cancelBet(
     reason: "bet_payout",
     note: `Withdrew bet · ${MARKETS[marketId]?.name ?? marketId}`,
   });
+
+  // The bet is already gone, so this is the one failure that costs the member
+  // real cap. It has to be loud: the message says the stake is still owed, and
+  // the entry is recoverable by hand from the bet's absence.
+  if (refundError) {
+    throw new Error(
+      `Bet withdrawn but the ${Number(bet.stake).toFixed(1)} was not returned: ${refundError.message}`,
+    );
+  }
 
   revalidatePath(`/leagues/${leagueId}/paddock`);
   return { ok: true, message: `Bet withdrawn, ${Number(bet.stake).toFixed(1)} returned.` };
