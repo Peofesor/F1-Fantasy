@@ -39,6 +39,21 @@ export function Attribution() {
         connected to Formula 1, the FIA, or any team. F1 and FORMULA 1 are trademarks of their
         respective owners.
       </p>
+      {/* In the footer rather than behind a menu: the moment someone wants to
+          report something is the moment something looks wrong, and hunting for
+          where to say so is how a report turns into a shrug. */}
+      <p className="mt-2">
+        Something broken or unfair?{" "}
+        <a
+          href="https://github.com/Peofesor/F1-Fantasy/issues/new"
+          className="underline"
+          rel="noreferrer"
+          target="_blank"
+        >
+          Report it
+        </a>
+        .
+      </p>
     </footer>
   );
 }

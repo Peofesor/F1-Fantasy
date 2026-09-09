@@ -8,12 +8,17 @@ import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 export type ScheduleState = { error: string } | { ok: true; fixtures: number } | null;
 
 /**
- * Generates the season's duel fixtures for a league.
+ * Draws the duel fixtures for the rounds still to come.
  *
- * Owner-only, and refuses to run once any round has locked. The schedule is
- * meant to be fixed for the season (spec §3): regenerating it partway through
- * would retroactively change who a member was supposed to have played, and any
- * results already scored against the old fixtures would no longer line up.
+ * Owner-only, and safe to run again whenever the membership changes — which is
+ * the point. Rounds that have locked keep the pairings they were scored
+ * against; everything from the next open round onward is redrawn across
+ * whoever is in the league now.
+ *
+ * Spec §3 calls the schedule fixed for the season, and that holds for rounds
+ * already played. Applying it to future ones as well meant a member who joined
+ * after the draw never had an opponent again, which is not a fixed schedule so
+ * much as a closed one.
  */
 export async function generateSchedule(
   _previous: ScheduleState,
@@ -72,15 +77,25 @@ export async function generateSchedule(
     return { error: "Every round this season has already locked." };
   }
 
-  const { data: existing } = await supabase
+  // Rounds still to come are rebuilt; rounds already locked are left exactly
+  // as they were.
+  //
+  // This used to refuse outright once any fixture existed, on the grounds that
+  // a season's schedule should be fixed. That is right about the past and
+  // wrong about the future: a league gains members, and under the old rule
+  // everyone who joined after the schedule was drawn had no opponent for the
+  // rest of the season — the duel league simply did not include them. Someone
+  // who joins in September should play from September.
+  //
+  // Rewriting a locked round would still be the thing worth refusing, since
+  // results are already scored against those pairings, so those are untouched.
+  const { error: clearError } = await supabase
     .from("duel_fixtures")
-    .select("round")
+    .delete()
     .eq("league_id", leagueId)
-    .limit(1);
+    .in("round", openRounds);
 
-  if (existing?.length) {
-    return { error: "Fixtures already exist. The schedule is fixed once generated." };
-  }
+  if (clearError) return { error: clearError.message };
 
   const fixtures = generateDuelSchedule(memberIds, openRounds).map((fixture) => ({
     league_id: leagueId,
