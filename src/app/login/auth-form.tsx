@@ -57,9 +57,17 @@ export function AuthForm() {
             type="password"
             name="password"
             required
+            // Only on sign-up: the server refuses anything shorter, and finding
+            // that out after a round trip is a poor first thirty seconds. Not
+            // applied to sign-in, where an older short password must still be
+            // able to get in.
+            minLength={mode === "signup" ? 8 : undefined}
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             className={inputClass}
           />
+          {mode === "signup" && (
+            <span className="block text-[11px] text-zinc-500">At least 8 characters.</span>
+          )}
         </label>
 
         {state && "error" in state && (
