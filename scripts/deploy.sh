@@ -289,9 +289,14 @@ pause
 # ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Vercel: deploy, then tell me the address"
 step "Click Deploy and wait for the build — about a minute."
-step "Copy the production domain it gives you."
+step "Copy the production domain from the deployment page."
 printf '\n'
-ask VERCEL_URL "Production URL (e.g. https://f1-fantasy.vercel.app):"
+warn "Your own domain, not an example — f1-fantasy.vercel.app belongs to"
+warn "someone else's project and will answer, misleadingly, like a real app."
+printf '\n'
+# No sample URL in the prompt: the obvious one is taken, and pasting an
+# example that answers is worse than pasting one that does not.
+ask VERCEL_URL "Production URL:"
 
 VERCEL_URL="${VERCEL_URL%/}"
 if [[ "$VERCEL_URL" != http* ]]; then
@@ -304,7 +309,18 @@ code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$VERCEL_URL/rules" 
 if [[ "$code" == "200" ]]; then
   printf '  %s✓%s %s/rules answered 200\n' "$GREEN" "$RESET" "$VERCEL_URL"
 else
-  warn "$VERCEL_URL/rules answered $code — check the Vercel build log first"
+  warn "$VERCEL_URL/rules answered $code, and it should be 200."
+  # Where it redirects to identifies the problem without a build log. This app
+  # sends signed-out visitors to /login and has no other auth route, so
+  # anything else means the address belongs to a different project.
+  target=$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 20 "$VERCEL_URL/rules" || true)
+  if [[ -n "$target" && "$target" != *"/login"* ]]; then
+    printf '\n'
+    warn "It redirected to $target — this app only ever sends people to /login,"
+    warn "so that address is somebody else's deployment. Check the domain."
+  else
+    warn "Check the Vercel build log."
+  fi
   confirm "Continue anyway?" || exit 1
 fi
 pause
