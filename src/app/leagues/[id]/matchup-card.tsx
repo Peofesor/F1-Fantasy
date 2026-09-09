@@ -8,6 +8,8 @@ export interface MatchupPick {
   lineup?: { name: string; headshotUrl?: string }[];
   colour?: string;
   captain: boolean;
+  /** Teams are laid out on their own line, under the drivers of their tier. */
+  isTeam: boolean;
 }
 
 export interface Side {
@@ -29,7 +31,7 @@ function Face({ pick }: { pick: MatchupPick }) {
   const accent = pick.colour ? `#${pick.colour}` : "#a1a1aa";
 
   return (
-    <span className="flex flex-col items-center gap-0.5" title={pick.name}>
+    <span className="flex min-w-0 flex-1 flex-col items-center gap-0.5" title={pick.name}>
       <span className="relative">
         {pick.lineup?.length ? (
           <span className="flex items-center">
@@ -83,7 +85,7 @@ function Face({ pick }: { pick: MatchupPick }) {
           </span>
         )}
       </span>
-      <span className="max-w-[3.5rem] truncate text-[9px] leading-tight text-zinc-500">
+      <span className="w-full truncate text-center text-[9px] leading-tight text-zinc-500">
         {pick.name}
       </span>
     </span>
@@ -91,17 +93,35 @@ function Face({ pick }: { pick: MatchupPick }) {
 }
 
 function Row({ label, picks }: { label: string; picks: MatchupPick[] }) {
+  // Drivers keep one line and the team takes its own beneath. Wrapping them
+  // together broke a tier across two rows at an arbitrary point — three
+  // drivers and a team became two and two — which destroyed the row-by-row
+  // comparison the card exists for.
+  const drivers = picks.filter((pick) => !pick.isTeam);
+  const teams = picks.filter((pick) => pick.isTeam);
+
   return (
     <div>
       <p className="text-[9px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
       {picks.length === 0 ? (
         <p className="mt-1 text-[10px] text-zinc-500">—</p>
       ) : (
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {picks.map((pick) => (
-            <Face key={pick.name} pick={pick} />
-          ))}
-        </div>
+        <>
+          {drivers.length > 0 && (
+            <div className="mt-1 flex gap-1">
+              {drivers.map((pick) => (
+                <Face key={pick.name} pick={pick} />
+              ))}
+            </div>
+          )}
+          {teams.length > 0 && (
+            <div className="mt-1 flex gap-1">
+              {teams.map((pick) => (
+                <Face key={pick.name} pick={pick} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

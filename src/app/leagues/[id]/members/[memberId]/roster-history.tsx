@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { grossMultiplier } from "@/lib/f1/bet-odds";
+
 export interface Pick {
   slotType: string;
   name: string;
@@ -183,7 +185,7 @@ export function RosterHistory({ squads, name }: { squads: Squad[]; name: string 
                   </span>
                   <span className="shrink-0 tabular-nums text-zinc-500">
                     {bet.stake.toFixed(1)}
-                    {bet.odds !== null && ` at ${bet.odds.toFixed(2)}x`}
+                    {bet.odds !== null && ` × ${grossMultiplier(bet.odds).toFixed(2)}`}
                   </span>
                   <span
                     className={`w-12 shrink-0 text-right ${

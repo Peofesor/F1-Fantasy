@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
+
 export interface RoundBet {
   memberId: string;
   memberName: string;
@@ -8,6 +11,8 @@ export interface RoundBet {
   selection: string;
   stake: number;
   odds: number | null;
+  /** Which window it was placed in — the bonus rides on the profit. */
+  preQualifying: boolean;
   outcome: string | null;
 }
 
@@ -78,9 +83,21 @@ export function RoundBetsCard({
                   <span className="min-w-0 flex-1 truncate">
                     {bet.market} — <span className="text-zinc-500">{bet.selection}</span>
                   </span>
+                  {/* Stake, multiplier and what a win returns. The multiplier
+                      alone left everyone doing the arithmetic, and the stored
+                      figure is profit per unit — shown raw it read as getting
+                      less back than you staked. */}
                   <span className="shrink-0 tabular-nums text-zinc-500">
                     {bet.stake.toFixed(1)}
-                    {bet.odds !== null && ` at ${bet.odds.toFixed(2)}x`}
+                    {bet.odds !== null && (
+                      <>
+                        {" "}
+                        × {grossMultiplier(bet.odds, bet.preQualifying ? PRE_QUALIFYING_BONUS : 1).toFixed(2)} ={" "}
+                        <span className="text-zinc-900 dark:text-zinc-100">
+                          {payoutAt(bet.stake, bet.odds, bet.preQualifying ? PRE_QUALIFYING_BONUS : 1).toFixed(1)}
+                        </span>
+                      </>
+                    )}
                   </span>
                   <span
                     className={`w-10 shrink-0 text-right ${

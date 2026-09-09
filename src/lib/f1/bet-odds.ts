@@ -153,3 +153,18 @@ export function oddsFor(marketId: MarketId, record: MarketRecord | undefined): n
 export function payoutAt(stake: number, odds: number, bonus: number): number {
   return Math.round(stake * (1 + odds * bonus) * 10) / 10;
 }
+
+/**
+ * What a winning bet multiplies the stake by, for display.
+ *
+ * `odds` is the profit per unit staked, so a 0.28 price returns 1.28 times the
+ * stake. Showing the stored number with an "x" beside it said the opposite —
+ * "0.28x" reads as getting a quarter of your money back on a bet you won.
+ *
+ * The bonus multiplies the profit, not the stake, which is why it cannot simply
+ * be folded into the figure: `payoutAt` is the same arithmetic and stays the
+ * single source for the amount.
+ */
+export function grossMultiplier(odds: number, bonus = 1): number {
+  return Math.round((1 + odds * bonus) * 100) / 100;
+}

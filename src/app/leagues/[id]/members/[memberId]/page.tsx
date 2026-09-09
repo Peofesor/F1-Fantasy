@@ -28,28 +28,27 @@ export default async function MemberPage({
 }: PageProps<"/leagues/[id]/members/[memberId]">) {
   const { id, memberId } = await params;
 
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
   const supabase = await createServerSupabase();
 
+  // Grouped by dependency rather than issued one at a time: each query is a
+  // round trip of about 90ms, and in sequence they are most of what the page
+  // spends before rendering.
+  //
   // Row-level security limits this to leagues the caller belongs to, so an
   // empty result is the authorisation answer rather than a separate check.
-  const { data: league } = await supabase
-    .from("leagues")
-    .select("id, name, season")
-    .eq("id", id)
-    .maybeSingle();
+  const [user, { data: league }, { data: member }] = await Promise.all([
+    getCurrentUser(),
+    supabase.from("leagues").select("id, name, season").eq("id", id).maybeSingle(),
+    supabase
+      .from("league_members")
+      .select("id, profile_id, profiles(display_name)")
+      .eq("id", memberId)
+      .eq("league_id", id)
+      .maybeSingle(),
+  ]);
 
+  if (!user) redirect("/login");
   if (!league) notFound();
-
-  const { data: member } = await supabase
-    .from("league_members")
-    .select("id, profile_id, profiles(display_name)")
-    .eq("id", memberId)
-    .eq("league_id", id)
-    .maybeSingle();
-
   if (!member) notFound();
 
   const displayName =
@@ -71,7 +70,7 @@ export default async function MemberPage({
       supabase.from("rounds").select("round, race_name").eq("season", league.season),
     ]);
 
-  const [{ data: scores }, { data: betRows }] = await Promise.all([
+  const [{ data: scores }, { data: betRows }, { data: lineupRows }] = await Promise.all([
     supabase
       .from("round_scores")
       .select("round, points")
@@ -84,6 +83,15 @@ export default async function MemberPage({
       .select("round, market_id, selection, stake, odds, outcome, returned")
       .eq("member_id", memberId)
       .eq("season", league.season),
+    // A team has no colour of its own in the reference data; it comes from the
+    // drivers it fields, taken from the most recent race so a seat change
+    // follows.
+    supabase
+      .from("race_results")
+      .select("constructor_id, driver_id")
+      .eq("season", league.season)
+      .order("round", { ascending: false })
+      .limit(60),
   ]);
 
   const drivers = new Map(
@@ -101,15 +109,6 @@ export default async function MemberPage({
   );
   const raceName = new Map((rounds ?? []).map((row) => [row.round, row.race_name as string]));
   const pointsByRound = new Map((scores ?? []).map((row) => [row.round, Number(row.points)]));
-
-  // A team has no colour of its own in the reference data; it comes from the
-  // drivers it fields, taken from the most recent race so a seat change follows.
-  const { data: lineupRows } = await supabase
-    .from("race_results")
-    .select("constructor_id, driver_id")
-    .eq("season", league.season)
-    .order("round", { ascending: false })
-    .limit(60);
 
   const teamColour = new Map<string, string>();
   for (const row of lineupRows ?? []) {

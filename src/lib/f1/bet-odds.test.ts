@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { HOUSE_MARGIN, MAX_ODDS, MIN_ODDS, ODDS_WINDOW_RACES, oddsFor, payoutAt } from "./bet-odds";
+import {
+  grossMultiplier,
+  HOUSE_MARGIN,
+  MAX_ODDS,
+  MIN_ODDS,
+  ODDS_WINDOW_RACES,
+  oddsFor,
+  payoutAt,
+} from "./bet-odds";
 import { MARKETS, MARKET_LIST, PRE_QUALIFYING_BONUS } from "./betting";
 
 /** What a stake is worth back on average, at these odds and this true rate. */
@@ -150,5 +158,31 @@ describe("the pricing window", () => {
     const career = { won: 25, total: 37 };
     const recent = { won: 8, total: 10 };
     expect(priceOf("top_ten", recent)).toBeLessThan(priceOf("top_ten", career));
+  });
+});
+
+describe("grossMultiplier", () => {
+  it("is what the stake comes back multiplied by", () => {
+    // The display figure and the payout must agree: 10 at 0.28 returns 12.8,
+    // so the multiplier shown beside it has to be 1.28 and not 0.28.
+    expect(grossMultiplier(0.28)).toBeCloseTo(1.28, 5);
+    expect(payoutAt(10, 0.28, 1)).toBeCloseTo(10 * grossMultiplier(0.28), 5);
+  });
+
+  it("never shows less than the stake on a bet that won", () => {
+    // The old display did exactly that on every short price, which is the
+    // whole reason this exists.
+    for (const odds of [0.01, 0.05, 0.28, 1, 12]) {
+      expect(grossMultiplier(odds)).toBeGreaterThan(1);
+    }
+  });
+
+  it("carries the pre-qualifying bonus the way the payout does", () => {
+    const stake = 10;
+    const odds = 2;
+    expect(payoutAt(stake, odds, PRE_QUALIFYING_BONUS)).toBeCloseTo(
+      stake * grossMultiplier(odds, PRE_QUALIFYING_BONUS),
+      5,
+    );
   });
 });

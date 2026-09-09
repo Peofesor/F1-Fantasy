@@ -22,27 +22,32 @@ export const dynamic = "force-dynamic";
 export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">) {
   const { id } = await params;
 
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
   const supabase = await createServerSupabase();
 
+  // Issued in waves rather than one after another. Every query is a round trip
+  // of about 90ms, and this page needs a dozen of them; run in sequence that is
+  // a second of waiting before anything renders. Grouped by what each actually
+  // depends on, the same work takes three round trips.
+  //
   // Row-level security means a non-member simply gets nothing back, so the
-  // absence of a row is the authorisation check.
-  const { data: league } = await supabase
-    .from("leagues")
-    .select(
-      "id, name, season, mode, invite_code, starting_cost_cap, owner_id, max_stake, chip_allowance, theme",
-    )
-    .eq("id", id)
-    .maybeSingle();
+  // absence of a league row is the authorisation check.
+  const [user, { data: league }, { data: members }] = await Promise.all([
+    getCurrentUser(),
+    supabase
+      .from("leagues")
+      .select(
+        "id, name, season, mode, invite_code, starting_cost_cap, owner_id, max_stake, chip_allowance, theme",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("league_members")
+      .select("id, profile_id, profiles(display_name)")
+      .eq("league_id", id),
+  ]);
 
+  if (!user) redirect("/login");
   if (!league) notFound();
-
-  const { data: members } = await supabase
-    .from("league_members")
-    .select("id, profile_id, profiles(display_name)")
-    .eq("league_id", id);
 
   const roster = members?.map((member) => ({
     id: member.id,
@@ -56,10 +61,49 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   const memberIds = (roster ?? []).map((member) => member.id);
   const selfMemberId = roster?.find((member) => member.isSelf)?.id;
 
-  const { data: scoreRows } = await supabase
-    .from("round_scores")
-    .select("member_id, round, points, duel_points")
-    .eq("season", league.season);
+  const [
+    { data: scoreRows },
+    { data: allLedger },
+    next,
+    { data: fixtureRows },
+    { data: driverRows },
+    { data: constructorRows },
+    { data: lineupRows },
+  ] = await Promise.all([
+    supabase
+      .from("round_scores")
+      .select("member_id, round, points, duel_points")
+      .eq("season", league.season),
+    // Every member's ledger, for the cost cap panel. Balances are visible to
+    // the league only in aggregate over time here — the figure that stays
+    // private is a rival's spare cap right now, which is what would reveal
+    // their next move, and by the time a round is scored the money has already
+    // been spent.
+    supabase
+      .from("cost_cap_entries")
+      .select("member_id, round, amount")
+      .in("member_id", memberIds),
+    // The next round a member can still act on.
+    currentRound(supabase, league.season),
+    league.mode === "duel"
+      ? supabase
+          .from("duel_fixtures")
+          .select("round, home_member_id, away_member_id")
+          .eq("league_id", id)
+          .order("round")
+      : Promise.resolve({ data: [] as { round: number; home_member_id: string; away_member_id: string }[] }),
+    supabase.from("drivers").select("driver_id, family_name, headshot_url, team_colour"),
+    supabase.from("constructors").select("constructor_id, name"),
+    // A team has no colour of its own in the reference data — it is taken from
+    // the drivers it fields. The line-up comes from the most recent race, so a
+    // mid-season seat change follows.
+    supabase
+      .from("race_results")
+      .select("constructor_id, driver_id")
+      .eq("season", league.season)
+      .order("round", { ascending: false })
+      .limit(60),
+  ]);
 
   const standings = buildStandings(
     memberIds,
@@ -78,15 +122,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
 
 
-  // Every member's ledger, for the cost cap panel. Balances are visible to the
-  // league only in aggregate over time here — the figure that stays private is
-  // a rival's spare cap right now, which is what would reveal their next move,
-  // and by the time a round is scored the money has already been spent.
-  const { data: allLedger } = await supabase
-    .from("cost_cap_entries")
-    .select("member_id, round, amount")
-    .in("member_id", memberIds);
-
   const stats = buildLeagueStats(
     (roster ?? []).map((member) => ({ id: member.id, name: member.name })),
     (scoreRows ?? [])
@@ -98,43 +133,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       amount: Number(row.amount),
     })),
   );
-
-  // The next round a member can still act on, with the two deadlines that
-  // apply to it: qualifying closes the roster, the race start closes betting.
-  const next = await currentRound(supabase, league.season);
-
-  const { data: nextRound } = next
-    ? await supabase
-        .from("rounds")
-        .select("race_name, qualifying_at, race_date, race_time")
-        .eq("season", next.season)
-        .eq("round", next.round)
-        .maybeSingle()
-    : { data: null };
-
-  const { data: savedRoster } = next && selfMemberId
-    ? await supabase
-        .from("rosters")
-        .select("id")
-        .eq("member_id", selfMemberId)
-        .eq("season", next.season)
-        .eq("round", next.round)
-        .maybeSingle()
-    : { data: null };
-
-  // race_time is nullable on rounds the calendar has not fully published.
-  const raceAt = nextRound?.race_date
-    ? new Date(`${nextRound.race_date}T${nextRound.race_time ?? "00:00:00"}Z`).toISOString()
-    : null;
-
-  const { data: fixtureRows } =
-    league.mode === "duel"
-      ? await supabase
-          .from("duel_fixtures")
-          .select("round, home_member_id, away_member_id")
-          .eq("league_id", id)
-          .order("round")
-      : { data: [] };
 
   const fixtures = (fixtureRows ?? []).map((fixture) => ({
     round: fixture.round,
@@ -162,32 +160,51 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
   const sideIds = [selfMemberId, opponentId].filter((value): value is string => Boolean(value));
 
-  const { data: matchupRosters } =
-    next && sideIds.length === 2
-      ? await supabase
-          .from("rosters")
-          .select(
-            "member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id)",
-          )
-          .in("member_id", sideIds)
-          .eq("season", next.season)
-          .eq("round", next.round)
-      : { data: null };
-
-  // A team has no colour of its own in the reference data — it is taken from
-  // the drivers it fields, which is where the media actually lives. The lineup
-  // comes from the most recent race, so a mid-season seat change follows.
-  const [{ data: driverRows }, { data: constructorRows }, { data: lineupRows }] =
+  // The third and last wave: everything that needed to know which round is
+  // next, and — for the two squads — who is in the fixture.
+  const [{ data: nextRound }, { data: savedRoster }, { data: matchupRosters }, { data: roundBetRows }] =
     await Promise.all([
-      supabase.from("drivers").select("driver_id, family_name, headshot_url, team_colour"),
-      supabase.from("constructors").select("constructor_id, name"),
-      supabase
-        .from("race_results")
-        .select("constructor_id, driver_id")
-        .eq("season", league.season)
-        .order("round", { ascending: false })
-        .limit(60),
+      next
+        ? supabase
+            .from("rounds")
+            .select("race_name, qualifying_at, race_date, race_time")
+            .eq("season", next.season)
+            .eq("round", next.round)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      next && selfMemberId
+        ? supabase
+            .from("rosters")
+            .select("id")
+            .eq("member_id", selfMemberId)
+            .eq("season", next.season)
+            .eq("round", next.round)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      next && sideIds.length === 2
+        ? supabase
+            .from("rosters")
+            .select(
+              "member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id)",
+            )
+            .in("member_id", sideIds)
+            .eq("season", next.season)
+            .eq("round", next.round)
+        : Promise.resolve({ data: null }),
+      next
+        ? supabase
+            .from("bets")
+            .select("member_id, market_id, selection, stake, odds, outcome, timing")
+            .in("member_id", memberIds)
+            .eq("season", next.season)
+            .eq("round", next.round)
+        : Promise.resolve({ data: null }),
     ]);
+
+  // race_time is nullable on rounds the calendar has not fully published.
+  const raceAt = nextRound?.race_date
+    ? new Date(`${nextRound.race_date}T${nextRound.race_time ?? "00:00:00"}Z`).toISOString()
+    : null;
 
   const drivers = new Map(
     (driverRows ?? []).map((row) => [
@@ -255,6 +272,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           headshotUrl: driver?.headshotUrl,
           colour: driver?.colour,
           captain: captains.includes(slot.driver_id),
+          isTeam: false,
         };
       }
       const team = constructors.get(slot.constructor_id!);
@@ -263,6 +281,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         colour: team?.colour,
         lineup: team?.lineup,
         captain: false,
+        isTeam: true,
       };
     };
 
@@ -279,15 +298,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   };
 
 
-  const { data: roundBetRows } = next
-    ? await supabase
-        .from("bets")
-        .select("member_id, market_id, selection, stake, odds, outcome")
-        .in("member_id", memberIds)
-        .eq("season", next.season)
-        .eq("round", next.round)
-    : { data: null };
-
   const roundBets: RoundBet[] = (roundBetRows ?? []).map((bet) => {
     const marketId = bet.market_id as MarketId;
     return {
@@ -303,6 +313,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         bet.selection,
       stake: Number(bet.stake),
       odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
+      preQualifying: bet.timing === "pre_qualifying",
       outcome: bet.outcome,
     };
   });

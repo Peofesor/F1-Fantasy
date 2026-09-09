@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { PRE_QUALIFYING_BONUS, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
 import { cancelBet, type BetState } from "../paddock/bet-actions";
 
 export interface PlacedBet {
@@ -87,8 +88,26 @@ export function PlacedBets({
 
             <div className="mt-2 flex items-baseline justify-between gap-3 text-xs text-zinc-500">
               <span className="tabular-nums">
-                {bet.stake.toFixed(1)} at {bet.odds === null ? "listed odds" : `${bet.odds.toFixed(2)}x`}
-                {bet.timing === "pre_qualifying" && ` ×${PRE_QUALIFYING_BONUS}`}
+                {bet.odds === null ? (
+                  `${bet.stake.toFixed(1)} at listed odds`
+                ) : (
+                  <>
+                    {bet.stake.toFixed(1)} ×{" "}
+                    {grossMultiplier(
+                      bet.odds,
+                      bet.timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1,
+                    ).toFixed(2)}{" "}
+                    ={" "}
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {payoutAt(
+                        bet.stake,
+                        bet.odds,
+                        bet.timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1,
+                      ).toFixed(1)}
+                    </span>{" "}
+                    if it lands
+                  </>
+                )}
               </span>
               {bet.returned !== null && bet.returned > 0 && (
                 <span className="shrink-0 tabular-nums text-emerald-600 dark:text-emerald-400">

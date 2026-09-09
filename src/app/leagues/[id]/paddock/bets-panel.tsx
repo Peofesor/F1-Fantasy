@@ -15,7 +15,7 @@ import {
 } from "@/lib/f1/betting";
 import Link from "next/link";
 
-import { payoutAt } from "@/lib/f1/bet-odds";
+import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
 import { placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
@@ -100,8 +100,8 @@ export function BetsPanel({
   const oddsRange = (marketId: string) => {
     const prices = pricesIn(marketId);
     if (prices.length === 0) return "—";
-    const low = Math.min(...prices);
-    const high = Math.max(...prices);
+    const low = grossMultiplier(Math.min(...prices));
+    const high = grossMultiplier(Math.max(...prices));
     return low === high ? `${low.toFixed(2)}x` : `${low.toFixed(2)}–${high.toFixed(2)}x`;
   };
 
@@ -257,7 +257,7 @@ export function BetsPanel({
                   ? " — no price"
                   : price === undefined
                     ? ""
-                    : ` — ${price.toFixed(2)}x`;
+                    : ` — ${grossMultiplier(price).toFixed(2)}x`;
               return (
                 <option key={option.id} value={option.id} disabled={price === null}>
                   {option.name}
@@ -319,7 +319,11 @@ export function BetsPanel({
               </div>
               <p className="shrink-0 text-right text-xs text-zinc-500">
                 <span className="block tabular-nums text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {selectedOdds.toFixed(2)}x
+                  {grossMultiplier(
+                    selectedOdds,
+                    timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1,
+                  ).toFixed(2)}
+                  x
                 </span>
                 on {stake.toFixed(1)}
               </p>
