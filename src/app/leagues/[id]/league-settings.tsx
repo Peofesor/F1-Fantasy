@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import type { ChipAllowance } from "@/lib/f1/chips";
 import { ChipAllowanceFields } from "../chip-allowance-fields";
+import { ThemePicker } from "./theme-picker";
 import { updateLeagueSettings, type SettingsState } from "./settings-actions";
 
 /**
@@ -20,11 +21,14 @@ export function LeagueSettings({
   name,
   maxStake,
   chipAllowance,
+  theme,
 }: {
   leagueId: string;
   name: string;
   maxStake: number | null;
   chipAllowance: ChipAllowance | null;
+  /** The league's colour scheme id, or null for the default. */
+  theme: string | null;
 }) {
   const [state, formAction, pending] = useActionState<SettingsState, FormData>(
     updateLeagueSettings,
@@ -66,6 +70,8 @@ export function LeagueSettings({
           </span>
         </label>
 
+        <ThemePicker current={theme} />
+
         <ChipAllowanceFields allowance={chipAllowance} />
 
         {state && "error" in state && (
@@ -81,7 +87,7 @@ export function LeagueSettings({
 
         <button
           disabled={pending}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-40"
         >
           {pending ? "Saving…" : "Save settings"}
         </button>

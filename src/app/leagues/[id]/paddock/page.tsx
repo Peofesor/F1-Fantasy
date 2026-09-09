@@ -179,7 +179,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         >
           Placed bets
           {placedBets.length > 0 && (
-            <span className="absolute right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold text-white">
+            <span className="absolute right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent)] px-1.5 text-[11px] font-semibold text-[var(--accent-ink)]">
               {placedBets.length}
               <span className="sr-only"> placed</span>
             </span>

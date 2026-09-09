@@ -205,7 +205,7 @@ export function ChipsPanel({
                   // its hidden fields intact rather than rebuilding the request.
                   form.requestSubmit();
                 }}
-                className="flex-1 rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                className="flex-1 rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--accent-ink)]"
               >
                 {pending.confirmLabel}
               </button>

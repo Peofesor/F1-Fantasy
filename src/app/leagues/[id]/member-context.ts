@@ -28,6 +28,8 @@ export interface MemberContext {
     max_stake: number | null;
     /** Free chip uses granted per half-season, keyed by chip id. */
     chip_allowance: ChipAllowance | null;
+    /** Colour scheme id, or null for the default. */
+    theme: string | null;
   };
   /**
    * The rounds sharing this round's half of the season, and the allowance that
@@ -52,7 +54,7 @@ export async function loadMemberContext(leagueId: string): Promise<MemberContext
     // leagues and league_members, so PostgREST sees a second relationship
     // between them and refuses an unqualified embed.
     .select(
-      "id, leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap, max_stake, chip_allowance)",
+      "id, leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap, max_stake, chip_allowance, theme)",
     )
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)

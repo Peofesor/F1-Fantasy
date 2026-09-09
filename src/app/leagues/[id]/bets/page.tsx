@@ -97,7 +97,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
 
       <Link
         href={`/leagues/${league.id}/paddock`}
-        className="block rounded-lg bg-zinc-900 px-4 py-2.5 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+        className="block rounded-lg bg-[var(--accent)] px-4 py-2.5 text-center text-sm font-medium text-[var(--accent-ink)]"
       >
         Place another bet
       </Link>

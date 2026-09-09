@@ -39,7 +39,7 @@ export function SchedulePanel({
         <input type="hidden" name="leagueId" value={leagueId} />
         <button
           disabled={pending}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-60"
         >
           {pending ? "Drawing…" : drawn ? "Redraw remaining rounds" : "Draw the schedule"}
         </button>

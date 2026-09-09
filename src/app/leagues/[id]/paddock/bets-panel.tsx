@@ -350,7 +350,7 @@ export function BetsPanel({
 
           <button
             disabled={pending || blockedReason !== null}
-            className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+            className="w-full rounded-lg bg-[var(--accent)] py-2 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-40"
           >
             {pending ? "Placing…" : "Place bet"}
           </button>

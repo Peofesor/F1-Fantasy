@@ -8,6 +8,7 @@ import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
+import { MatchupCard } from "./matchup-card";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
@@ -28,7 +29,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   const { data: league } = await supabase
     .from("leagues")
     .select(
-      "id, name, season, mode, invite_code, starting_cost_cap, owner_id, max_stake, chip_allowance",
+      "id, name, season, mode, invite_code, starting_cost_cap, owner_id, max_stake, chip_allowance, theme",
     )
     .eq("id", id)
     .maybeSingle();
@@ -138,6 +139,72 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     away: nameByMemberId.get(fixture.away_member_id) ?? "Unknown",
   }));
 
+  // This round's fixture, and both squads in it. Names come from the reference
+  // tables rather than the ids stored on the slots, so the card reads as a team
+  // sheet instead of a list of database keys.
+  const nextFixture =
+    next && selfMemberId
+      ? (fixtureRows ?? []).find(
+          (fixture) =>
+            fixture.round === next.round &&
+            (fixture.home_member_id === selfMemberId || fixture.away_member_id === selfMemberId),
+        )
+      : undefined;
+
+  const opponentId = nextFixture
+    ? nextFixture.home_member_id === selfMemberId
+      ? nextFixture.away_member_id
+      : nextFixture.home_member_id
+    : null;
+
+  const sideIds = [selfMemberId, opponentId].filter((value): value is string => Boolean(value));
+
+  const { data: matchupRosters } =
+    next && sideIds.length === 2
+      ? await supabase
+          .from("rosters")
+          .select(
+            "member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id)",
+          )
+          .in("member_id", sideIds)
+          .eq("season", next.season)
+          .eq("round", next.round)
+      : { data: null };
+
+  const [{ data: driverRows }, { data: constructorRows }] = await Promise.all([
+    supabase.from("drivers").select("driver_id, given_name, family_name"),
+    supabase.from("constructors").select("constructor_id, name"),
+  ]);
+
+  const driverName = new Map(
+    (driverRows ?? []).map((row) => [row.driver_id, row.family_name as string]),
+  );
+  const constructorName = new Map(
+    (constructorRows ?? []).map((row) => [row.constructor_id, row.name as string]),
+  );
+
+  const sideFor = (memberId: string) => {
+    const row = (matchupRosters ?? []).find((entry) => entry.member_id === memberId);
+    const slots = (row?.roster_slots ?? []) as unknown as {
+      driver_id: string | null;
+      constructor_id: string | null;
+    }[];
+    const captains = [row?.top_captain_id, row?.mid_captain_id].filter(Boolean);
+
+    return {
+      name: nameByMemberId.get(memberId) ?? "Unknown",
+      drivers: slots
+        .filter((slot) => slot.driver_id)
+        .map((slot) => ({
+          name: driverName.get(slot.driver_id!) ?? slot.driver_id!,
+          captain: captains.includes(slot.driver_id!),
+        })),
+      constructors: slots
+        .filter((slot) => slot.constructor_id)
+        .map((slot) => constructorName.get(slot.constructor_id!) ?? slot.constructor_id!),
+    };
+  };
+
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
       <header className="space-y-2 pt-2">
@@ -157,6 +224,16 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           qualifyingAt={nextRound.qualifying_at}
           raceAt={raceAt}
           rosterSaved={Boolean(savedRoster)}
+        />
+      )}
+
+      {league.mode === "duel" && next && nextRound && selfMemberId && (
+        <MatchupCard
+          round={next.round}
+          raceName={nextRound.race_name}
+          you={sideFor(selfMemberId)}
+          opponent={opponentId ? sideFor(opponentId) : null}
+          drawn={(fixtureRows ?? []).some((fixture) => fixture.round === next.round)}
         />
       )}
 
@@ -195,6 +272,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           name={league.name}
           maxStake={league.max_stake === null ? null : Number(league.max_stake)}
           chipAllowance={league.chip_allowance as ChipAllowance | null}
+          theme={(league.theme as string | null) ?? null}
         />
       )}
 

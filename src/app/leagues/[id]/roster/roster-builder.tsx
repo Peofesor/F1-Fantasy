@@ -444,7 +444,7 @@ export function RosterBuilder({
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div
-            className={`h-full rounded-full transition-all ${overBudget ? "bg-red-500" : "bg-emerald-500"}`}
+            className={`h-full rounded-full transition-all ${overBudget ? "bg-red-500" : "bg-[var(--accent)]"}`}
             style={{ width: `${Math.min(100, (validation.cost / costCap) * 100)}%` }}
           />
         </div>
@@ -563,7 +563,7 @@ export function RosterBuilder({
             type={needsCaptains ? "button" : "submit"}
             onClick={needsCaptains ? () => setAskingCaptains(true) : undefined}
             disabled={!readyToSave || saving || locked}
-            className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+            className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-40"
           >
             {locked
               ? "Round locked"
@@ -820,7 +820,7 @@ function SheetShell({ children }: { children: React.ReactNode }) {
  */
 function Badge({ count, label }: { count: number; label: string }) {
   return (
-    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-semibold text-white">
+    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent)] px-1 text-[10px] font-semibold text-[var(--accent-ink)]">
       {count}
       <span className="sr-only"> {label}</span>
     </span>
@@ -975,7 +975,7 @@ function CaptainPrompt({
           type="button"
           disabled={!topCaptainId || !midCaptainId}
           onClick={onConfirm}
-          className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+          className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-40"
         >
           {topCaptainId && midCaptainId ? "Save roster" : "Pick both captains"}
         </button>

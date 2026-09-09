@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { parseChipAllowance } from "@/lib/f1/chip-allowance";
+import { THEMES } from "@/lib/f1/themes";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 
 export type SettingsState = { error: string } | { ok: true; message: string } | null;
@@ -23,6 +24,7 @@ export async function updateLeagueSettings(
   const leagueId = String(formData.get("leagueId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const rawStake = String(formData.get("maxStake") ?? "").trim();
+  const rawTheme = String(formData.get("theme") ?? "").trim();
 
   const user = await getCurrentUser();
   if (!user) return { error: "Sign in first." };
@@ -36,6 +38,10 @@ export async function updateLeagueSettings(
   if (maxStake !== null && (!Number.isFinite(maxStake) || maxStake <= 0)) {
     return { error: "A stake limit has to be a positive number, or blank for none." };
   }
+
+  // An unknown id would render as the default anyway, but storing one would
+  // leave a value in the column that nothing can explain later.
+  const theme = THEMES.some((option) => option.id === rawTheme) ? rawTheme : null;
 
   const allowance = parseChipAllowance(formData);
   if ("error" in allowance) return { error: allowance.error };
@@ -57,7 +63,7 @@ export async function updateLeagueSettings(
 
   const { error } = await supabase
     .from("leagues")
-    .update({ name, max_stake: maxStake, chip_allowance: allowance })
+    .update({ name, max_stake: maxStake, chip_allowance: allowance, theme })
     .eq("id", leagueId);
 
   if (error) return { error: error.message };

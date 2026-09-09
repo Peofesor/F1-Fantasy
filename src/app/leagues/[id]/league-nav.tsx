@@ -42,7 +42,7 @@ export function LeagueNav({ leagueId, active }: { leagueId: string; active: Sect
             aria-current={isActive ? "page" : undefined}
             className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
               isActive
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                ? "bg-[var(--accent)] text-[var(--accent-ink)]"
                 : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
             }`}
           >
