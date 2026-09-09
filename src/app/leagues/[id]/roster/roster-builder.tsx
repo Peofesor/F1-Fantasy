@@ -222,7 +222,14 @@ function slotsOf(draft: Draft): Slot[] {
  * holds the short last row to the same card width as the rows above it: without
  * it, two cards sharing a row would stretch to half the width each.
  */
-const ROWS: { title: string; hint: string; groups: SlotKind[][]; filler?: number }[] = [
+const ROWS: {
+  title: string;
+  hint: string;
+  /** Called out under the heading when the row does not score the usual way. */
+  warning?: string;
+  groups: SlotKind[][];
+  filler?: number;
+}[] = [
   {
     title: "Top",
     hint: "3 drivers + 1 team",
@@ -235,7 +242,13 @@ const ROWS: { title: string; hint: string; groups: SlotKind[][]; filler?: number
   },
   {
     title: "Back of the grid",
-    hint: "scores in reverse",
+    hint: "1 driver + 1 team",
+    // The one row that reverses the instinct the other two train, so it is
+    // stated here rather than left to the rules page. Worded for both slots at
+    // once: they reward a bad finish by different means — the driver pays cost
+    // cap, the team scores points — and the header has room for the shared
+    // half of that, not the mechanism.
+    warning: "Reversed — a worse finish is worth more, but a retirement pays nothing",
     groups: [["backmarker"], ["reverse"]],
     filler: 2,
   },
@@ -346,6 +359,25 @@ export function RosterBuilder({
 
   const slots = slotsOf(draft);
   const bySlot = new Map(slots.map((slot) => [slot.kind + "-" + slot.index, slot]));
+
+  /** How many picks a tier takes, and how many of them are made. */
+  const rowSlots = (row: (typeof ROWS)[number]) =>
+    row.groups.reduce((total, group) => total + group.length, 0);
+
+  const rowFilled = (row: (typeof ROWS)[number]) => {
+    // Walks the row the same way the render does, since a kind repeats within
+    // a row and each occurrence takes the next index of that kind.
+    const seen = new Map<SlotKind, number>();
+    let filled = 0;
+    for (const group of row.groups) {
+      for (const kind of group) {
+        const index = seen.get(kind) ?? 0;
+        seen.set(kind, index + 1);
+        if (bySlot.get(kind + "-" + index)?.occupantId) filled += 1;
+      }
+    }
+    return filled;
+  };
   const empty = slots.filter((slot) => !slot.occupantId).length;
   const needsCaptains = !draft.topCaptainId || !draft.midCaptainId;
   // Captains are collected at save time, so they do not hold the button back.
@@ -479,9 +511,25 @@ export function RosterBuilder({
 
         return (
           <section key={row.title}>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <h2 className="text-sm font-semibold">{row.title}</h2>
-              <span className="text-xs text-zinc-500">{row.hint}</span>
+            <div className="mb-1.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="flex items-baseline gap-2 text-sm font-semibold">
+                  {row.title}
+                  {/* The slot count sits beside the name rather than in grey on
+                      the far side, because how many picks a tier takes is part
+                      of what the tier is — and a filled count doubles as
+                      progress through the roster. */}
+                  <span className="rounded-full bg-[color-mix(in_oklab,var(--accent)_22%,var(--background))] px-2 py-0.5 text-[11px] font-medium tabular-nums">
+                    {rowFilled(row)}/{rowSlots(row)}
+                  </span>
+                </h2>
+                <span className="shrink-0 text-xs text-zinc-500">{row.hint}</span>
+              </div>
+              {row.warning && (
+                <p className="mt-0.5 text-xs font-medium text-amber-600 dark:text-amber-500">
+                  {row.warning}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               {row.groups.map((group, groupIndex) => (

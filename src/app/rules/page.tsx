@@ -67,10 +67,29 @@ export default function RulesPage() {
 
       <Section title="Your roster">
         <p>
-          You pick in three tiers: {TOP_SLOTS} top-bracket drivers and 1 top-bracket team,{" "}
-          {MID_SLOTS} mid-bracket drivers and 1 mid-bracket team, then 1 backmarker and 1
-          reverse-scored team at the back. That is {TOP_SLOTS + MID_SLOTS + 1} drivers and{" "}
+          Ten picks in three tiers — {TOP_SLOTS + MID_SLOTS + 1} drivers and{" "}
           {CONSTRUCTOR_SLOTS + 1} teams.
+        </p>
+        {/* The shape of a roster read as a sentence to be parsed. As rows it
+            can be counted, which is what anyone is actually doing when they
+            read it. */}
+        <div className="pt-1">
+          <Row label={`Top — ${TOP_SLOTS} drivers + 1 team`} value={`${TOP_SLOTS + 1} slots`} />
+          <Row
+            label={`Midfield — ${MID_SLOTS} drivers + 1 team`}
+            value={`${MID_SLOTS + 1} slots`}
+          />
+          <Row label="Back of the grid — 1 driver + 1 team" value="2 slots" />
+        </div>
+        <p className="pt-1 text-amber-700 dark:text-amber-500">
+          <strong>The back two are reversed</strong>, and by different means. The backmarker
+          scores no points at all — it pays you cost cap equal to where it finishes, so P18 pays
+          18. The reverse team does score points, more of them the lower it ranks that weekend.
+        </p>
+        <p className="text-xs">
+          A retirement pays nothing. That is deliberate: if a DNF paid the maximum, the best
+          backmarker would be whoever crashes most, which is a puzzle with one answer rather than
+          a choice.
         </p>
         <p>
           The <strong>top bracket is the top {TOP_BRACKET_SIZE} drivers</strong> by points scored
