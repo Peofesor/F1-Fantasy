@@ -204,18 +204,36 @@ export function chipAvailability(
 }
 
 /** Whether another use of a chip may be bought. */
+/** The most of one chip that can be bought at once. */
+export const MAX_CHIP_QUANTITY = 20;
+
 export function canPurchase(
   chipId: ChipId,
   usedThisSeason: number,
   purchased: number,
   balance: number,
-): { allowed: boolean; price: number; reason?: string } {
+  quantity = 1,
+): { allowed: boolean; price: number; total: number; reason?: string } {
   const chip = CHIPS[chipId];
-  if (balance < chip.price) {
-    return { allowed: false, price: chip.price, reason: "Not enough cost cap" };
+  const total = Math.round(chip.price * quantity * 10) / 10;
+
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return { allowed: false, price: chip.price, total, reason: "Buy at least one" };
   }
+  if (quantity > MAX_CHIP_QUANTITY) {
+    return {
+      allowed: false,
+      price: chip.price,
+      total,
+      reason: `${MAX_CHIP_QUANTITY} at a time is the limit`,
+    };
+  }
+  if (balance < total) {
+    return { allowed: false, price: chip.price, total, reason: "Not enough cost cap" };
+  }
+
   void usedThisSeason;
-  return { allowed: true, price: chip.price };
+  return { allowed: true, price: chip.price, total };
 }
 
 /**

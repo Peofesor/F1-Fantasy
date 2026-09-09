@@ -81,13 +81,17 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
   const chipId = String(formData.get("chipId") ?? "");
   if (!isChipId(chipId)) return { error: "Unknown chip." };
 
+  // Bought in batches now, so the quantity is validated here rather than
+  // trusted: it decides the charge.
+  const quantity = Number(formData.get("quantity") ?? 1);
+
   const context = await loadContext(leagueId);
   if (!context.ok) return { error: context.error };
 
   const owned = context.purchases.filter((id) => id === chipId).length;
   const used = context.usage.filter((entry) => entry.chipId === chipId).length;
 
-  const check = canPurchase(chipId, used, owned, context.balance);
+  const check = canPurchase(chipId, used, owned, context.balance, quantity);
   if (!check.allowed) return { error: check.reason ?? "Cannot buy that." };
 
   // Purchase and charge are written with the service role: cost_cap_entries
@@ -95,9 +99,16 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
   // ledger could credit themselves.
   const admin = createAdminClient();
 
-  const { error: purchaseError } = await admin
-    .from("chip_purchases")
-    .insert({ member_id: context.memberId, chip_id: chipId, price_paid: check.price });
+  // One row per chip, not one row with a count: a chip is spent individually
+  // and the ledger already prices them one at a time, so a quantity column
+  // would need unpacking everywhere it is read.
+  const { error: purchaseError } = await admin.from("chip_purchases").insert(
+    Array.from({ length: quantity }, () => ({
+      member_id: context.memberId,
+      chip_id: chipId,
+      price_paid: check.price,
+    })),
+  );
   if (purchaseError) return { error: purchaseError.message };
 
   const { data: firstRound } = await admin
@@ -112,9 +123,9 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
     member_id: context.memberId,
     season: context.season,
     round: firstRound?.round ?? 1,
-    amount: -check.price,
+    amount: -check.total,
     reason: "chip_purchase",
-    note: CHIPS[chipId].name,
+    note: quantity > 1 ? `${CHIPS[chipId].name} ×${quantity}` : CHIPS[chipId].name,
   });
 
   // The chip is already in hand, so an ignored failure here hands it over
@@ -124,15 +135,30 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
     await admin
       .from("chip_purchases")
       .delete()
-      .eq("member_id", context.memberId)
-      .eq("chip_id", chipId)
-      .eq("price_paid", check.price);
+      .in(
+        "id",
+        (
+          await admin
+            .from("chip_purchases")
+            .select("id")
+            .eq("member_id", context.memberId)
+            .eq("chip_id", chipId)
+            .order("id", { ascending: false })
+            .limit(quantity)
+        ).data?.map((row) => row.id) ?? [],
+      );
 
     return { error: "Could not take the price from your cap, so the chip was not bought." };
   }
 
   revalidatePath(`/leagues/${leagueId}/roster`);
-  return { ok: true, message: `Bought ${CHIPS[chipId].name}.` };
+  return {
+    ok: true,
+    message:
+      quantity > 1
+        ? `Bought ${quantity} × ${CHIPS[chipId].name} for ${check.total.toFixed(1)}.`
+        : `Bought ${CHIPS[chipId].name}.`,
+  };
 }
 
 export async function playChip(_previous: ChipState, formData: FormData): Promise<ChipState> {

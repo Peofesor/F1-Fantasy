@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { LeagueMode, StandingRow } from "@/lib/f1/standings";
 
 /**
@@ -8,11 +10,13 @@ import type { LeagueMode, StandingRow } from "@/lib/f1/standings";
  * Showing both sets of columns everywhere would imply the unused one mattered.
  */
 export function Standings({
+  leagueId,
   rows,
   names,
   mode,
   currentMemberId,
 }: {
+  leagueId: string;
   rows: StandingRow[];
   names: ReadonlyMap<string, string>;
   mode: LeagueMode;
@@ -60,7 +64,12 @@ export function Standings({
                 >
                   <td className="py-1.5 tabular-nums text-zinc-500">{row.position}</td>
                   <td className="py-1.5">
-                    <span className="block truncate">{names.get(row.memberId) ?? "Unknown"}</span>
+                    <Link
+                      href={`/leagues/${leagueId}/members/${row.memberId}`}
+                      className="block truncate underline-offset-2 hover:underline"
+                    >
+                      {names.get(row.memberId) ?? "Unknown"}
+                    </Link>
                     {row.roundsPlayed === 0 && (
                       <span className="text-xs text-zinc-500">no rounds scored</span>
                     )}

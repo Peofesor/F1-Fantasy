@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
@@ -8,7 +9,7 @@ import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
-import { MatchupCard } from "./matchup-card";
+import { MatchupCard, type MatchupPick, type Side } from "./matchup-card";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
@@ -171,37 +172,89 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           .eq("round", next.round)
       : { data: null };
 
-  const [{ data: driverRows }, { data: constructorRows }] = await Promise.all([
-    supabase.from("drivers").select("driver_id, given_name, family_name"),
-    supabase.from("constructors").select("constructor_id, name"),
-  ]);
+  // A team has no colour of its own in the reference data — it is taken from
+  // the drivers it fields, which is where the media actually lives. The lineup
+  // comes from the most recent race, so a mid-season seat change follows.
+  const [{ data: driverRows }, { data: constructorRows }, { data: lineupRows }] =
+    await Promise.all([
+      supabase.from("drivers").select("driver_id, family_name, headshot_url, team_colour"),
+      supabase.from("constructors").select("constructor_id, name"),
+      supabase
+        .from("race_results")
+        .select("constructor_id, driver_id")
+        .eq("season", league.season)
+        .order("round", { ascending: false })
+        .limit(60),
+    ]);
 
-  const driverName = new Map(
-    (driverRows ?? []).map((row) => [row.driver_id, row.family_name as string]),
+  const drivers = new Map(
+    (driverRows ?? []).map((row) => [
+      row.driver_id,
+      {
+        name: row.family_name as string,
+        headshotUrl: (row.headshot_url as string | null) ?? undefined,
+        colour: (row.team_colour as string | null) ?? undefined,
+      },
+    ]),
   );
-  const constructorName = new Map(
-    (constructorRows ?? []).map((row) => [row.constructor_id, row.name as string]),
+  const teamColour = new Map<string, string>();
+  for (const row of lineupRows ?? []) {
+    if (teamColour.has(row.constructor_id)) continue;
+    const colour = drivers.get(row.driver_id)?.colour;
+    if (colour) teamColour.set(row.constructor_id, colour);
+  }
+
+  const constructors = new Map(
+    (constructorRows ?? []).map((row) => [
+      row.constructor_id,
+      { name: row.name as string, colour: teamColour.get(row.constructor_id) },
+    ]),
   );
 
-  const sideFor = (memberId: string) => {
+  /**
+   * One side of the matchup, grouped the way the roster is picked.
+   *
+   * Teams sit in the bracket their slot names: a constructor slot is a
+   * top-or-mid pick like the drivers beside it, and the reverse team belongs at
+   * the back with the backmarker. Splitting drivers from teams instead would
+   * break the row-by-row comparison the card exists for.
+   */
+  const sideFor = (memberId: string): Side => {
     const row = (matchupRosters ?? []).find((entry) => entry.member_id === memberId);
     const slots = (row?.roster_slots ?? []) as unknown as {
+      slot_type: string;
       driver_id: string | null;
       constructor_id: string | null;
     }[];
     const captains = [row?.top_captain_id, row?.mid_captain_id].filter(Boolean);
 
+    const pick = (slot: (typeof slots)[number]): MatchupPick => {
+      if (slot.driver_id) {
+        const driver = drivers.get(slot.driver_id);
+        return {
+          name: driver?.name ?? slot.driver_id,
+          headshotUrl: driver?.headshotUrl,
+          colour: driver?.colour,
+          captain: captains.includes(slot.driver_id),
+        };
+      }
+      const team = constructors.get(slot.constructor_id!);
+      return {
+        name: team?.name ?? slot.constructor_id!,
+        colour: team?.colour,
+        captain: false,
+      };
+    };
+
+    const inBracket = (...types: string[]) =>
+      slots.filter((slot) => types.includes(slot.slot_type)).map(pick);
+
     return {
+      memberId,
       name: nameByMemberId.get(memberId) ?? "Unknown",
-      drivers: slots
-        .filter((slot) => slot.driver_id)
-        .map((slot) => ({
-          name: driverName.get(slot.driver_id!) ?? slot.driver_id!,
-          captain: captains.includes(slot.driver_id!),
-        })),
-      constructors: slots
-        .filter((slot) => slot.constructor_id)
-        .map((slot) => constructorName.get(slot.constructor_id!) ?? slot.constructor_id!),
+      top: inBracket("driver_top", "constructor"),
+      mid: inBracket("driver_mid"),
+      back: inBracket("driver_backmarker", "constructor_reverse"),
     };
   };
 
@@ -229,6 +282,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
       {league.mode === "duel" && next && nextRound && selfMemberId && (
         <MatchupCard
+          leagueId={league.id}
           round={next.round}
           raceName={nextRound.race_name}
           you={sideFor(selfMemberId)}
@@ -240,6 +294,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       <StatsCard series={stats} />
 
       <Standings
+        leagueId={league.id}
         rows={standings}
         names={nameByMemberId}
         mode={league.mode as LeagueMode}
@@ -251,7 +306,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         <ul className="mt-2 space-y-1 text-sm">
           {roster?.map((member) => (
             <li key={member.id} className="flex justify-between">
-              <span>{member.name}</span>
+              <Link
+                href={`/leagues/${league.id}/members/${member.id}`}
+                className="underline-offset-2 hover:underline"
+              >
+                {member.name}
+              </Link>
               {member.isSelf && <span className="text-xs text-zinc-500">you</span>}
             </li>
           ))}

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyChips, canPurchase, chipAvailability, CHIPS, type ChipUsage } from "./chips";
+import {
+  applyChips,
+  canPurchase,
+  chipAvailability,
+  CHIPS,
+  MAX_CHIP_QUANTITY,
+  type ChipUsage,
+} from "./chips";
 
 const slots = [
   { slot: "driver_top", competitorId: "star", points: 60 },
@@ -223,5 +230,38 @@ describe("allowance per half-season", () => {
   it("treats a season with no break as a single half", () => {
     const usage: ChipUsage[] = [{ chipId: "super_driver", round: 2 }];
     expect(chipAvailability("super_driver", usage, 0, 9, null).available).toBe(false);
+  });
+});
+
+describe("buying more than one at a time", () => {
+  it("charges for the quantity, not for one", () => {
+    const one = canPurchase("super_driver", 0, 0, 100, 1);
+    const four = canPurchase("super_driver", 0, 0, 100, 4);
+    expect(four.total).toBeCloseTo(one.total * 4, 5);
+  });
+
+  it("refuses a quantity the cap cannot cover", () => {
+    // Affordable one at a time, not four at a time. The single-chip check
+    // would have waved this through and charged four times the price.
+    const price = CHIPS.super_driver.price;
+    const result = canPurchase("super_driver", 0, 0, price * 2, 4);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain("cost cap");
+  });
+
+  it("refuses a fractional or negative quantity", () => {
+    // The field is a number input, so anything can arrive by direct POST.
+    expect(canPurchase("super_driver", 0, 0, 500, 0).allowed).toBe(false);
+    expect(canPurchase("super_driver", 0, 0, 500, -3).allowed).toBe(false);
+    expect(canPurchase("super_driver", 0, 0, 500, 1.5).allowed).toBe(false);
+  });
+
+  it("caps a single purchase", () => {
+    expect(canPurchase("super_driver", 0, 0, 100000, MAX_CHIP_QUANTITY).allowed).toBe(true);
+    expect(canPurchase("super_driver", 0, 0, 100000, MAX_CHIP_QUANTITY + 1).allowed).toBe(false);
+  });
+
+  it("defaults to one when no quantity is given", () => {
+    expect(canPurchase("super_driver", 0, 0, 500).total).toBeCloseTo(CHIPS.super_driver.price, 5);
   });
 });
