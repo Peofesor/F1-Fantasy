@@ -99,7 +99,11 @@ Walks through the whole setup one screen at a time — opening each dashboard, s
 On Windows run it from **Git Bash**, not PowerShell or `cmd` — it is a bash script and the other two cannot read it.
 
 1. **Import the repo** at [vercel.com/new](https://vercel.com/new). The framework and build command are detected; no configuration needed.
-2. **Add the three environment variables** above under Settings → Environment Variables, for Production and Preview.
+2. **Add the three environment variables** above under Settings → Environment Variables, for Production and Preview. Set the two `NEXT_PUBLIC_` ones to type **Config**, not Secret.
+
+   Secret and `NEXT_PUBLIC_` are contradictory, and the contradiction fails silently. `NEXT_PUBLIC_` means Next.js compiles the value into the browser bundle at build time; Secret means Vercel never lets the value reach the browser. So a `NEXT_PUBLIC_` variable stored as Secret is simply absent from the build — the build still succeeds, and then every single request 500s with *"Your project's URL and Key are required to create a Supabase client"*, because the proxy runs before every route and cannot construct its client. Even `/rules`, which is static, returns 500.
+
+   Both are safe as Config: the URL is just the project address, and the anon key is designed to be public — row-level security is what constrains it. `SUPABASE_SERVICE_ROLE_KEY` is the one that must stay Secret, and it carries no `NEXT_PUBLIC_` prefix precisely so it cannot leak.
 3. **Point Supabase at the deployment.** In the Supabase dashboard, Authentication → URL Configuration: set **Site URL** to the Vercel domain and add it to **Redirect URLs**. Skipping this is the usual cause of a broken launch — confirmation and password-reset links keep pointing at `localhost:3000`, so they work for you and for nobody else.
 4. **Decide on email confirmation.** Supabase's built-in mailer is rate-limited to a handful of messages per hour and is prone to spam folders. For a small private league, either turn confirmation off (Authentication → Providers → Email) or configure real SMTP.
 5. **Set the Actions secrets** (below) if you have not already, or nothing will be ingested or scored after a race.
