@@ -116,20 +116,48 @@ function Face({ pick }: { pick: Pick }) {
  * season is a couple of dozen small squads, so switching is instant and the
  * list works with no further round trips.
  */
-export function RosterHistory({ squads, name }: { squads: Squad[]; name: string }) {
+export function RosterHistory({
+  squads,
+  name,
+  sealed,
+}: {
+  squads: Squad[];
+  name: string;
+  /**
+   * The round whose team exists but is not readable yet, if any. A profile that
+   * simply stopped at the last locked race read as though they had stopped
+   * playing, which is the opposite of what it means.
+   */
+  sealed: { round: number; raceName: string; bets: number } | null;
+}) {
   const [round, setRound] = useState(squads[0]?.round ?? 0);
   const squad = squads.find((entry) => entry.round === round) ?? squads[0];
 
+  const seal = sealed && (
+    <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-center text-xs text-zinc-500 dark:border-zinc-700">
+      R{sealed.round} · {sealed.raceName} is picked but sealed until qualifying
+      {sealed.bets > 0 && `, with ${sealed.bets} bet${sealed.bets === 1 ? "" : "s"}`}.
+    </p>
+  );
+
   if (!squad) {
     return (
-      <section className="rounded-xl border border-dashed border-zinc-300 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] p-6 text-center dark:border-zinc-700">
-        <p className="text-sm text-zinc-500">{name} has no team to show yet.</p>
-      </section>
+      <div className="space-y-3">
+        {seal}
+        <section className="rounded-xl border border-dashed border-zinc-300 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] p-6 text-center dark:border-zinc-700">
+          <p className="text-sm text-zinc-500">
+            {sealed ? `Nothing of ${name}'s is readable yet.` : `${name} has no team to show yet.`}
+          </p>
+        </section>
+      </div>
     );
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] dark:border-zinc-800">
+    <div className="space-y-3">
+      {seal}
+
+      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] dark:border-zinc-800">
       <div className="flex items-center gap-3 border-b border-zinc-200 p-3 dark:border-zinc-800">
         <select
           value={round}
@@ -204,6 +232,7 @@ export function RosterHistory({ squads, name }: { squads: Squad[]; name: string 
           </div>
         )}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

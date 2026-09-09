@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
+import { currentRound } from "@/lib/f1/round-context";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { RosterHistory, type Bet, type Pick, type Squad } from "./roster-history";
 
@@ -70,7 +71,7 @@ export default async function MemberPage({
       supabase.from("rounds").select("round, race_name").eq("season", league.season),
     ]);
 
-  const [{ data: scores }, { data: betRows }, { data: lineupRows }] = await Promise.all([
+  const [{ data: scores }, { data: betRows }, { data: lineupRows }, next] = await Promise.all([
     supabase
       .from("round_scores")
       .select("round, points")
@@ -92,7 +93,27 @@ export default async function MemberPage({
       .eq("season", league.season)
       .order("round", { ascending: false })
       .limit(60),
+    currentRound(supabase, league.season),
   ]);
+
+  // The open round is readable for its owner and sealed for everyone else, so a
+  // profile that simply stopped at the last locked race looked like someone who
+  // had stopped playing. These two answer "is there something there?" without
+  // handing over what it is.
+  const [{ data: hasTeam }, { data: betCount }] = next
+    ? await Promise.all([
+        supabase.rpc("has_complete_roster", {
+          target_member: memberId,
+          target_season: next.season,
+          target_round: next.round,
+        }),
+        supabase.rpc("bets_placed", {
+          target_member: memberId,
+          target_season: next.season,
+          target_round: next.round,
+        }),
+      ])
+    : [{ data: null }, { data: null }];
 
   const drivers = new Map(
     (driverRows ?? []).map((row) => [
@@ -209,6 +230,16 @@ export default async function MemberPage({
 
   squads.sort((a, b) => b.round - a.round);
 
+  // Only sealed if something is there and none of it came back.
+  const sealed =
+    next && hasTeam && !squads.some((squad) => squad.round === next.round)
+      ? {
+          round: next.round,
+          raceName: raceName.get(next.round) ?? `Round ${next.round}`,
+          bets: Number(betCount ?? 0),
+        }
+      : null;
+
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-3 pt-2">
@@ -229,7 +260,7 @@ export default async function MemberPage({
         </h1>
       </header>
 
-      <RosterHistory squads={squads} name={displayName} />
+      <RosterHistory squads={squads} name={displayName} sealed={sealed} />
     </main>
   );
 }

@@ -19,6 +19,15 @@ export interface Side {
   top: MatchupPick[];
   mid: MatchupPick[];
   back: MatchupPick[];
+  /**
+   * Whether they have a team at all, which is knowable even when the picks are
+   * not. Without it an empty side cannot say which of the two it is, and
+   * "hidden until qualifying" and "has not picked yet" are opposite messages —
+   * one is worth waiting for, the other is worth a nudge.
+   */
+  hasTeam: boolean;
+  /** Bets on this round; the count is readable before the selections are. */
+  bets: number;
 }
 
 /**
@@ -200,14 +209,25 @@ export function MatchupCard({
               {index === 0 && <span className="ml-1 text-xs font-normal text-zinc-500">you</span>}
             </Link>
 
-            {side.top.length + side.mid.length + side.back.length === 0 ? (
-              <p className="text-xs text-zinc-500">No team saved yet.</p>
-            ) : (
+            {side.top.length + side.mid.length + side.back.length > 0 ? (
               <>
                 <Row label="Top" picks={side.top} />
                 <Row label="Midfield" picks={side.mid} />
                 <Row label="Back" picks={side.back} />
               </>
+            ) : side.hasTeam ? (
+              <p className="rounded-lg border border-dashed border-zinc-300 px-2 py-3 text-center text-[11px] leading-snug text-zinc-500 dark:border-zinc-700">
+                Team picked, hidden until qualifying
+              </p>
+            ) : (
+              <p className="text-xs text-zinc-500">No team picked yet.</p>
+            )}
+
+            {side.bets > 0 && (
+              <p className="text-[10px] text-zinc-500">
+                {side.bets} bet{side.bets === 1 ? "" : "s"}
+                {side.top.length === 0 && ", revealed at qualifying"}
+              </p>
             )}
           </div>
         ))}

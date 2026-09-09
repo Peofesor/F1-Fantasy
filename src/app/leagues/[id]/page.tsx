@@ -161,8 +161,16 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   const sideIds = [selfMemberId, opponentId].filter((value): value is string => Boolean(value));
 
   // The third and last wave: everything that needed to know which round is
-  // next, and — for the two squads — who is in the fixture.
-  const [{ data: nextRound }, { data: savedRoster }, { data: matchupRosters }, { data: roundBetRows }] =
+  // next, and — for the two squads — who is in the fixture. The two rpc calls
+  // report whether a hidden team and hidden bets exist, so an empty side of the
+  // card can say which kind of empty it is.
+  const [
+    { data: nextRound },
+    { data: savedRoster },
+    { data: matchupRosters },
+    { data: roundBetRows },
+    sideStatus,
+  ] =
     await Promise.all([
       next
         ? supabase
@@ -199,6 +207,25 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
             .eq("season", next.season)
             .eq("round", next.round)
         : Promise.resolve({ data: null }),
+      next
+        ? Promise.all(
+            memberIds.map(async (member) => {
+              const [team, count] = await Promise.all([
+                supabase.rpc("has_complete_roster", {
+                  target_member: member,
+                  target_season: next.season,
+                  target_round: next.round,
+                }),
+                supabase.rpc("bets_placed", {
+                  target_member: member,
+                  target_season: next.season,
+                  target_round: next.round,
+                }),
+              ]);
+              return { member, hasTeam: Boolean(team.data), bets: Number(count.data ?? 0) };
+            }),
+          )
+        : Promise.resolve([]),
     ]);
 
   // race_time is nullable on rounds the calendar has not fully published.
@@ -288,12 +315,16 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     const inBracket = (...types: string[]) =>
       slots.filter((slot) => types.includes(slot.slot_type)).map(pick);
 
+    const status = sideStatus.find((entry) => entry.member === memberId);
+
     return {
       memberId,
       name: nameByMemberId.get(memberId) ?? "Unknown",
       top: inBracket("driver_top", "constructor_top"),
       mid: inBracket("driver_mid", "constructor_mid"),
       back: inBracket("driver_backmarker", "constructor_reverse"),
+      hasTeam: status?.hasTeam ?? false,
+      bets: status?.bets ?? 0,
     };
   };
 
@@ -317,6 +348,21 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       outcome: bet.outcome,
     };
   });
+
+  // A member whose bets are counted but not returned has them sealed. Derived
+  // by difference rather than from the clock, so it stays true whatever the
+  // read policy decides.
+  const readableByMember = new Map<string, number>();
+  for (const bet of roundBets) {
+    readableByMember.set(bet.memberId, (readableByMember.get(bet.memberId) ?? 0) + 1);
+  }
+
+  const hiddenBets = sideStatus
+    .map((entry) => ({
+      name: nameByMemberId.get(entry.member) ?? "Unknown",
+      count: entry.bets - (readableByMember.get(entry.member) ?? 0),
+    }))
+    .filter((entry) => entry.count > 0);
 
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
@@ -345,6 +391,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           leagueId={league.id}
           raceName={nextRound.race_name}
           bets={roundBets}
+          hidden={hiddenBets}
         />
       )}
 
