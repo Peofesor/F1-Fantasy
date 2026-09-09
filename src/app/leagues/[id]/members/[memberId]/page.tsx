@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
-import { RosterHistory, type Pick, type Squad } from "./roster-history";
+import { MARKETS, type MarketId } from "@/lib/f1/betting";
+import { RosterHistory, type Bet, type Pick, type Squad } from "./roster-history";
 
 export const dynamic = "force-dynamic";
 
@@ -70,11 +71,20 @@ export default async function MemberPage({
       supabase.from("rounds").select("round, race_name").eq("season", league.season),
     ]);
 
-  const { data: scores } = await supabase
-    .from("round_scores")
-    .select("round, points")
-    .eq("member_id", memberId)
-    .eq("season", league.season);
+  const [{ data: scores }, { data: betRows }] = await Promise.all([
+    supabase
+      .from("round_scores")
+      .select("round, points")
+      .eq("member_id", memberId)
+      .eq("season", league.season),
+    // Visible to the whole league now, so this is another member's slip as
+    // readily as your own — row-level security decides, not this query.
+    supabase
+      .from("bets")
+      .select("round, market_id, selection, stake, odds, outcome, returned")
+      .eq("member_id", memberId)
+      .eq("season", league.season),
+  ]);
 
   const drivers = new Map(
     (driverRows ?? []).map((row) => [
@@ -108,6 +118,39 @@ export default async function MemberPage({
     if (colour) teamColour.set(row.constructor_id, colour);
   }
 
+  // Which drivers a team fields, from the most recent race so a mid-season seat
+  // change follows. Two seats is what the badge draws.
+  const teamLineup = new Map<string, { name: string; headshotUrl?: string }[]>();
+  for (const row of lineupRows ?? []) {
+    const seats = teamLineup.get(row.constructor_id) ?? [];
+    if (seats.length >= 2 || seats.some((seat) => seat.name === drivers.get(row.driver_id)?.name)) {
+      continue;
+    }
+    const driver = drivers.get(row.driver_id);
+    if (driver) seats.push({ name: driver.name, headshotUrl: driver.headshotUrl });
+    teamLineup.set(row.constructor_id, seats);
+  }
+
+  const betsByRound = new Map<number, Bet[]>();
+  for (const bet of betRows ?? []) {
+    const marketId = bet.market_id as MarketId;
+    const list = betsByRound.get(bet.round) ?? [];
+    list.push({
+      market: MARKETS[marketId]?.name ?? marketId,
+      // Selections are stored as ids; the reference names are already loaded
+      // for the squad above, so a driver or team reads as itself.
+      selection:
+        drivers.get(bet.selection)?.name ??
+        constructorName.get(bet.selection) ??
+        bet.selection,
+      stake: Number(bet.stake),
+      odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
+      outcome: bet.outcome,
+      returned: bet.returned === null ? null : Number(bet.returned),
+    });
+    betsByRound.set(bet.round, list);
+  }
+
   const squads: Squad[] = (rosters ?? []).map((roster) => {
     const captains = [roster.top_captain_id, roster.mid_captain_id].filter(Boolean);
     const slots = (roster.roster_slots ?? []) as unknown as {
@@ -136,6 +179,7 @@ export default async function MemberPage({
         slotType: slot.slot_type,
         name: constructorName.get(slot.constructor_id!) ?? slot.constructor_id!,
         colour: teamColour.get(slot.constructor_id!),
+        lineup: teamLineup.get(slot.constructor_id!),
         captain: false,
         price,
       };
@@ -146,8 +190,25 @@ export default async function MemberPage({
       raceName: raceName.get(roster.round) ?? `Round ${roster.round}`,
       points: pointsByRound.get(roster.round) ?? null,
       picks,
+      bets: betsByRound.get(roster.round) ?? [],
     };
   });
+
+  // A round can have bets and no visible roster — the roster is hidden until
+  // its round locks, and betting is open for that same window. Dropping those
+  // rounds would hide a slip that is public.
+  for (const [round, bets] of betsByRound) {
+    if (squads.some((squad) => squad.round === round)) continue;
+    squads.push({
+      round,
+      raceName: raceName.get(round) ?? `Round ${round}`,
+      points: pointsByRound.get(round) ?? null,
+      picks: [],
+      bets,
+    });
+  }
+
+  squads.sort((a, b) => b.round - a.round);
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">

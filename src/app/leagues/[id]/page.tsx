@@ -204,10 +204,27 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     if (colour) teamColour.set(row.constructor_id, colour);
   }
 
+  // Which drivers a team fields, from the most recent race so a mid-season seat
+  // change follows. Two seats is what the badge draws.
+  const teamLineup = new Map<string, { name: string; headshotUrl?: string }[]>();
+  for (const row of lineupRows ?? []) {
+    const seats = teamLineup.get(row.constructor_id) ?? [];
+    if (seats.length >= 2 || seats.some((seat) => seat.name === drivers.get(row.driver_id)?.name)) {
+      continue;
+    }
+    const driver = drivers.get(row.driver_id);
+    if (driver) seats.push({ name: driver.name, headshotUrl: driver.headshotUrl });
+    teamLineup.set(row.constructor_id, seats);
+  }
+
   const constructors = new Map(
     (constructorRows ?? []).map((row) => [
       row.constructor_id,
-      { name: row.name as string, colour: teamColour.get(row.constructor_id) },
+      {
+        name: row.name as string,
+        colour: teamColour.get(row.constructor_id),
+        lineup: teamLineup.get(row.constructor_id),
+      },
     ]),
   );
 
@@ -242,6 +259,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       return {
         name: team?.name ?? slot.constructor_id!,
         colour: team?.colour,
+        lineup: team?.lineup,
         captain: false,
       };
     };
@@ -252,8 +270,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     return {
       memberId,
       name: nameByMemberId.get(memberId) ?? "Unknown",
-      top: inBracket("driver_top", "constructor"),
-      mid: inBracket("driver_mid"),
+      top: inBracket("driver_top", "constructor_top"),
+      mid: inBracket("driver_mid", "constructor_mid"),
       back: inBracket("driver_backmarker", "constructor_reverse"),
     };
   };

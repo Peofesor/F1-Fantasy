@@ -4,6 +4,8 @@ import Link from "next/link";
 export interface MatchupPick {
   name: string;
   headshotUrl?: string;
+  /** A team has no portrait of its own, so it is drawn as its two drivers. */
+  lineup?: { name: string; headshotUrl?: string }[];
   colour?: string;
   captain: boolean;
 }
@@ -29,7 +31,32 @@ function Face({ pick }: { pick: MatchupPick }) {
   return (
     <span className="flex flex-col items-center gap-0.5" title={pick.name}>
       <span className="relative">
-        {pick.headshotUrl ? (
+        {pick.lineup?.length ? (
+          <span className="flex items-center">
+            {pick.lineup.slice(0, 2).map((seat, index) =>
+              seat.headshotUrl ? (
+                <Image
+                  key={seat.name}
+                  src={seat.headshotUrl}
+                  alt=""
+                  width={96}
+                  height={96}
+                  className="h-7 w-7 rounded-full object-cover"
+                  style={{ outline: `1.5px solid ${accent}`, marginLeft: index === 0 ? 0 : "-30%" }}
+                  unoptimized
+                />
+              ) : (
+                <span
+                  key={seat.name}
+                  className="h-7 w-7 flex items-center justify-center rounded-full text-[8px] font-semibold text-white"
+                  style={{ backgroundColor: accent, marginLeft: index === 0 ? 0 : "-30%" }}
+                >
+                  {seat.name.slice(0, 2).toUpperCase()}
+                </span>
+              ),
+            )}
+          </span>
+        ) : pick.headshotUrl ? (
           <Image
             src={pick.headshotUrl}
             alt=""

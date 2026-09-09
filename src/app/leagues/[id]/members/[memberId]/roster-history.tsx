@@ -7,9 +7,20 @@ export interface Pick {
   slotType: string;
   name: string;
   headshotUrl?: string;
+  /** A team has no portrait of its own, so it is drawn as its two drivers. */
+  lineup?: { name: string; headshotUrl?: string }[];
   colour?: string;
   captain: boolean;
   price: number | null;
+}
+
+export interface Bet {
+  market: string;
+  selection: string;
+  stake: number;
+  odds: number | null;
+  outcome: string | null;
+  returned: number | null;
 }
 
 export interface Squad {
@@ -17,11 +28,12 @@ export interface Squad {
   raceName: string;
   points: number | null;
   picks: Pick[];
+  bets: Bet[];
 }
 
 const BRACKETS: { label: string; types: string[] }[] = [
-  { label: "Top", types: ["driver_top", "constructor"] },
-  { label: "Midfield", types: ["driver_mid"] },
+  { label: "Top", types: ["driver_top", "constructor_top"] },
+  { label: "Midfield", types: ["driver_mid", "constructor_mid"] },
   { label: "Back of the grid", types: ["driver_backmarker", "constructor_reverse"] },
 ];
 
@@ -31,7 +43,32 @@ function Face({ pick }: { pick: Pick }) {
   return (
     <span className="flex w-16 flex-col items-center gap-1 text-center">
       <span className="relative">
-        {pick.headshotUrl ? (
+        {pick.lineup?.length ? (
+          <span className="flex items-center">
+            {pick.lineup.slice(0, 2).map((seat, index) =>
+              seat.headshotUrl ? (
+                <Image
+                  key={seat.name}
+                  src={seat.headshotUrl}
+                  alt=""
+                  width={96}
+                  height={96}
+                  className="h-12 w-12 rounded-full object-cover"
+                  style={{ outline: `2px solid ${accent}`, marginLeft: index === 0 ? 0 : "-30%" }}
+                  unoptimized
+                />
+              ) : (
+                <span
+                  key={seat.name}
+                  className="h-12 w-12 flex items-center justify-center rounded-full text-[8px] font-semibold text-white"
+                  style={{ backgroundColor: accent, marginLeft: index === 0 ? 0 : "-30%" }}
+                >
+                  {seat.name.slice(0, 2).toUpperCase()}
+                </span>
+              ),
+            )}
+          </span>
+        ) : pick.headshotUrl ? (
           <Image
             src={pick.headshotUrl}
             alt=""
@@ -129,6 +166,41 @@ export function RosterHistory({ squads, name }: { squads: Squad[]; name: string 
             </div>
           );
         })}
+
+        {squad.bets.length > 0 && (
+          <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+              Bets
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {squad.bets.map((bet) => (
+                <li
+                  key={`${bet.market}-${bet.selection}`}
+                  className="flex items-baseline gap-2 text-xs"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {bet.market} — <span className="text-zinc-500">{bet.selection}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums text-zinc-500">
+                    {bet.stake.toFixed(1)}
+                    {bet.odds !== null && ` at ${bet.odds.toFixed(2)}x`}
+                  </span>
+                  <span
+                    className={`w-12 shrink-0 text-right ${
+                      bet.outcome === "won"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : bet.outcome === "lost"
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-zinc-500"
+                    }`}
+                  >
+                    {bet.outcome ?? "open"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );
