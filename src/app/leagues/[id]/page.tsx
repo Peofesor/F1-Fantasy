@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
@@ -10,6 +9,7 @@ import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
 import { MatchupCard, type MatchupPick, type Side } from "./matchup-card";
+import { MembersPanel } from "./members-panel";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
@@ -319,22 +319,11 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         currentMemberId={selfMemberId}
       />
 
-      <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
-        <h2 className="text-sm font-semibold">Members</h2>
-        <ul className="mt-2 space-y-1 text-sm">
-          {roster?.map((member) => (
-            <li key={member.id} className="flex justify-between">
-              <Link
-                href={`/leagues/${league.id}/members/${member.id}`}
-                className="underline-offset-2 hover:underline"
-              >
-                {member.name}
-              </Link>
-              {member.isSelf && <span className="text-xs text-zinc-500">you</span>}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <MembersPanel
+        leagueId={league.id}
+        members={roster ?? []}
+        isOwner={league.owner_id === user.id}
+      />
 
       {league.mode === "duel" && (
         <SchedulePanel
