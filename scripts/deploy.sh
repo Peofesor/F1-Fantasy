@@ -194,6 +194,18 @@ REPO="Peofesor/F1-Fantasy"
 SUPABASE_REF="cffgnedqsxfrgruevkvl"
 SUPABASE="https://supabase.com/dashboard/project/$SUPABASE_REF"
 
+# Windows: explorer.exe exits 1 even when it opens the page perfectly well — a
+# long-standing quirk. The library reads that as failure and would print
+# "couldn't open a browser" on all nine stages while the browser sat there with
+# the page open. Overridden here rather than in the library above, which is
+# shared and must stay identical across wizards.
+if command -v explorer.exe >/dev/null 2>&1 && ! command -v wslview >/dev/null 2>&1; then
+  open_url() {
+    printf '  %s↗ opening%s %s\n' "$GREEN" "$RESET" "$1"
+    explorer.exe "$1" >/dev/null 2>&1 || true
+  }
+fi
+
 banner "Deploy F1 Fantasy to Vercel"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────

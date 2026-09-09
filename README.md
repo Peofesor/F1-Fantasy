@@ -91,10 +91,12 @@ Copy `.env.example` to `.env.local` and fill in your Supabase project values. Th
 Hosted on **Vercel** (Hobby tier — free, and non-commercial, which is what this is). Every page is `force-dynamic` and the game runs on Server Actions, so this needs a Node runtime: static hosting will not work. Nothing here is Vercel-specific, so any host that runs `next start` is a drop-in.
 
 ```bash
-./scripts/deploy.sh
+bash scripts/deploy.sh
 ```
 
 Walks through the whole setup one screen at a time — opening each dashboard, saying what to click, and checking the result before moving on. The steps it covers are below, if you would rather do them by hand.
+
+On Windows run it from **Git Bash**, not PowerShell or `cmd` — it is a bash script and the other two cannot read it.
 
 1. **Import the repo** at [vercel.com/new](https://vercel.com/new). The framework and build command are detected; no configuration needed.
 2. **Add the three environment variables** above under Settings → Environment Variables, for Production and Preview.
