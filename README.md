@@ -6,9 +6,11 @@ The full game design is specified in [docs/game-design-spec.md](docs/game-design
 
 ## Status
 
-Data pipeline under construction. No game logic yet.
+Playable. Leagues, rosters, captains, chips, betting, duels, scoring and standings all run against real ingested data.
 
 The 2026 season is being used as a live test bed so that real ingested data accumulates ahead of the 2027 target season.
+
+Run as a **private, non-commercial** league. That is not incidental — the data, the images and the hosting are all permitted on that condition. [docs/going-commercial.md](docs/going-commercial.md) lists what would have to change first.
 
 ## Stack
 
@@ -21,7 +23,9 @@ Next.js 16 + TypeScript, Supabase (Postgres, auth, `pg_cron`), Tailwind.
 | [jolpica-f1](https://github.com/jolpica/jolpica-f1) | Qualifying, race results, standings, lap timings, pit-lane times |
 | [OpenF1](https://openf1.org/) | Overtakes, safety-car events, session-keyed pit timing |
 
-Both are rate-limited and neither is affiliated with Formula 1. OpenF1 is licensed **CC BY-NC-SA 4.0 (non-commercial)** — fine for a private league, a blocker for a commercial launch. See §11 of the spec.
+Both are rate-limited, neither is affiliated with Formula 1, and **both are licensed CC BY-NC-SA 4.0** — attribution required, non-commercial only, share-alike. jolpica is the one that matters: it supplies the calendar, results and standings, so there is no version of the game without it. Dropping OpenF1 alone does not make this commercially usable.
+
+Attribution renders site-wide from [`src/lib/f1/data-sources.ts`](src/lib/f1/data-sources.ts), which is also where OpenF1 can be switched off (`F1_OPENF1=off`).
 
 ## Development
 
@@ -74,3 +78,22 @@ Without the CLI, paste each migration into the Supabase dashboard SQL editor in 
 ## Environment
 
 Copy `.env.example` to `.env.local` and fill in your Supabase project values. The service-role key bypasses row-level security and must never reach the browser — it is only used by ingestion.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | Project URL, safe in the browser |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public key, constrained by row-level security |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Bypasses RLS; server and ingestion only |
+| `F1_OPENF1` | no | Set to `off` to run without OpenF1 |
+
+## Deployment
+
+Hosted on **Vercel** (Hobby tier — free, and non-commercial, which is what this is). Every page is `force-dynamic` and the game runs on Server Actions, so this needs a Node runtime: static hosting will not work. Nothing here is Vercel-specific, so any host that runs `next start` is a drop-in.
+
+1. **Import the repo** at [vercel.com/new](https://vercel.com/new). The framework and build command are detected; no configuration needed.
+2. **Add the three environment variables** above under Settings → Environment Variables, for Production and Preview.
+3. **Point Supabase at the deployment.** In the Supabase dashboard, Authentication → URL Configuration: set **Site URL** to the Vercel domain and add it to **Redirect URLs**. Skipping this is the usual cause of a broken launch — confirmation and password-reset links keep pointing at `localhost:3000`, so they work for you and for nobody else.
+4. **Decide on email confirmation.** Supabase's built-in mailer is rate-limited to a handful of messages per hour and is prone to spam folders. For a small private league, either turn confirmation off (Authentication → Providers → Email) or configure real SMTP.
+5. **Set the Actions secrets** (below) if you have not already, or nothing will be ingested or scored after a race.
+
+Pushing to `master` deploys. Other branches get preview URLs.
