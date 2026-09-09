@@ -109,3 +109,5 @@ On Windows run it from **Git Bash**, not PowerShell or `cmd` — it is a bash sc
 5. **Set the Actions secrets** (below) if you have not already, or nothing will be ingested or scored after a race.
 
 Pushing to `master` deploys. Other branches get preview URLs.
+
+Your git commit email has to be a verified address on your GitHub account, or Vercel refuses to build: it cannot match the commit author to an account, treats the author as an outside collaborator, and Hobby projects do not allow those. The deployment shows as **Blocked**, and the redeploy button only offers an upgrade to Pro — so the fix is to verify the address at [github.com/settings/emails](https://github.com/settings/emails) and push again, not to redeploy. Check with `git config user.email`.
