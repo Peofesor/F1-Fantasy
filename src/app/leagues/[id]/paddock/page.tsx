@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MARKETS, marketsForRound, type BetTiming, type MarketId } from "@/lib/f1/betting";
 import { loadMarketHistory } from "@/lib/f1/bet-history";
 import { oddsFor } from "@/lib/f1/bet-odds";
@@ -169,9 +170,22 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
             </p>
           </div>
         </div>
-      </header>
 
-      <ChipStore leagueId={league.id} chips={chipRows} balance={balance} />
+        {/* Always offered, not only once a bet exists: this is also where you
+            come to check that a bet you thought you placed actually is. */}
+        <Link
+          href={`/leagues/${league.id}/bets`}
+          className="relative flex items-center justify-center rounded-lg border border-zinc-300 px-3 py-2.5 text-sm font-medium dark:border-zinc-700"
+        >
+          Placed bets
+          {placedBets.length > 0 && (
+            <span className="absolute right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold text-white">
+              {placedBets.length}
+              <span className="sr-only"> placed</span>
+            </span>
+          )}
+        </Link>
+      </header>
 
       <BetsPanel
         leagueId={league.id}
@@ -188,6 +202,8 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         markets={marketsThisRound.map((market) => market.id)}
         leagueLimit={league.max_stake}
       />
+
+      <ChipStore leagueId={league.id} chips={chipRows} balance={balance} />
     </main>
   );
 }

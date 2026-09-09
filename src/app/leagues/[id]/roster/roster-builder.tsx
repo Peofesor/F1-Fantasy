@@ -463,7 +463,7 @@ export function RosterBuilder({
           </button>
 
           <Link
-            href={`/leagues/${leagueId}/paddock`}
+            href={`/leagues/${leagueId}/bets`}
             className="relative rounded-lg border border-zinc-300 px-3 py-2.5 text-center text-sm font-medium dark:border-zinc-700"
           >
             Bets
@@ -728,7 +728,11 @@ export function RosterBuilder({
  */
 function Avatar({ option, size }: { option: PickOption; size: number }) {
   const accent = option.colour ? `#${option.colour}` : "#a1a1aa";
-  const box = { height: size, width: size };
+  // Rendered size comes from --avatar, set by whoever places the badge, so a
+  // card that grows on a wider screen grows its portrait with it. size stays
+  // the intrinsic pixel size handed to the image, which only has to be large
+  // enough for the biggest --avatar ever used.
+  const box = { height: "var(--avatar)", width: "var(--avatar)" };
 
   if (option.headshotUrl) {
     return (
@@ -748,12 +752,12 @@ function Avatar({ option, size }: { option: PickOption; size: number }) {
     // Overlapped so two seats still read as one badge at card size. The outline
     // separates them in the team's own colour.
     return (
-      <span className="flex shrink-0 items-center" style={{ height: size }}>
+      <span className="flex shrink-0 items-center" style={{ height: "var(--avatar)" }}>
         {option.lineup.slice(0, 2).map((driver, index) => {
           const seat = {
-            height: size,
-            width: size * 0.78,
-            marginLeft: index === 0 ? 0 : -size * 0.3,
+            height: "var(--avatar)",
+            width: "calc(var(--avatar) * 0.78)",
+            marginLeft: index === 0 ? 0 : "calc(var(--avatar) * -0.3)",
             outline: `2px solid ${accent}`,
           };
           return driver.headshotUrl ? (
@@ -770,7 +774,7 @@ function Avatar({ option, size }: { option: PickOption; size: number }) {
           ) : (
             <span
               key={driver.name}
-              style={{ ...seat, backgroundColor: accent, fontSize: size * 0.28 }}
+              style={{ ...seat, backgroundColor: accent, fontSize: "calc(var(--avatar) * 0.28)" }}
               className="flex items-center justify-center rounded-full font-semibold text-white"
             >
               {driver.name.slice(0, 2).toUpperCase()}
@@ -866,9 +870,9 @@ function SlotCard({
         type="button"
         disabled={locked}
         onClick={onOpen}
-        className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center"
+        className="flex min-h-0 flex-1 flex-col items-center justify-start p-1 text-center [--avatar:2.25rem] sm:[--avatar:3rem] lg:[--avatar:3.75rem]"
       >
-        <Avatar option={option} size={36} />
+        <Avatar option={option} size={80} />
         <span className="mt-1 w-full shrink-0 truncate text-[11px] font-medium leading-tight">
           {option.shortName}
         </span>
@@ -952,7 +956,9 @@ function CaptainPrompt({
                         : "border-zinc-200 dark:border-zinc-800"
                     }`}
                   >
-                    <Avatar option={option} size={40} />
+                    <span className="contents [--avatar:2.5rem]">
+                      <Avatar option={option} size={80} />
+                    </span>
                     <span className="line-clamp-2 text-[11px] font-medium leading-tight">
                       {option.name}
                     </span>
@@ -1034,7 +1040,9 @@ function DetailSheet({
     <SheetShell>
       <header className="flex items-start justify-between gap-3 border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar option={option} size={44} />
+          <span className="contents [--avatar:2.75rem]">
+            <Avatar option={option} size={88} />
+          </span>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold">{option.name}</h2>
             <p className="truncate text-xs text-zinc-500">
@@ -1293,7 +1301,9 @@ function ChooserSheet({
                 className={`grid w-full ${TABLE_COLUMNS} items-center gap-2 px-3 py-2 text-left disabled:opacity-40`}
               >
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <Avatar option={option} size={34} />
+                  <span className="contents [--avatar:2.125rem]">
+                    <Avatar option={option} size={68} />
+                  </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{option.name}</span>
                     {option.subtitle && (

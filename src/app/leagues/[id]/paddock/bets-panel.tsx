@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 
 import { payoutAt } from "@/lib/f1/bet-odds";
-import { cancelBet, placeBet, type BetState } from "./bet-actions";
+import { placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
   marketId: MarketId;
@@ -77,7 +77,6 @@ export function BetsPanel({
   leagueLimit: number | null;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
-  const [cancelState, cancelAction] = useActionState<BetState, FormData>(cancelBet, null);
   const [marketId, setMarketId] = useState<MarketId>("race_winner");
   const [stake, setStake] = useState(5);
   // Controlled so the price can follow the pick: odds are per selection now.
@@ -152,10 +151,9 @@ export function BetsPanel({
             ];
 
   // Shortest price first, the way a bookmaker lists a field: the likeliest
-  // outcome is what you scan for, and an alphabetical list buries it. Anything
-  // unpriced sorts last rather than pretending to be the favourite.
-  // Shortest price first, but a selection with no price sorts last whichever
-  // reason it has: unraced sits at the listed price, withdrawn at the bottom.
+  // outcome is what you scan for, and an alphabetical list buries it. A
+  // selection with no price sorts last whichever reason it has — unraced sits
+  // at the listed price, withdrawn at the bottom.
   const priceOf = (id: string) => odds[market.id]?.[id];
   const options = [...rawOptions].sort((a, b) => {
     const priceA = priceOf(a.id) ?? Infinity;
@@ -183,57 +181,21 @@ export function BetsPanel({
         settle on the race.
       </p>
 
+      {/* The slip lives on its own page now. A link rather than the list:
+          this card is for deciding a bet, and re-reading the ones already
+          placed is a different errand that was crowding it out. */}
       {bets.length > 0 && (
-        <ul className="mt-3 space-y-1 text-sm">
-          {bets.map((bet) => (
-            <li key={bet.marketId} className="flex items-baseline gap-2">
-              <span className="min-w-0 flex-1 truncate">
-                {bet.marketName} — <span className="text-zinc-500">{bet.selection}</span>
-              </span>
-              <span className="shrink-0 tabular-nums text-xs text-zinc-500">{bet.stake}</span>
-              <span
-                className={`shrink-0 text-xs ${
-                  bet.outcome === "won"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : bet.outcome === "lost"
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-zinc-500"
-                }`}
-              >
-                {bet.outcome ?? "open"}
-                {bet.odds !== null && ` · ${bet.odds.toFixed(2)}x`}
-                {bet.timing === "pre_qualifying" && ` ×${PRE_QUALIFYING_BONUS}`}
-                {bet.returned ? ` +${bet.returned}` : ""}
-              </span>
-
-              {/* An open bet can be taken back until the race starts; the
-                  stake comes straight back to the bank. */}
-              {bet.outcome === null && !locked && (
-                <form action={cancelAction} className="shrink-0">
-                  <input type="hidden" name="leagueId" value={leagueId} />
-                  <input type="hidden" name="marketId" value={bet.marketId} />
-                  <input type="hidden" name="round" value={round} />
-                  <button className="text-xs text-zinc-500 underline underline-offset-2">
-                    Withdraw
-                  </button>
-                </form>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {cancelState && (
-        <p
-          className={`mt-2 rounded-lg px-3 py-2 text-xs ${
-            "error" in cancelState
-              ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
-              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-          }`}
+        <Link
+          href={`/leagues/${leagueId}/bets`}
+          className="mt-3 flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
         >
-          {"error" in cancelState ? cancelState.error : cancelState.message}
-        </p>
+          <span>
+            {bets.length} bet{bets.length === 1 ? "" : "s"} on this round
+          </span>
+          <span className="text-zinc-500">View →</span>
+        </Link>
       )}
+
 
       {locked ? (
         <p className="mt-3 text-xs text-zinc-500">Round locked — no more bets.</p>
