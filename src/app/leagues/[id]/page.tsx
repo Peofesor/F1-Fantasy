@@ -10,7 +10,10 @@ import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
 import { MatchupCard, type MatchupPick, type Side } from "./matchup-card";
 import { MembersPanel } from "./members-panel";
-import { RoundBetsCard, type RoundBet } from "./round-bets-card";
+import { RoundBetsCard } from "./round-bets-card";
+import { type RoundBet } from "./bet-slip-list";
+import { CurrentEventCard } from "./current-event-card";
+import { loadCurrentEvent } from "@/lib/f1/event-status";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
@@ -65,6 +68,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     { data: scoreRows },
     { data: allLedger },
     next,
+    event,
     { data: fixtureRows },
     { data: driverRows },
     { data: constructorRows },
@@ -85,6 +89,9 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       .in("member_id", memberIds),
     // The next round a member can still act on.
     currentRound(supabase, league.season),
+    // And the one already being run, which is the round `currentRound` has
+    // just stopped returning. Null outside a race weekend.
+    loadCurrentEvent(supabase, league.season),
     league.mode === "duel"
       ? supabase
           .from("duel_fixtures")
@@ -160,6 +167,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
   const sideIds = [selfMemberId, opponentId].filter((value): value is string => Boolean(value));
 
+  // The round being picked for, plus the one on track if it is a different
+  // weekend. A set because outside a race weekend they are the same round.
+  const betRounds = [
+    ...new Set([next?.round, event?.round].filter((round): round is number => round !== undefined)),
+  ];
+
   // The third and last wave: everything that needed to know which round is
   // next, and — for the two squads — who is in the fixture. The two rpc calls
   // report whether a hidden team and hidden bets exist, so an empty side of the
@@ -199,13 +212,17 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
             .eq("season", next.season)
             .eq("round", next.round)
         : Promise.resolve({ data: null }),
+      // Both rounds in one query. The weekend being run and the one being
+      // picked for are different rounds the moment qualifying starts, and the
+      // hub shows the bets on each — two filters would be two round trips for
+      // a handful of rows.
       next
         ? supabase
             .from("bets")
-            .select("member_id, market_id, selection, stake, odds, outcome, timing")
+            .select("member_id, round, market_id, selection, stake, odds, outcome, timing, returned")
             .in("member_id", memberIds)
             .eq("season", next.season)
-            .eq("round", next.round)
+            .in("round", betRounds)
         : Promise.resolve({ data: null }),
       next
         ? Promise.all(
@@ -329,9 +346,10 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   };
 
 
-  const roundBets: RoundBet[] = (roundBetRows ?? []).map((bet) => {
+  const allBets = (roundBetRows ?? []).map((bet) => {
     const marketId = bet.market_id as MarketId;
     return {
+      round: bet.round as number,
       memberId: bet.member_id,
       memberName: nameByMemberId.get(bet.member_id) ?? "Unknown",
       isSelf: bet.member_id === selfMemberId,
@@ -346,8 +364,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
       preQualifying: bet.timing === "pre_qualifying",
       outcome: bet.outcome,
+      returned: bet.returned === null ? null : Number(bet.returned),
     };
   });
+
+  const roundBets: RoundBet[] = allBets.filter((bet) => bet.round === next?.round);
+  const eventBets: RoundBet[] = allBets.filter((bet) => bet.round === event?.round);
 
   // A member whose bets are counted but not returned has them sealed. Derived
   // by difference rather than from the clock, so it stays true whatever the
@@ -374,6 +396,26 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           {Number(league.starting_cost_cap).toFixed(0)}
         </p>
       </header>
+
+      {/* The weekend on track, above the one being prepared for. Suppressed
+          once the round is scored — at that point it is history, and the
+          standings say what happened — and when it is the same round the
+          deadline card below is already counting down to. */}
+      {event &&
+        event.round !== next?.round &&
+        !(scoreRows ?? []).some(
+          (row) => row.round === event.round && memberIds.includes(row.member_id),
+        ) && (
+          <CurrentEventCard
+            leagueId={league.id}
+            round={event.round}
+            raceName={event.raceName}
+            qualifyingAt={event.qualifyingAt}
+            raceAt={event.raceAt}
+            status={event.status}
+            bets={eventBets}
+          />
+        )}
 
       {next && nextRound && (
         <DeadlineCard

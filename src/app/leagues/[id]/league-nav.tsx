@@ -1,11 +1,15 @@
 import Link from "next/link";
 
-type Section = "hub" | "roster" | "paddock";
+type Section = "hub" | "roster" | "paddock" | "bets";
 
 const TABS: { key: Section; label: string; path: string }[] = [
   { key: "hub", label: "League", path: "" },
   { key: "roster", label: "Roster", path: "/roster" },
   { key: "paddock", label: "Paddock", path: "/paddock" },
+  // Its own tab because it stopped being a page about you. It lists every
+  // member's slip on any round of the season, which is a thing you go and look
+  // at — not a step on the way to placing a bet.
+  { key: "bets", label: "Bets", path: "/bets" },
 ];
 
 /**
