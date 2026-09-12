@@ -8,11 +8,12 @@ import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
-import { MatchupCard, type MatchupPick, type Side } from "./matchup-card";
+import { MatchupCard } from "./matchup-card";
+import { type MatchupPick, type Side } from "./matchup-grid";
 import { MembersPanel } from "./members-panel";
 import { RoundBetsCard } from "./round-bets-card";
 import { type RoundBet } from "./bet-slip-list";
-import { CurrentEventCard } from "./current-event-card";
+import { EventBrowser, type BrowsableEvent } from "./event-browser";
 import { loadCurrentEvent } from "@/lib/f1/event-status";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { currentRound } from "@/lib/f1/round-context";
@@ -21,6 +22,13 @@ import { Standings } from "./standings";
 import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
 
 export const dynamic = "force-dynamic";
+
+/** The race start as an instant. race_time is null on rounds not yet published. */
+function raceInstant(round: { race_date: string | null; race_time: string | null }): string | null {
+  return round.race_date
+    ? new Date(`${round.race_date}T${round.race_time ?? "00:00:00"}Z`).toISOString()
+    : null;
+}
 
 export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">) {
   const { id } = await params;
@@ -69,7 +77,10 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     { data: allLedger },
     next,
     event,
+    { data: calendar },
     { data: fixtureRows },
+    { data: rosterRows },
+    { data: betRows },
     { data: driverRows },
     { data: constructorRows },
     { data: lineupRows },
@@ -90,8 +101,16 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     // The next round a member can still act on.
     currentRound(supabase, league.season),
     // And the one already being run, which is the round `currentRound` has
-    // just stopped returning. Null outside a race weekend.
+    // just stopped returning. Null before the season's first qualifying.
     loadCurrentEvent(supabase, league.season),
+    // The whole calendar rather than the one round being counted down to: the
+    // event browser names every race that has been run, and two dozen rows is
+    // cheaper than a second query.
+    supabase
+      .from("rounds")
+      .select("round, race_name, qualifying_at, race_date, race_time")
+      .eq("season", league.season)
+      .order("round"),
     league.mode === "duel"
       ? supabase
           .from("duel_fixtures")
@@ -99,6 +118,23 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           .eq("league_id", id)
           .order("round")
       : Promise.resolve({ data: [] as { round: number; home_member_id: string; away_member_id: string }[] }),
+    // Every member's season in one read — forty small rosters — because the
+    // browser steps back through the races and re-querying on each arrow would
+    // turn an instant move into a round trip. Row-level security still decides
+    // what comes back: the round being picked for arrives as nothing but your
+    // own.
+    supabase
+      .from("rosters")
+      .select(
+        "member_id, round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id)",
+      )
+      .in("member_id", memberIds)
+      .eq("season", league.season),
+    supabase
+      .from("bets")
+      .select("member_id, round, market_id, selection, stake, odds, outcome, timing, returned")
+      .in("member_id", memberIds)
+      .eq("season", league.season),
     supabase.from("drivers").select("driver_id, family_name, headshot_url, team_colour"),
     supabase.from("constructors").select("constructor_id, name"),
     // A team has no colour of its own in the reference data — it is taken from
@@ -111,6 +147,29 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       .order("round", { ascending: false })
       .limit(60),
   ]);
+
+  // The last wave: what could not be asked until the next round was known. Each
+  // pair reports whether a hidden team and hidden bets exist, so an empty side
+  // of the matchup can say which kind of empty it is.
+  const sideStatus = next
+    ? await Promise.all(
+        memberIds.map(async (member) => {
+          const [team, count] = await Promise.all([
+            supabase.rpc("has_complete_roster", {
+              target_member: member,
+              target_season: next.season,
+              target_round: next.round,
+            }),
+            supabase.rpc("bets_placed", {
+              target_member: member,
+              target_season: next.season,
+              target_round: next.round,
+            }),
+          ]);
+          return { member, hasTeam: Boolean(team.data), bets: Number(count.data ?? 0) };
+        }),
+      )
+    : [];
 
   const standings = buildStandings(
     memberIds,
@@ -126,8 +185,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       })),
     league.mode as LeagueMode,
   );
-
-
 
   const stats = buildLeagueStats(
     (roster ?? []).map((member) => ({ id: member.id, name: member.name })),
@@ -147,108 +204,23 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     away: nameByMemberId.get(fixture.away_member_id) ?? "Unknown",
   }));
 
-  // This round's fixture, and both squads in it. Names come from the reference
-  // tables rather than the ids stored on the slots, so the card reads as a team
-  // sheet instead of a list of database keys.
-  const nextFixture =
-    next && selfMemberId
-      ? (fixtureRows ?? []).find(
-          (fixture) =>
-            fixture.round === next.round &&
-            (fixture.home_member_id === selfMemberId || fixture.away_member_id === selfMemberId),
-        )
-      : undefined;
+  const nextRound = (calendar ?? []).find((entry) => entry.round === next?.round);
+  const savedRoster = (rosterRows ?? []).some(
+    (row) => row.member_id === selfMemberId && row.round === next?.round,
+  );
 
-  const opponentId = nextFixture
-    ? nextFixture.home_member_id === selfMemberId
-      ? nextFixture.away_member_id
-      : nextFixture.home_member_id
-    : null;
-
-  const sideIds = [selfMemberId, opponentId].filter((value): value is string => Boolean(value));
-
-  // The round being picked for, plus the one on track if it is a different
-  // weekend. A set because outside a race weekend they are the same round.
-  const betRounds = [
-    ...new Set([next?.round, event?.round].filter((round): round is number => round !== undefined)),
-  ];
-
-  // The third and last wave: everything that needed to know which round is
-  // next, and — for the two squads — who is in the fixture. The two rpc calls
-  // report whether a hidden team and hidden bets exist, so an empty side of the
-  // card can say which kind of empty it is.
-  const [
-    { data: nextRound },
-    { data: savedRoster },
-    { data: matchupRosters },
-    { data: roundBetRows },
-    sideStatus,
-  ] =
-    await Promise.all([
-      next
-        ? supabase
-            .from("rounds")
-            .select("race_name, qualifying_at, race_date, race_time")
-            .eq("season", next.season)
-            .eq("round", next.round)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      next && selfMemberId
-        ? supabase
-            .from("rosters")
-            .select("id")
-            .eq("member_id", selfMemberId)
-            .eq("season", next.season)
-            .eq("round", next.round)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      next && sideIds.length === 2
-        ? supabase
-            .from("rosters")
-            .select(
-              "member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id)",
-            )
-            .in("member_id", sideIds)
-            .eq("season", next.season)
-            .eq("round", next.round)
-        : Promise.resolve({ data: null }),
-      // Both rounds in one query. The weekend being run and the one being
-      // picked for are different rounds the moment qualifying starts, and the
-      // hub shows the bets on each — two filters would be two round trips for
-      // a handful of rows.
-      next
-        ? supabase
-            .from("bets")
-            .select("member_id, round, market_id, selection, stake, odds, outcome, timing, returned")
-            .in("member_id", memberIds)
-            .eq("season", next.season)
-            .in("round", betRounds)
-        : Promise.resolve({ data: null }),
-      next
-        ? Promise.all(
-            memberIds.map(async (member) => {
-              const [team, count] = await Promise.all([
-                supabase.rpc("has_complete_roster", {
-                  target_member: member,
-                  target_season: next.season,
-                  target_round: next.round,
-                }),
-                supabase.rpc("bets_placed", {
-                  target_member: member,
-                  target_season: next.season,
-                  target_round: next.round,
-                }),
-              ]);
-              return { member, hasTeam: Boolean(team.data), bets: Number(count.data ?? 0) };
-            }),
-          )
-        : Promise.resolve([]),
-    ]);
-
-  // race_time is nullable on rounds the calendar has not fully published.
-  const raceAt = nextRound?.race_date
-    ? new Date(`${nextRound.race_date}T${nextRound.race_time ?? "00:00:00"}Z`).toISOString()
-    : null;
+  /** Who you are drawn against in one round, or null on a bye. */
+  const opponentIn = (round: number): string | null => {
+    const fixture = (fixtureRows ?? []).find(
+      (entry) =>
+        entry.round === round &&
+        (entry.home_member_id === selfMemberId || entry.away_member_id === selfMemberId),
+    );
+    if (!fixture) return null;
+    return fixture.home_member_id === selfMemberId
+      ? fixture.away_member_id
+      : fixture.home_member_id;
+  };
 
   const drivers = new Map(
     (driverRows ?? []).map((row) => [
@@ -291,16 +263,47 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     ]),
   );
 
+  const allBets = (betRows ?? []).map((bet) => {
+    const marketId = bet.market_id as MarketId;
+    return {
+      round: bet.round as number,
+      memberId: bet.member_id,
+      memberName: nameByMemberId.get(bet.member_id) ?? "Unknown",
+      isSelf: bet.member_id === selfMemberId,
+      market: MARKETS[marketId]?.name ?? marketId,
+      // Selections are stored as ids; the reference names are already loaded
+      // for the squads.
+      selection:
+        drivers.get(bet.selection)?.name ??
+        constructors.get(bet.selection)?.name ??
+        bet.selection,
+      stake: Number(bet.stake),
+      odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
+      preQualifying: bet.timing === "pre_qualifying",
+      outcome: bet.outcome,
+      returned: bet.returned === null ? null : Number(bet.returned),
+    };
+  });
+
+  const betsOn = (round: number): RoundBet[] => allBets.filter((bet) => bet.round === round);
+
   /**
-   * One side of the matchup, grouped the way the roster is picked.
+   * One side of a matchup, grouped the way the roster is picked.
    *
    * Teams sit in the bracket their slot names: a constructor slot is a
    * top-or-mid pick like the drivers beside it, and the reverse team belongs at
    * the back with the backmarker. Splitting drivers from teams instead would
    * break the row-by-row comparison the card exists for.
+   *
+   * On the round still open, whether a rival has a team and how many bets they
+   * hold comes from the two counting functions rather than from the rows, which
+   * row-level security withholds until the lock. On a round already run there
+   * is nothing to withhold, so the rows answer both.
    */
-  const sideFor = (memberId: string): Side => {
-    const row = (matchupRosters ?? []).find((entry) => entry.member_id === memberId);
+  const sideFor = (memberId: string, round: number, open: boolean): Side => {
+    const row = (rosterRows ?? []).find(
+      (entry) => entry.member_id === memberId && entry.round === round,
+    );
     const slots = (row?.roster_slots ?? []) as unknown as {
       slot_type: string;
       driver_id: string | null;
@@ -332,7 +335,10 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     const inBracket = (...types: string[]) =>
       slots.filter((slot) => types.includes(slot.slot_type)).map(pick);
 
-    const status = sideStatus.find((entry) => entry.member === memberId);
+    const counted = sideStatus.find((entry) => entry.member === memberId);
+    const score = (scoreRows ?? []).find(
+      (entry) => entry.member_id === memberId && entry.round === round,
+    );
 
     return {
       memberId,
@@ -340,36 +346,75 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       top: inBracket("driver_top", "constructor_top"),
       mid: inBracket("driver_mid", "constructor_mid"),
       back: inBracket("driver_backmarker", "constructor_reverse"),
-      hasTeam: status?.hasTeam ?? false,
-      bets: status?.bets ?? 0,
+      hasTeam: open ? (counted?.hasTeam ?? false) : Boolean(row),
+      bets: open
+        ? (counted?.bets ?? 0)
+        : allBets.filter((bet) => bet.round === round && bet.memberId === memberId).length,
+      points: score ? Number(score.points) : null,
+      duelPoints:
+        score?.duel_points === null || score?.duel_points === undefined
+          ? null
+          : Number(score.duel_points),
     };
   };
 
+  /**
+   * Every round that has started, oldest first.
+   *
+   * The newest started round is the current event by definition, so everything
+   * up to and including it has run or is running — which means it has locked,
+   * and nothing here needs hiding.
+   */
+  const events: BrowsableEvent[] = !event
+    ? []
+    : (calendar ?? [])
+        .filter((entry) => entry.round <= event.round)
+        .map((entry) => {
+          const scored = (scoreRows ?? []).some(
+            (score) => score.round === entry.round && memberIds.includes(score.member_id),
+          );
+          const opponentId = opponentIn(entry.round);
+          const mine = selfMemberId ? sideFor(selfMemberId, entry.round, false) : null;
+          const theirs = opponentId ? sideFor(opponentId, entry.round, false) : null;
 
-  const allBets = (roundBetRows ?? []).map((bet) => {
-    const marketId = bet.market_id as MarketId;
-    return {
-      round: bet.round as number,
-      memberId: bet.member_id,
-      memberName: nameByMemberId.get(bet.member_id) ?? "Unknown",
-      isSelf: bet.member_id === selfMemberId,
-      market: MARKETS[marketId]?.name ?? marketId,
-      // Selections are stored as ids; the reference names are already loaded
-      // for the matchup card above.
-      selection:
-        drivers.get(bet.selection)?.name ??
-        constructors.get(bet.selection)?.name ??
-        bet.selection,
-      stake: Number(bet.stake),
-      odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
-      preQualifying: bet.timing === "pre_qualifying",
-      outcome: bet.outcome,
-      returned: bet.returned === null ? null : Number(bet.returned),
-    };
-  });
+          return {
+            round: entry.round,
+            raceName: entry.race_name,
+            qualifyingAt: entry.qualifying_at,
+            raceAt: raceInstant(entry),
+            scored,
+            // Only the newest round can be in a session; anything earlier has
+            // finished, whatever the results job has got round to.
+            status: scored
+              ? null
+              : entry.round === event.round
+                ? event.status
+                : ({ phase: "settling", live: false } as const),
+            // Both squads when there was a duel, and your own alone when there
+            // was not — a bye, a round before the schedule was drawn, or a
+            // league that does not play head to head. Dropping it in those
+            // cases threw away the one squad there was to look at.
+            sides:
+              mine && theirs
+                ? [mine, theirs]
+                : mine && (mine.hasTeam || mine.points !== null)
+                  ? [mine]
+                  : [],
+            drawn: (fixtureRows ?? []).some((fixture) => fixture.round === entry.round),
+            bets: betsOn(entry.round),
+          };
+        })
+        // A round from before you joined has no squad, no duel and no bets, and
+        // an arrow that lands on one is an arrow that wasted a click. The round
+        // being run always stays, even when it is empty: it is the one the card
+        // exists to announce.
+        .filter(
+          (entry) =>
+            entry.round === event.round || entry.sides.length > 0 || entry.bets.length > 0,
+        );
 
-  const roundBets: RoundBet[] = allBets.filter((bet) => bet.round === next?.round);
-  const eventBets: RoundBet[] = allBets.filter((bet) => bet.round === event?.round);
+  const nextOpponentId = next ? opponentIn(next.round) : null;
+  const roundBets = next ? betsOn(next.round) : [];
 
   // A member whose bets are counted but not returned has them sealed. Derived
   // by difference rather than from the clock, so it stays true whatever the
@@ -397,25 +442,16 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         </p>
       </header>
 
-      {/* The weekend on track, above the one being prepared for. Suppressed
-          once the round is scored — at that point it is history, and the
-          standings say what happened — and when it is the same round the
-          deadline card below is already counting down to. */}
-      {event &&
-        event.round !== next?.round &&
-        !(scoreRows ?? []).some(
-          (row) => row.round === event.round && memberIds.includes(row.member_id),
-        ) && (
-          <CurrentEventCard
-            leagueId={league.id}
-            round={event.round}
-            raceName={event.raceName}
-            qualifyingAt={event.qualifyingAt}
-            raceAt={event.raceAt}
-            status={event.status}
-            bets={eventBets}
-          />
-        )}
+      {/* The weekend on track, above the one being prepared for, and the season
+          behind it one arrow at a time. */}
+      {events.length > 0 && (
+        <EventBrowser
+          leagueId={league.id}
+          events={events}
+          initialRound={events[events.length - 1].round}
+          duel={league.mode === "duel"}
+        />
+      )}
 
       {next && nextRound && (
         <DeadlineCard
@@ -423,8 +459,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           raceName={nextRound.race_name}
           round={next.round}
           qualifyingAt={nextRound.qualifying_at}
-          raceAt={raceAt}
-          rosterSaved={Boolean(savedRoster)}
+          raceAt={raceInstant(nextRound)}
+          rosterSaved={savedRoster}
         />
       )}
 
@@ -442,8 +478,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           leagueId={league.id}
           round={next.round}
           raceName={nextRound.race_name}
-          you={sideFor(selfMemberId)}
-          opponent={opponentId ? sideFor(opponentId) : null}
+          you={sideFor(selfMemberId, next.round, true)}
+          opponent={nextOpponentId ? sideFor(nextOpponentId, next.round, true) : null}
           drawn={(fixtureRows ?? []).some((fixture) => fixture.round === next.round)}
         />
       )}
