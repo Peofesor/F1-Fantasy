@@ -57,6 +57,16 @@ export function PlacedBets({
         {open > 0 && ` · ${open} still open`}
       </p>
 
+      {/* Why the withdraw links are gone. Without it the buttons simply vanish
+          between one visit and the next, which reads as a bug rather than a
+          deadline. */}
+      {locked && open > 0 && (
+        <p className="text-xs text-zinc-500">
+          Qualifying has started, so these are locked in — a bet can only be withdrawn before the
+          session.
+        </p>
+      )}
+
       {state && "error" in state && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
           {state.error}
@@ -116,7 +126,7 @@ export function PlacedBets({
               )}
             </div>
 
-            {/* An open bet can be taken back until the race starts; the stake
+            {/* An open bet can be taken back until qualifying starts; the stake
                 comes straight back to the bank. */}
             {bet.outcome === null && !locked && (
               <form action={cancelAction} className="mt-2">

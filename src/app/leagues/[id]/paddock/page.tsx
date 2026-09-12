@@ -57,15 +57,23 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
     };
   });
 
-  // Betting closes on the same clock as the roster, so a bet can never be
-  // placed once any part of the weekend has run.
-  const { data: roster } = await supabase
-    .from("rosters")
-    .select("locked_at")
-    .eq("member_id", memberId)
-    .eq("season", round.season)
-    .eq("round", round.round)
-    .maybeSingle();
+  // Betting closes when qualifying starts, on the same clock as the roster —
+  // one deadline for the whole round. Asked of the database rather than derived
+  // here, so the form shuts on the same answer the insert policy will give.
+  // `locked_at` stays beside it as the manual freeze it has always been.
+  const [{ data: roster }, { data: qualifyingStarted }] = await Promise.all([
+    supabase
+      .from("rosters")
+      .select("locked_at")
+      .eq("member_id", memberId)
+      .eq("season", round.season)
+      .eq("round", round.round)
+      .maybeSingle(),
+    supabase.rpc("is_round_locked", {
+      target_season: round.season,
+      target_round: round.round,
+    }),
+  ]);
 
   // Which odds window a bet placed now falls in — decided by the database from
   // the qualifying time, and decided again when the bet is actually submitted.
@@ -195,7 +203,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         drivers={bettableDrivers}
         constructors={bettableConstructors}
         nationalities={nationalities}
-        locked={Boolean(roster?.locked_at)}
+        locked={Boolean(roster?.locked_at) || Boolean(qualifyingStarted)}
         timing={(timingValue ?? "pre_qualifying") as BetTiming}
         hasRoster={Boolean(hasRoster)}
         odds={odds}

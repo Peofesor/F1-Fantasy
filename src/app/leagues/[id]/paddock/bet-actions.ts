@@ -40,8 +40,8 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   const stake = roundStake(Number(formData.get("stake")));
   const round = Number(formData.get("round"));
   // Which odds window this bet falls in is read from the database, never from
-  // the form: once betting runs past qualifying, a submitted value could claim
-  // the pre-qualifying bonus after seeing the grid.
+  // the form. Betting now shuts at qualifying, so only one window is reachable,
+  // but the clock stays the authority: a submitted value is a submitted payout.
 
   if (!isMarketId(marketId)) return { error: "Unknown market." };
   if (!selection) return { error: "Choose a selection." };
@@ -79,6 +79,18 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     return {
       error: "Save a full roster for this round before betting — it is paid from the same cap.",
     };
+  }
+
+  // The market shuts when qualifying starts, the same moment the roster locks.
+  // RLS refuses the insert either way; asked here so the refusal is a sentence
+  // rather than a policy violation.
+  const { data: locked } = await supabase.rpc("is_round_locked", {
+    target_season: league.season,
+    target_round: round,
+  });
+
+  if (locked) {
+    return { error: "Betting closed when qualifying started — this round is locked in." };
   }
 
   const { data: timingValue } = await supabase.rpc("current_bet_timing", {
@@ -124,7 +136,7 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
     return { error: "No price on that one — it comes in too often to be worth a bet." };
   }
 
-  // RLS refuses the insert once the race has started, and refuses a row whose
+  // RLS refuses the insert once qualifying has started, and refuses a row whose
   // timing disagrees with the clock, so both rules hold against a direct POST.
   const { error } = await supabase.from("bets").insert({
     member_id: membership.id,
@@ -179,10 +191,10 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
 /**
  * Withdraws an open bet and returns the stake.
  *
- * Allowed until the race starts, which is the same "change your mind up to the
- * deadline" the roster already has. A settled bet is history and cannot be
- * touched — the database enforces both, so a direct POST cannot claw back a
- * losing stake after the fact.
+ * Allowed until qualifying starts, which is the same "change your mind up to
+ * the deadline" the roster already has — one deadline for the whole round. A
+ * settled bet is history and cannot be touched; the database enforces both, so
+ * a direct POST cannot claw back a losing stake after the fact.
  */
 export async function cancelBet(
   _previous: BetState,
@@ -230,8 +242,8 @@ export async function cancelBet(
     .eq("market_id", marketId);
 
   if (error) return { error: error.message };
-  // RLS returns success with nothing deleted once the race has started.
-  if (!count) return { error: "The race has started — that bet is locked in." };
+  // RLS returns success with nothing deleted once qualifying has started.
+  if (!count) return { error: "Qualifying has started — that bet is locked in." };
 
   const admin = createAdminClient();
   const { error: refundError } = await admin.from("cost_cap_entries").insert({

@@ -172,13 +172,12 @@ export function BetsPanel({
       </div>
       <p className="mt-0.5 text-xs text-zinc-500">
         Staked from your bank, not from cap tied up in the roster. One bet per market. An open
-        bet can be withdrawn until the race starts, and the stake comes back.
+        bet can be withdrawn until qualifying starts, and the stake comes back.
       </p>
       <p className="mt-1 text-xs text-zinc-500">
-        <strong>When you bet changes the odds.</strong> Betting before qualifying pays{" "}
-        {PRE_QUALIFYING_BONUS}x, because you are calling it without knowing the grid. Once
-        qualifying has run you know where everyone starts, so the same bet pays normal odds. Both
-        settle on the race.
+        <strong>Bets close when qualifying starts</strong> — the same deadline as your roster, so
+        every bet is placed without knowing the grid. That is why they pay {PRE_QUALIFYING_BONUS}x
+        the listed odds. They settle on the race.
       </p>
 
       {/* The slip lives on its own page now. A link rather than the list:
@@ -198,7 +197,10 @@ export function BetsPanel({
 
 
       {locked ? (
-        <p className="mt-3 text-xs text-zinc-500">Round locked — no more bets.</p>
+        <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <strong>Betting closed for this round.</strong> Qualifying has started, so the grid is
+          known and the market is shut. The next race opens as soon as this one is under way.
+        </p>
       ) : !hasRoster ? (
         <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
           <strong>Pick your team first.</strong> Bets and drivers come out of the same cost cap,
@@ -286,18 +288,19 @@ export function BetsPanel({
 
           {/* The window follows the clock, so it is reported rather than
               offered: letting it be chosen would either be a lie or a
-              loophole. The server decides it again on submit. */}
+              loophole. The server decides it again on submit. Only the
+              pre-qualifying window is reachable now that the market shuts at
+              the lock, but the other branch stays rather than being assumed
+              away — the clock is what decides, and it is read here. */}
           <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-              {timing === "pre_qualifying" ? (
-                <>
-                  Qualifying has not run, so this pays{" "}
-                  <strong>{PRE_QUALIFYING_BONUS}× the listed odds</strong> — you are calling it
-                  without knowing the grid.
-                </>
-              ) : (
-                <>
-                Qualifying has run, so this pays the <strong>listed odds</strong>. Betting
-                closes when the race starts.
+            {timing === "pre_qualifying" ? (
+              <>
+                <strong>Closes when qualifying starts.</strong> You are calling it without knowing
+                the grid, so it pays <strong>{PRE_QUALIFYING_BONUS}× the listed odds</strong>.
+              </>
+            ) : (
+              <>
+                Qualifying has run, so the market on this round is shut.
               </>
             )}
           </p>

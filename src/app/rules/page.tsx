@@ -258,9 +258,12 @@ export default function RulesPage() {
         <p>
           You need a full roster for the round before you can bet: both come out of the same cost
           cap, and the team is the bigger claim on it. Stakes come from your bank — the cap not
-          tied up in your roster — and you can stake all of it if you want to. Bets placed before
-          qualifying pay {PRE_QUALIFYING_BONUS}× the odds, because you are guessing with less
-          information.
+          tied up in your roster — and you can stake all of it if you want to.
+        </p>
+        <p>
+          <strong>Betting closes when qualifying starts</strong>, the same deadline as your
+          roster — one moment a weekend shuts, not two. Every bet is therefore placed without
+          knowing the grid, which is why they pay {PRE_QUALIFYING_BONUS}× the odds.
         </p>
         <p>
           <strong>Every price follows the driver, not the market.</strong> What a bet pays comes
@@ -285,8 +288,8 @@ export default function RulesPage() {
         </div>
 
         <p className="pt-1 text-xs">
-          One bet per market per round. An open bet can be withdrawn until the race starts and the
-          stake comes back. If the data needed to settle a market never arrives, the bet is voided
+          One bet per market per round. An open bet can be withdrawn until qualifying starts and
+          the stake comes back. If the data needed to settle a market never arrives, the bet is voided
           and your stake returned.
         </p>
       </Section>

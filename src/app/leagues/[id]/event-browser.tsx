@@ -53,9 +53,9 @@ const HEADING: Record<EventPhase, string> = {
 };
 
 const NOTE: Record<EventPhase, string> = {
-  qualifying: "Rosters are locked. Bets stay open until the race starts.",
-  waiting: "Bets close when the race starts.",
-  race: "Bets closed at the start. Nothing left to do but watch.",
+  qualifying: "Rosters and bets locked when the session started.",
+  waiting: "Rosters and bets are locked. Nothing left to do but watch.",
+  race: "Everything locked at qualifying. Nothing left to do but watch.",
   settling: "Points and settled bets land once the results are ingested.",
 };
 
@@ -183,7 +183,7 @@ export function EventBrowser({
 
           <p className="text-xs text-zinc-500">
             {event.upcoming ? (
-              "Rosters lock when qualifying starts. Bets stay open until the race."
+              "Rosters and bets lock when qualifying starts."
             ) : status ? (
               <>
                 {HEADING[status.phase]} · {NOTE[status.phase]}

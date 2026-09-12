@@ -159,6 +159,12 @@ export function marketsForRound(hasSprint: boolean | null): MarketDefinition[] {
  * how often a selection actually does the thing, so multiplying a fair price by
  * half again made every market profitable to somebody. At 1.1 the incentive to
  * commit early survives without turning betting into a way to print cost cap.
+ *
+ * Betting now closes when qualifying starts, so every new bet is a
+ * pre-qualifying one and carries this. `pre_race` survives on rows taken while
+ * the market ran on to the race, and they settle on the terms they were struck
+ * at — which is why the multiplier is still read from the bet rather than
+ * assumed.
  */
 export const PRE_QUALIFYING_BONUS = 1.1;
 

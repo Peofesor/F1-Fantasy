@@ -41,11 +41,17 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     );
   }
 
-  const [{ data: memberRows }, { data: calendar }, { data: roster }, event] = await Promise.all([
+  const [
+    { data: memberRows },
+    { data: calendar },
+    { data: roster },
+    event,
+    { data: qualifyingStarted },
+  ] = await Promise.all([
     supabase.from("league_members").select("id, profile_id, profiles(display_name)").eq("league_id", id),
     supabase.from("rounds").select("round, race_name").eq("season", league.season),
-    // Betting closes on the same clock as the roster, so a withdrawal is only
-    // offered while the weekend has not started.
+    // The manual freeze, which nothing sets today but which still overrides the
+    // clock when it is.
     supabase
       .from("rosters")
       .select("locked_at")
@@ -54,6 +60,12 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
       .eq("round", round.round)
       .maybeSingle(),
     loadCurrentEvent(supabase, league.season),
+    // Betting closes when qualifying starts, on the same clock as the roster,
+    // so a withdrawal is only offered while the weekend has not started.
+    supabase.rpc("is_round_locked", {
+      target_season: round.season,
+      target_round: round.round,
+    }),
   ]);
 
   const members = (memberRows ?? []).map((member) => ({
@@ -193,7 +205,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         bets={bets}
         openRound={round.round}
         opening={opening}
-        locked={Boolean(roster?.locked_at)}
+        locked={Boolean(roster?.locked_at) || Boolean(qualifyingStarted)}
         sealed={sealed}
       />
 
