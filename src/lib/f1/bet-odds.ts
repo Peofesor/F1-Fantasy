@@ -1,4 +1,4 @@
-import { MARKETS, type MarketId } from "./betting";
+import { BLIND_BET_PREMIUM, listedOdds, type MarketId } from "./betting";
 
 /**
  * Odds priced per selection, not per market.
@@ -22,6 +22,12 @@ import { MARKETS, type MarketId } from "./betting";
  * slow drain rather than a way to print cost cap — the cap is meant to be
  * earned by picking a good team. It is small enough that a genuinely good read
  * still pays.
+ *
+ * The blind-bet premium sits on top of it, so what a player actually gets back
+ * is between 0.90 and HOUSE_MARGIN × BLIND_BET_PREMIUM = 0.99 per unit staked,
+ * thinnest on the long shots. That was always true — the premium used to be
+ * added at settlement, where this number could not see it — and folding it into
+ * the quote is what makes it visible here.
  */
 export const HOUSE_MARGIN = 0.9;
 
@@ -97,8 +103,7 @@ export const ODDS_WINDOW_RACES = 10;
  * which is the best guess available before anyone has raced.
  */
 export function oddsFor(marketId: MarketId, record: MarketRecord | undefined): number | null {
-  const listed = MARKETS[marketId].odds;
-  if (!record || record.total === 0) return listed;
+  if (!record || record.total === 0) return listedOdds(marketId);
 
   const observed = record.won / record.total;
 
@@ -139,8 +144,15 @@ export function oddsFor(marketId: MarketId, record: MarketRecord | undefined): n
   // outcome pay. Rounding is never allowed to move in the player's favour, so
   // the floor is checked after rounding rather than before — rounding a 0.048
   // up to the floor would reintroduce the same bug in miniature.
-  const price = Math.floor(Math.min(MAX_ODDS, offered) * 100) / 100;
-  return price < MIN_ODDS ? null : price;
+  const fair = Math.floor(Math.min(MAX_ODDS, offered) * 100) / 100;
+  if (fair < MIN_ODDS) return null;
+
+  // The blind-bet premium is part of the price rather than a bonus added when
+  // the bet is settled, so the number quoted is the number paid. Applied after
+  // the cap and after the withdrawal rule, so neither the longest price nor
+  // which selections are on the board moves: this is the same money, said once
+  // instead of twice.
+  return Math.floor(fair * BLIND_BET_PREMIUM * 100) / 100;
 }
 
 /**
@@ -150,8 +162,8 @@ export function oddsFor(marketId: MarketId, record: MarketRecord | undefined): n
  * them up now. Prices move as the season goes on, and a bet settles on the deal
  * that was struck, not on what the same bet would cost today.
  */
-export function payoutAt(stake: number, odds: number, bonus: number): number {
-  return Math.round(stake * (1 + odds * bonus) * 10) / 10;
+export function payoutAt(stake: number, odds: number): number {
+  return Math.round(stake * (1 + odds) * 10) / 10;
 }
 
 /**
@@ -161,10 +173,8 @@ export function payoutAt(stake: number, odds: number, bonus: number): number {
  * stake. Showing the stored number with an "x" beside it said the opposite —
  * "0.28x" reads as getting a quarter of your money back on a bet you won.
  *
- * The bonus multiplies the profit, not the stake, which is why it cannot simply
- * be folded into the figure: `payoutAt` is the same arithmetic and stays the
- * single source for the amount.
+ * `payoutAt` is the same arithmetic and stays the single source for the amount.
  */
-export function grossMultiplier(odds: number, bonus = 1): number {
-  return Math.round((1 + odds * bonus) * 100) / 100;
+export function grossMultiplier(odds: number): number {
+  return Math.round((1 + odds) * 100) / 100;
 }

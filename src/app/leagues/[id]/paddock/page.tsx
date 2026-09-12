@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MARKETS, marketsForRound, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { MARKETS, marketsForRound, type MarketId } from "@/lib/f1/betting";
 import { loadMarketHistory } from "@/lib/f1/bet-history";
 import { oddsFor } from "@/lib/f1/bet-odds";
 import {
@@ -33,7 +33,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
 
   const { data: betRows } = await supabase
     .from("bets")
-    .select("market_id, selection, stake, timing, outcome, returned, odds")
+    .select("market_id, selection, stake, outcome, returned, odds")
     .eq("member_id", memberId)
     .eq("season", round.season)
     .eq("round", round.round);
@@ -50,7 +50,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         round.constructorNames.get(selectionId) ??
         selectionId,
       stake: Number(bet.stake),
-      timing: bet.timing as BetTiming,
       outcome: bet.outcome,
       returned: bet.returned === null ? null : Number(bet.returned),
       odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
@@ -74,13 +73,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
       target_round: round.round,
     }),
   ]);
-
-  // Which odds window a bet placed now falls in — decided by the database from
-  // the qualifying time, and decided again when the bet is actually submitted.
-  const { data: timingValue } = await supabase.rpc("current_bet_timing", {
-    target_season: round.season,
-    target_round: round.round,
-  });
 
   // Betting is gated on having a team, since both come out of the same cap.
   const { data: hasRoster } = await supabase.rpc("has_complete_roster", {
@@ -204,7 +196,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         constructors={bettableConstructors}
         nationalities={nationalities}
         locked={Boolean(roster?.locked_at) || Boolean(qualifyingStarted)}
-        timing={(timingValue ?? "pre_qualifying") as BetTiming}
         hasRoster={Boolean(hasRoster)}
         odds={odds}
         markets={marketsThisRound.map((market) => market.id)}

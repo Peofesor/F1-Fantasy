@@ -6,7 +6,8 @@ import {
   marketsForRound,
   maxStake,
   payout,
-  PRE_QUALIFYING_BONUS,
+  BLIND_BET_PREMIUM,
+  listedOdds,
   settle,
   settleBet,
   type SettlementFacts,
@@ -110,37 +111,42 @@ describe("settleBet", () => {
 
 describe("payout", () => {
   it("returns the stake plus winnings", () => {
-    // Odds of 4 means 4x winnings on top of the stake returned.
-    expect(payout(10, "race_winner", "pre_race")).toBeCloseTo(50, 1);
+    // Odds of 4 means 4x winnings on top of the stake returned, and the blind
+    // premium is inside the quoted price rather than added afterwards.
+    expect(payout(10, "race_winner")).toBeCloseTo(
+      10 * (1 + MARKETS.race_winner.odds * BLIND_BET_PREMIUM),
+      1,
+    );
   });
 
-  it("pays more for a pre-qualifying bet", () => {
-    const early = payout(10, "race_winner", "pre_qualifying");
-    const late = payout(10, "race_winner", "pre_race");
-    expect(early).toBeGreaterThan(late);
-    expect(early).toBeCloseTo(10 * (1 + MARKETS.race_winner.odds * PRE_QUALIFYING_BONUS), 1);
+  it("carries the blind-bet premium in the listed price", () => {
+    expect(listedOdds("race_winner")).toBeGreaterThan(MARKETS.race_winner.odds);
+    expect(listedOdds("race_winner")).toBeCloseTo(
+      MARKETS.race_winner.odds * BLIND_BET_PREMIUM,
+      2,
+    );
   });
 
   it("pays least on the widest market", () => {
-    expect(payout(10, "top_ten", "pre_race")).toBeLessThan(payout(10, "race_winner", "pre_race"));
+    expect(payout(10, "top_ten")).toBeLessThan(payout(10, "race_winner"));
   });
 });
 
 describe("settle", () => {
   it("returns winnings on a win", () => {
-    const result = settle("race_winner", "winner", 10, "pre_race", facts);
+    const result = settle("race_winner", "winner", 10, facts);
     expect(result.outcome).toBe("won");
-    expect(result.returned).toBeCloseTo(50, 1);
+    expect(result.returned).toBeCloseTo(10 * (1 + MARKETS.race_winner.odds * BLIND_BET_PREMIUM), 1);
   });
 
   it("returns nothing on a loss", () => {
-    const result = settle("race_winner", "third", 10, "pre_race", facts);
+    const result = settle("race_winner", "third", 10, facts);
     expect(result.outcome).toBe("lost");
     expect(result.returned).toBe(0);
   });
 
   it("voids and refunds when the outcome is unknowable", () => {
-    const result = settle("fastest_lap", "third", 10, "pre_race", {
+    const result = settle("fastest_lap", "third", 10, {
       ...facts,
       fastestLapDriverId: null,
     });

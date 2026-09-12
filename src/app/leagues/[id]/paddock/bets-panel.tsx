@@ -8,9 +8,7 @@ import {
   maxStake,
   MIN_STAKE,
   STAKE_STEP,
-
-  PRE_QUALIFYING_BONUS,
-  type BetTiming,
+  listedOdds,
   type MarketId,
 } from "@/lib/f1/betting";
 import Link from "next/link";
@@ -23,7 +21,6 @@ export interface PlacedBet {
   marketName: string;
   selection: string;
   stake: number;
-  timing: BetTiming;
   outcome: string | null;
   returned: number | null;
   /** The price agreed when it was placed. Null on bets from before per-selection odds. */
@@ -39,7 +36,6 @@ export function BetsPanel({
   constructors,
   nationalities,
   locked,
-  timing,
   hasRoster,
   odds,
   markets,
@@ -53,8 +49,6 @@ export function BetsPanel({
   constructors: { id: string; name: string }[];
   nationalities: string[];
   locked: boolean;
-  /** Which odds window a bet placed now falls in, decided by the clock. */
-  timing: BetTiming;
   /** Whether a full roster is saved for this round. Betting waits on it. */
   hasRoster: boolean;
   /**
@@ -110,7 +104,7 @@ export function BetsPanel({
   const sortedMarkets = [...offered].sort((a, b) => {
     const cheapest = (entry: (typeof offered)[number]) => {
       const prices = pricesIn(entry.id);
-      return prices.length ? Math.min(...prices) : entry.odds;
+      return prices.length ? Math.min(...prices) : listedOdds(entry.id);
     };
     return cheapest(a) - cheapest(b);
   });
@@ -124,7 +118,7 @@ export function BetsPanel({
    */
   const quoted = selection ? odds[market.id]?.[selection] : undefined;
   const withdrawn = quoted === null;
-  const selectedOdds = quoted ?? market.odds;
+  const selectedOdds = quoted ?? listedOdds(market.id);
   const placed = new Set(bets.map((bet) => bet.marketId));
   const limit = maxStake(bank, leagueLimit);
 
@@ -176,8 +170,8 @@ export function BetsPanel({
       </p>
       <p className="mt-1 text-xs text-zinc-500">
         <strong>Bets close when qualifying starts</strong> — the same deadline as your roster, so
-        every bet is placed without knowing the grid. That is why they pay {PRE_QUALIFYING_BONUS}x
-        the listed odds. They settle on the race.
+        every bet is placed without knowing the grid. The price beside a name is already what it
+        pays; nothing is added later. They settle on the race.
       </p>
 
       {/* The slip lives on its own page now. A link rather than the list:
@@ -286,23 +280,13 @@ export function BetsPanel({
             <span className="shrink-0 text-sm text-zinc-500">stake</span>
           </div>
 
-          {/* The window follows the clock, so it is reported rather than
-              offered: letting it be chosen would either be a lie or a
-              loophole. The server decides it again on submit. Only the
-              pre-qualifying window is reachable now that the market shuts at
-              the lock, but the other branch stays rather than being assumed
-              away — the clock is what decides, and it is read here. */}
+          {/* The deadline, said where the bet is actually being made rather
+              than only in the rules line at the top. There is no odds window to
+              report any more — the premium for calling it blind is inside the
+              price, and the form is only reachable before qualifying. */}
           <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-            {timing === "pre_qualifying" ? (
-              <>
-                <strong>Closes when qualifying starts.</strong> You are calling it without knowing
-                the grid, so it pays <strong>{PRE_QUALIFYING_BONUS}× the listed odds</strong>.
-              </>
-            ) : (
-              <>
-                Qualifying has run, so the market on this round is shut.
-              </>
-            )}
+            <strong>Closes when qualifying starts.</strong> The price shown is the whole deal — it
+            already carries the premium for calling it without the grid.
           </p>
 
           {/* The payout is what a bet is for, so it gets the size. */}
@@ -313,20 +297,12 @@ export function BetsPanel({
                   Returns if it lands
                 </p>
                 <p className="text-2xl font-semibold tabular-nums leading-none text-emerald-700 dark:text-emerald-400">
-                  {payoutAt(
-                    stake,
-                    selectedOdds,
-                    timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1,
-                  ).toFixed(1)}
+                  {payoutAt(stake, selectedOdds).toFixed(1)}
                 </p>
               </div>
               <p className="shrink-0 text-right text-xs text-zinc-500">
                 <span className="block tabular-nums text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {grossMultiplier(
-                    selectedOdds,
-                    timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1,
-                  ).toFixed(2)}
-                  x
+                  {grossMultiplier(selectedOdds).toFixed(2)}x
                 </span>
                 on {stake.toFixed(1)}
               </p>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { MARKETS, type BetTiming, type MarketId } from "@/lib/f1/betting";
+import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { loadCurrentEvent } from "@/lib/f1/event-status";
 import { loadMemberContext } from "../member-context";
 import { LeagueNav } from "../league-nav";
@@ -81,7 +81,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
   const [{ data: betRows }, placed] = await Promise.all([
     supabase
       .from("bets")
-      .select("member_id, round, market_id, selection, stake, timing, outcome, returned, odds")
+      .select("member_id, round, market_id, selection, stake, outcome, returned, odds")
       .in(
         "member_id",
         members.map((member) => member.id),
@@ -123,7 +123,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
       selection,
       stake,
       odds,
-      preQualifying: bet.timing === "pre_qualifying",
       outcome: bet.outcome,
       returned,
       own: isSelf
@@ -132,7 +131,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
             marketName,
             selection,
             stake,
-            timing: bet.timing as BetTiming,
             outcome: bet.outcome,
             returned,
             odds,

@@ -8,10 +8,20 @@ import {
   oddsFor,
   payoutAt,
 } from "./bet-odds";
-import { MARKETS, MARKET_LIST, PRE_QUALIFYING_BONUS } from "./betting";
+import { BLIND_BET_PREMIUM, listedOdds, MARKET_LIST } from "./betting";
 
 /** What a stake is worth back on average, at these odds and this true rate. */
-const expectedValue = (rate: number, odds: number, bonus = 1) => rate * (1 + odds * bonus);
+const expectedValue = (rate: number, odds: number) => rate * (1 + odds);
+
+/**
+ * The most a quoted price may be worth back.
+ *
+ * The house margin is taken on the fair price and the blind-bet premium is then
+ * folded in, so what a player actually gets back tops out at the product of the
+ * two — a hair under evens. That was always the real number; the premium used
+ * to be added at settlement, where the price could not see it.
+ */
+const CEILING = HOUSE_MARGIN * BLIND_BET_PREMIUM;
 
 /** The price, where there is one. Fails the test if the selection is withdrawn. */
 const priceOf = (...args: Parameters<typeof oddsFor>) => {
@@ -22,8 +32,8 @@ const priceOf = (...args: Parameters<typeof oddsFor>) => {
 
 describe("oddsFor", () => {
   it("falls back to the listed price when nothing is known", () => {
-    expect(oddsFor("race_winner", undefined)).toBe(MARKETS.race_winner.odds);
-    expect(oddsFor("race_winner", { won: 0, total: 0 })).toBe(MARKETS.race_winner.odds);
+    expect(oddsFor("race_winner", undefined)).toBe(listedOdds("race_winner"));
+    expect(oddsFor("race_winner", { won: 0, total: 0 })).toBe(listedOdds("race_winner"));
   });
 
   it("pays less the more often the selection has done it", () => {
@@ -33,9 +43,10 @@ describe("oddsFor", () => {
   });
 
   it("keeps the house edge on an even-money outcome", () => {
-    // 50% true rate: fair profit is 1.0, so the offered price is the margin.
+    // 50% true rate: fair profit is 1.0, so the offered price is the margin
+    // with the blind premium folded in — and still short of paying for itself.
     const odds = priceOf("podium", { won: 100, total: 200 });
-    expect(odds).toBeLessThanOrEqual(HOUSE_MARGIN);
+    expect(odds).toBeLessThanOrEqual(CEILING);
     expect(expectedValue(0.5, odds)).toBeLessThan(1);
   });
 
@@ -51,8 +62,13 @@ describe("oddsFor", () => {
    *
    * Sweeping every record a ten-race window can produce is cheap and catches
    * the next one wherever it is introduced.
+   *
+   * The ceiling is the margin times the blind premium, which is what a bet
+   * actually returns now that the premium is part of the price rather than
+   * added at settlement. It is below 1 at every record, which is the property
+   * that matters: no bet on the board pays for itself.
    */
-  it("never returns more than the house margin, at any record", () => {
+  it("never returns more than the house can cover, at any record", () => {
     for (const market of MARKET_LIST) {
       for (let total = 1; total <= 40; total += 1) {
         for (let won = 0; won <= total; won += 1) {
@@ -64,7 +80,11 @@ describe("oddsFor", () => {
           expect(
             expectedValue(trueRate, odds),
             `${market.id} at ${won}/${total} priced ${odds}`,
-          ).toBeLessThanOrEqual(HOUSE_MARGIN + 1e-9);
+          ).toBeLessThanOrEqual(CEILING + 1e-9);
+          expect(
+            expectedValue(trueRate, odds),
+            `${market.id} at ${won}/${total} priced ${odds}`,
+          ).toBeLessThan(1);
         }
       }
     }
@@ -96,7 +116,7 @@ describe("oddsFor", () => {
     // real price.
     const odds = priceOf("top_ten", { won: 7, total: 10 });
     expect(odds).toBeGreaterThanOrEqual(MIN_ODDS);
-    expect(expectedValue(0.7, odds)).toBeLessThanOrEqual(HOUSE_MARGIN);
+    expect(expectedValue(0.7, odds)).toBeLessThanOrEqual(CEILING);
   });
 
   it("never rounds in the player's favour", () => {
@@ -104,12 +124,14 @@ describe("oddsFor", () => {
     // than it was worth, which is what made near-certain outcomes pay.
     for (const won of [18, 22, 26, 30]) {
       const odds = priceOf("reached_q3", { won, total: 37 });
-      expect(odds).toBeLessThanOrEqual(HOUSE_MARGIN / (won / 37) - 1);
+      expect(odds).toBeLessThanOrEqual((HOUSE_MARGIN / (won / 37) - 1) * BLIND_BET_PREMIUM);
     }
   });
 
   it("caps what a long shot can pay", () => {
-    expect(priceOf("race_winner", { won: 0, total: 400 })).toBeLessThanOrEqual(MAX_ODDS);
+    expect(priceOf("race_winner", { won: 0, total: 400 })).toBeLessThanOrEqual(
+      MAX_ODDS * BLIND_BET_PREMIUM,
+    );
   });
 
   it("smooths a short history so a thin record is not read as certainty", () => {
@@ -124,23 +146,27 @@ describe("oddsFor", () => {
 
 describe("payoutAt", () => {
   it("returns the stake plus the profit", () => {
-    expect(payoutAt(10, 2, 1)).toBe(30);
-    expect(payoutAt(10, 0.5, 1)).toBe(15);
+    expect(payoutAt(10, 2)).toBe(30);
+    expect(payoutAt(10, 0.5)).toBe(15);
   });
 
-  it("applies the pre-qualifying bonus to the profit, not the stake", () => {
-    // Bonusing the returned stake as well would pay for taking no risk.
-    expect(payoutAt(10, 2, PRE_QUALIFYING_BONUS)).toBe(10 + 10 * 2 * PRE_QUALIFYING_BONUS);
+  it("carries the premium on the profit, not on the stake", () => {
+    // The premium lives in the price now, so this is a property of `oddsFor`
+    // rather than of the payout: premiuming the returned stake as well would
+    // pay a player for taking no risk.
+    const fair = 2;
+    const quoted = fair * BLIND_BET_PREMIUM;
+    expect(payoutAt(10, quoted)).toBeCloseTo(10 + 10 * fair * BLIND_BET_PREMIUM, 5);
   });
 
-  it("keeps the bonus small enough not to undo the margin", () => {
-    // At 1.5 the bonus made every market profitable however it was priced.
+  it("keeps the premium small enough not to undo the margin", () => {
+    // At 1.5 it made every market profitable however it was priced.
     const odds = priceOf("podium", { won: 100, total: 200 });
-    expect(expectedValue(0.5, odds, PRE_QUALIFYING_BONUS)).toBeLessThanOrEqual(1.05);
+    expect(expectedValue(0.5, odds)).toBeLessThanOrEqual(1);
   });
 
   it("rounds to a tenth so a payout is a readable figure", () => {
-    expect(payoutAt(3.33, 1.07, 1)).toBe(6.9);
+    expect(payoutAt(3.33, 1.07)).toBe(6.9);
   });
 });
 
@@ -166,7 +192,7 @@ describe("grossMultiplier", () => {
     // The display figure and the payout must agree: 10 at 0.28 returns 12.8,
     // so the multiplier shown beside it has to be 1.28 and not 0.28.
     expect(grossMultiplier(0.28)).toBeCloseTo(1.28, 5);
-    expect(payoutAt(10, 0.28, 1)).toBeCloseTo(10 * grossMultiplier(0.28), 5);
+    expect(payoutAt(10, 0.28)).toBeCloseTo(10 * grossMultiplier(0.28), 5);
   });
 
   it("never shows less than the stake on a bet that won", () => {
@@ -177,12 +203,11 @@ describe("grossMultiplier", () => {
     }
   });
 
-  it("carries the pre-qualifying bonus the way the payout does", () => {
+  it("agrees with the payout at a quoted price", () => {
+    // The two are shown side by side — "10 × 3.20 = 32.0" — so they have to be
+    // the same arithmetic on the same number.
     const stake = 10;
-    const odds = 2;
-    expect(payoutAt(stake, odds, PRE_QUALIFYING_BONUS)).toBeCloseTo(
-      stake * grossMultiplier(odds, PRE_QUALIFYING_BONUS),
-      5,
-    );
+    const odds = priceOf("race_winner", { won: 3, total: 10 });
+    expect(payoutAt(stake, odds)).toBeCloseTo(stake * grossMultiplier(odds), 5);
   });
 });

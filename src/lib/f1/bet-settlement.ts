@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { settle, type BetTiming, type MarketId, type SettlementFacts } from "./betting";
+import { settle, type MarketId, type SettlementFacts } from "./betting";
 import { fastestPitStop, toPitStops } from "./jolpica/transform";
 import type { LedgerEntry } from "./ledger";
 
@@ -170,7 +170,7 @@ export async function settleRound(
 
   const { data: bets, error } = await supabase
     .from("bets")
-    .select("id, member_id, market_id, selection, stake, timing, odds")
+    .select("id, member_id, market_id, selection, stake, odds")
     .eq("season", season)
     .eq("round", round)
     .is("outcome", null);
@@ -194,7 +194,6 @@ export async function settleRound(
       bet.market_id as MarketId,
       bet.selection,
       Number(bet.stake),
-      bet.timing as BetTiming,
       facts,
       // The price agreed when the bet was struck. Bets from before prices were
       // per-selection carry none and fall back to the market's listed odds.

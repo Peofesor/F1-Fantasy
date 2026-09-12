@@ -129,7 +129,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       .eq("season", league.season),
     supabase
       .from("bets")
-      .select("member_id, round, market_id, selection, stake, odds, outcome, timing, returned")
+      .select("member_id, round, market_id, selection, stake, odds, outcome, returned")
       .in("member_id", memberIds)
       .eq("season", league.season),
     supabase.from("drivers").select("driver_id, family_name, headshot_url, team_colour"),
@@ -273,7 +273,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         bet.selection,
       stake: Number(bet.stake),
       odds: bet.odds === null || bet.odds === undefined ? null : Number(bet.odds),
-      preQualifying: bet.timing === "pre_qualifying",
       outcome: bet.outcome,
       returned: bet.returned === null ? null : Number(bet.returned),
     };

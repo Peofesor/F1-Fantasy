@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
-import { PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
 
 export interface RoundBet {
   memberId: string;
@@ -11,8 +10,6 @@ export interface RoundBet {
   selection: string;
   stake: number;
   odds: number | null;
-  /** Which window it was placed in — the bonus rides on the profit. */
-  preQualifying: boolean;
   outcome: string | null;
   /** What came back once it settled, so a winning slip shows its winnings. */
   returned?: number | null;
@@ -48,7 +45,6 @@ export function BetSlipList({ leagueId, bets }: { leagueId: string; bets: RoundB
 
           <ul className="mt-1 space-y-0.5">
             {memberBets.map((bet) => {
-              const bonus = bet.preQualifying ? PRE_QUALIFYING_BONUS : 1;
               return (
                 <li
                   key={`${bet.market}-${bet.selection}`}
@@ -66,9 +62,9 @@ export function BetSlipList({ leagueId, bets }: { leagueId: string; bets: RoundB
                     {bet.odds !== null && (
                       <>
                         {" "}
-                        × {grossMultiplier(bet.odds, bonus).toFixed(2)} ={" "}
+                        × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
                         <span className="text-zinc-900 dark:text-zinc-100">
-                          {payoutAt(bet.stake, bet.odds, bonus).toFixed(1)}
+                          {payoutAt(bet.stake, bet.odds).toFixed(1)}
                         </span>
                       </>
                     )}

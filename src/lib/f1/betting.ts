@@ -39,7 +39,11 @@ export interface MarketDefinition {
   name: string;
   /** What the selection refers to. */
   selection: "driver" | "constructor" | "nationality" | "yes_no";
-  /** Multiplier applied to the stake on a win, before the timing bonus. */
+  /**
+   * The market's baseline profit per unit staked, before the blind-bet premium
+   * and before any record of the selection exists. `listedOdds` is what is
+   * actually quoted from it.
+   */
   odds: number;
   description: string;
   /**
@@ -160,13 +164,27 @@ export function marketsForRound(hasSprint: boolean | null): MarketDefinition[] {
  * half again made every market profitable to somebody. At 1.1 the incentive to
  * commit early survives without turning betting into a way to print cost cap.
  *
- * Betting now closes when qualifying starts, so every new bet is a
- * pre-qualifying one and carries this. `pre_race` survives on rows taken while
- * the market ran on to the race, and they settle on the terms they were struck
- * at — which is why the multiplier is still read from the bet rather than
- * assumed.
+ * It is no longer a bonus paid at settlement. Betting closes at qualifying, so
+ * every bet is a blind one and every bet carried it — a multiplier that always
+ * applies is not a bonus, it is part of the price. It is folded into the quote
+ * instead: what the paddock shows beside a name is what the bet pays, and the
+ * arithmetic between the two figures is gone. The money is unchanged.
+ *
+ * `payoutAt` therefore takes no bonus and `settle` reads none: a bet settles on
+ * the odds stored against it, whatever window it was placed in.
  */
-export const PRE_QUALIFYING_BONUS = 1.1;
+export const BLIND_BET_PREMIUM = 1.1;
+
+/**
+ * The price a market falls back to when nobody has raced the selection yet.
+ *
+ * The premium is folded in here too, so the fallback is quoted on the same
+ * scale as a derived price. Used by `oddsFor` and by settlement, which is where
+ * a bet from before per-selection pricing lands.
+ */
+export function listedOdds(marketId: MarketId): number {
+  return Math.floor(MARKETS[marketId].odds * BLIND_BET_PREMIUM * 100) / 100;
+}
 
 /**
  * The bank is the ceiling: a member may stake everything they are not already
@@ -244,9 +262,8 @@ export function checkStake(
  * Prices are per selection now (see ./bet-odds.ts), so this is the fallback for
  * a selection with no history rather than the usual path.
  */
-export function payout(stake: number, marketId: MarketId, timing: BetTiming): number {
-  const bonus = timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1;
-  return payoutAt(stake, MARKETS[marketId].odds, bonus);
+export function payout(stake: number, marketId: MarketId): number {
+  return payoutAt(stake, listedOdds(marketId));
 }
 
 /** Everything settlement needs, all of it already ingested. */
@@ -382,7 +399,6 @@ export function settle(
   marketId: MarketId,
   selection: string,
   stake: number,
-  timing: BetTiming,
   facts: SettlementFacts,
   /**
    * The odds struck when the bet was placed. Null for bets from before prices
@@ -397,7 +413,8 @@ export function settle(
   if (result === null) return { outcome: "void", returned: stake };
   if (!result) return { outcome: "lost", returned: 0 };
 
-  const odds = agreedOdds ?? MARKETS[marketId].odds;
-  const bonus = timing === "pre_qualifying" ? PRE_QUALIFYING_BONUS : 1;
-  return { outcome: "won", returned: payoutAt(stake, odds, bonus) };
+  // The odds stored on the bet are the whole deal, premium included. Nothing is
+  // added at settlement any more, so a bet pays exactly the figure it was shown
+  // when it was struck.
+  return { outcome: "won", returned: payoutAt(stake, agreedOdds ?? listedOdds(marketId)) };
 }

@@ -18,7 +18,7 @@ import {
 import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
 import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
 import { CHIP_LIST } from "@/lib/f1/chips";
-import { MARKET_LIST, PRE_QUALIFYING_BONUS } from "@/lib/f1/betting";
+import { MARKET_LIST } from "@/lib/f1/betting";
 import { ODDS_WINDOW_RACES } from "@/lib/f1/bet-odds";
 import { TOP_BRACKET_SIZE, TOP_CONSTRUCTOR_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
 
@@ -263,7 +263,9 @@ export default function RulesPage() {
         <p>
           <strong>Betting closes when qualifying starts</strong>, the same deadline as your
           roster — one moment a weekend shuts, not two. Every bet is therefore placed without
-          knowing the grid, which is why they pay {PRE_QUALIFYING_BONUS}× the odds.
+          knowing the grid, and the premium for calling it blind is already inside the price you
+          are shown. There is no bonus added afterwards: the figure beside the name is the figure
+          that pays.
         </p>
         <p>
           <strong>Every price follows the driver, not the market.</strong> What a bet pays comes
