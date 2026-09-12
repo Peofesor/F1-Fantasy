@@ -8,10 +8,8 @@ import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
 import { LeagueNav } from "./league-nav";
-import { MatchupCard } from "./matchup-card";
 import { type MatchupPick, type Side } from "./matchup-grid";
 import { MembersPanel } from "./members-panel";
-import { RoundBetsCard } from "./round-bets-card";
 import { type RoundBet } from "./bet-slip-list";
 import { EventBrowser, type BrowsableEvent } from "./event-browser";
 import { loadCurrentEvent } from "@/lib/f1/event-status";
@@ -431,6 +429,39 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     }))
     .filter((entry) => entry.count > 0);
 
+  // The round being prepared for, as one more step to the right of the weekend
+  // on track. It is the same round the deadline counts down to, so it carries
+  // the fixture, the squads as far as the lock allows, and what the league has
+  // staked — the three things that used to be a card each, all naming the same
+  // grand prix.
+  const upcomingEvent: BrowsableEvent | null =
+    next && nextRound
+      ? (() => {
+          const mine = selfMemberId ? sideFor(selfMemberId, next.round, true) : null;
+          const theirs = nextOpponentId ? sideFor(nextOpponentId, next.round, true) : null;
+          return {
+            round: next.round,
+            raceName: nextRound.race_name,
+            qualifyingAt: nextRound.qualifying_at,
+            raceAt: raceInstant(nextRound),
+            scored: false,
+            status: null,
+            upcoming: true,
+            sides: mine ? (theirs ? [mine, theirs] : [mine]) : [],
+            drawn: (fixtureRows ?? []).some((fixture) => fixture.round === next.round),
+            bets: roundBets,
+            hiddenBets,
+          };
+        })()
+      : null;
+
+  const browsable = upcomingEvent ? [...events, upcomingEvent] : events;
+
+  // Opens on the weekend on track rather than the one to come: that is the race
+  // being watched, and the round to come is one arrow away — with the deadline
+  // card right below it either way.
+  const openOn = event?.round ?? browsable[browsable.length - 1]?.round;
+
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
       <header className="space-y-2 pt-2">
@@ -444,11 +475,11 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
       {/* The weekend on track, above the one being prepared for, and the season
           behind it one arrow at a time. */}
-      {events.length > 0 && (
+      {browsable.length > 0 && openOn !== undefined && (
         <EventBrowser
           leagueId={league.id}
-          events={events}
-          initialRound={events[events.length - 1].round}
+          events={browsable}
+          initialRound={openOn}
           duel={league.mode === "duel"}
         />
       )}
@@ -461,26 +492,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           qualifyingAt={nextRound.qualifying_at}
           raceAt={raceInstant(nextRound)}
           rosterSaved={savedRoster}
-        />
-      )}
-
-      {next && nextRound && (
-        <RoundBetsCard
-          leagueId={league.id}
-          raceName={nextRound.race_name}
-          bets={roundBets}
-          hidden={hiddenBets}
-        />
-      )}
-
-      {league.mode === "duel" && next && nextRound && selfMemberId && (
-        <MatchupCard
-          leagueId={league.id}
-          round={next.round}
-          raceName={nextRound.race_name}
-          you={sideFor(selfMemberId, next.round, true)}
-          opponent={nextOpponentId ? sideFor(nextOpponentId, next.round, true) : null}
-          drawn={(fixtureRows ?? []).some((fixture) => fixture.round === next.round)}
         />
       )}
 

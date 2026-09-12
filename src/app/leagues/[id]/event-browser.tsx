@@ -30,6 +30,19 @@ export interface BrowsableEvent {
   /** Whether the round had fixtures at all, which tells a bye from no draw. */
   drawn: boolean;
   bets: RoundBet[];
+  /**
+   * The round nobody has raced yet — the one the deadline counts down to. It
+   * sits one step to the right of the weekend on track, and what it shows is
+   * whatever the lock allows: a squad that is still secret says so, and bets
+   * that cannot be read are counted rather than listed.
+   */
+  upcoming?: boolean;
+  /**
+   * Bets that exist but cannot be read yet, counted per member. Without it the
+   * round says nobody has bet when what it means is that nobody's bets are
+   * readable — opposite claims, and the wrong one invites a shrug.
+   */
+  hiddenBets?: { name: string; count: number }[];
 }
 
 const HEADING: Record<EventPhase, string> = {
@@ -47,7 +60,7 @@ const NOTE: Record<EventPhase, string> = {
 };
 
 /**
- * The races that have been run, and the one being run.
+ * The races that have been run, the one being run, and the one to come.
  *
  * The rest of the hub looks forward: the deadline card counts down to the next
  * race, the matchup names the fixture to come. All of it moves on the instant
@@ -58,8 +71,14 @@ const NOTE: Record<EventPhase, string> = {
  *
  * So this holds the other direction. It opens on the weekend in progress and
  * steps back through the season one race at a time: both squads with their
- * scores, and every bet the league placed. Nothing here is a secret by the
- * time it is shown — each of these rounds has locked.
+ * scores, and every bet the league placed. Nothing on those rounds is a secret
+ * by the time it is shown — each of them has locked.
+ *
+ * One step to the right of the weekend on track is the round being prepared
+ * for: the fixture you have been drawn, the squads as far as they can be
+ * revealed, and what the league has staked so far. It lives here rather than
+ * in cards of its own because a round is one thing, and reading it meant
+ * scrolling past three headings that each named the same grand prix.
  *
  * Every round is sent with the page rather than fetched per choice. A season is
  * a couple of dozen small squads, so the arrows are instant and cost nothing.
@@ -114,11 +133,19 @@ export function EventBrowser({
   // A scored round is finished whatever the clock says, and saying "race
   // finished, points to come" about a weekend already in the standings would be
   // a fortnight out of date.
+  //
+  // The round still being prepared for is left out of the clock entirely: its
+  // squads and bets were sent hidden, so a page left open until qualifying
+  // would start claiming a session was live beside a card that still says the
+  // teams are secret. A reload is what reveals them, and a reload is what moves
+  // the round out of `upcoming`.
   const status =
-    event.scored || !now
+    event.upcoming || event.scored || !now
       ? event.status
       : eventStatus({ qualifyingAt: event.qualifyingAt, raceAt: event.raceAt, now });
 
+  const hidden = event.hiddenBets ?? [];
+  const hiddenTotal = hidden.reduce((total, entry) => total + entry.count, 0);
   const staked = event.bets.reduce((total, bet) => total + bet.stake, 0);
   const result = event.sides[0]?.duelPoints;
 
@@ -145,6 +172,8 @@ export function EventBrowser({
                 </span>
                 <span className="text-red-600 dark:text-red-400">Live now</span>
               </>
+            ) : event.upcoming ? (
+              `Next up · Round ${event.round}`
             ) : (
               `Round ${event.round}`
             )}
@@ -153,7 +182,9 @@ export function EventBrowser({
           <h2 className="truncate text-base font-semibold">{event.raceName}</h2>
 
           <p className="text-xs text-zinc-500">
-            {status ? (
+            {event.upcoming ? (
+              "Rosters lock when qualifying starts. Bets stay open until the race."
+            ) : status ? (
               <>
                 {HEADING[status.phase]} · {NOTE[status.phase]}
               </>
@@ -176,13 +207,40 @@ export function EventBrowser({
         />
       </div>
 
+      {/* The fixture is named before the squads on the round to come, because
+          that is the question the browser is being stepped right to answer:
+          who you are drawn against next. On a round already run the scores in
+          the grid say it. */}
+      {event.upcoming && duel && event.sides.length > 1 && (
+        <p className="px-3 pt-2.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+          Next matchup · {event.sides[0].name} v {event.sides[1].name}
+        </p>
+      )}
+
       {event.sides.length > 0 ? (
         <MatchupGrid leagueId={leagueId} sides={event.sides} />
       ) : (
         <p className="px-4 py-3 text-xs text-zinc-500">
           {duel && event.drawn
-            ? "You had a bye this round. Any points you scored still counted toward the season."
-            : "You had no team this round."}
+            ? event.upcoming
+              ? "You have a bye this round. Any points you score still count toward the season."
+              : "You had a bye this round. Any points you scored still counted toward the season."
+            : event.upcoming
+              ? "You have not picked a team for this round yet."
+              : "You had no team this round."}
+        </p>
+      )}
+
+      {/* A bye and an undrawn schedule look identical from here — no opponent —
+          but only one of them is something to act on. With an odd number of
+          members somebody sits out every round, and telling that player the
+          owner needs to draw fixtures would send them chasing a problem that
+          does not exist. */}
+      {event.upcoming && duel && event.sides.length === 1 && (
+        <p className="px-4 pb-3 text-xs text-zinc-500">
+          {event.drawn
+            ? `You have a bye in round ${event.round} — an odd number of members means one sits out each race. Your points still count toward the season total.`
+            : `No fixtures drawn for round ${event.round} yet. The league owner can draw them from the schedule panel below.`}
         </p>
       )}
 
@@ -199,10 +257,28 @@ export function EventBrowser({
           </div>
           <BetSlipList leagueId={leagueId} bets={event.bets} />
         </>
-      ) : (
+      ) : hiddenTotal === 0 ? (
         <p className="border-t border-zinc-200 px-4 py-2.5 text-xs text-zinc-500 dark:border-zinc-800">
-          Nobody bet on this race.
+          {event.upcoming ? "Nobody has bet on this race yet." : "Nobody bet on this race."}
         </p>
+      ) : null}
+
+      {hiddenTotal > 0 && (
+        <div className="border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+            Sealed until qualifying
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {hidden.map((entry) => (
+              <li key={entry.name} className="flex items-baseline gap-2 text-xs text-zinc-500">
+                <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                <span className="shrink-0 tabular-nums">
+                  {entry.count} bet{entry.count === 1 ? "" : "s"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
