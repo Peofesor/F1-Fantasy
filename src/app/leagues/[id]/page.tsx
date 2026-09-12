@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { buildLeagueStats } from "@/lib/f1/league-stats";
-import { DeadlineCard } from "./deadline-card";
 import type { ChipAllowance } from "@/lib/f1/chips";
 import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
@@ -203,9 +202,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   }));
 
   const nextRound = (calendar ?? []).find((entry) => entry.round === next?.round);
-  const savedRoster = (rosterRows ?? []).some(
-    (row) => row.member_id === selfMemberId && row.round === next?.round,
-  );
 
   /** Who you are drawn against in one round, or null on a bye. */
   const opponentIn = (round: number): string | null => {
@@ -481,17 +477,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           events={browsable}
           initialRound={openOn}
           duel={league.mode === "duel"}
-        />
-      )}
-
-      {next && nextRound && (
-        <DeadlineCard
-          leagueId={league.id}
-          raceName={nextRound.race_name}
-          round={next.round}
-          qualifyingAt={nextRound.qualifying_at}
-          raceAt={raceInstant(nextRound)}
-          rosterSaved={savedRoster}
         />
       )}
 
