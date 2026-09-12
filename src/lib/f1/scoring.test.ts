@@ -184,22 +184,37 @@ describe("scoreDriver", () => {
 });
 
 describe("backmarkerBudget", () => {
+  const FIELD = 20;
+
   it("pays more for a worse finish", () => {
-    expect(backmarkerBudget(20, "finished")).toBe(20);
-    expect(backmarkerBudget(12, "finished")).toBe(12);
+    expect(backmarkerBudget(20, "finished", FIELD)).toBe(20);
+    expect(backmarkerBudget(12, "finished", FIELD)).toBe(12);
   });
 
-  it("pays nothing for a retirement", () => {
-    // Otherwise the optimal pick becomes whoever crashes most.
-    expect(backmarkerBudget(null, "retired")).toBe(0);
+  it("pays a retirement the same as last place", () => {
+    // Paying nothing made the slot run backwards at the bottom: the worse a
+    // car did the more it paid, until it did worst of all and paid nothing.
+    expect(backmarkerBudget(null, "retired", FIELD)).toBe(FIELD);
+    expect(backmarkerBudget(18, "retired", FIELD)).toBe(FIELD);
+    expect(backmarkerBudget(null, "did-not-start", FIELD)).toBe(FIELD);
+  });
+
+  it("pays a retirement no more than last place", () => {
+    // The cap is what stops "whoever crashes most" being the only pick worth
+    // making: a reliable last-place car is worth exactly as much.
+    expect(backmarkerBudget(null, "retired", FIELD)).toBe(
+      backmarkerBudget(FIELD, "finished", FIELD),
+    );
   });
 
   it("pays nothing for a disqualification", () => {
-    expect(backmarkerBudget(18, "disqualified")).toBe(0);
+    // Not a bad result but a removal from the classification, and usually the
+    // team's own doing — paying for it would put a bounty on a rule breach.
+    expect(backmarkerBudget(18, "disqualified", FIELD)).toBe(0);
   });
 
   it("pays little for a strong finish", () => {
-    expect(backmarkerBudget(1, "finished")).toBe(1);
+    expect(backmarkerBudget(1, "finished", FIELD)).toBe(1);
   });
 });
 

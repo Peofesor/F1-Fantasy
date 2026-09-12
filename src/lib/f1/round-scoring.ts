@@ -23,6 +23,11 @@ export interface RoundFacts {
   constructorDrivers: ReadonlyMap<string, readonly string[]>;
   /** Constructors ranked by how their cars finished, best first. */
   constructorRanking: readonly string[];
+  /**
+   * Cars entered this round. It is what the backmarker slot pays for a last
+   * place, and therefore what it pays for a retirement.
+   */
+  fieldSize: number;
 }
 
 export interface SlotScore {
@@ -90,7 +95,7 @@ export function scoreRoster(
   if (selection.backmarker) {
     const input = facts.drivers.get(selection.backmarker);
     budget = input
-      ? backmarkerBudget(input.finishPosition, input.classification)
+      ? backmarkerBudget(input.finishPosition, input.classification, facts.fieldSize)
       : 0;
     slots.push({ slot: "driver_backmarker", competitorId: selection.backmarker, points: 0 });
   }

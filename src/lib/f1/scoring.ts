@@ -262,15 +262,32 @@ export function scoreDriver(input: DriverRaceInput): ScoreBreakdown {
  * keeps the reverse incentive alive while denominating it in the economy rather
  * than the scoreboard.
  *
- * A retirement pays nothing. Paying maximum for a DNF would make "whoever
- * crashes most" the optimal pick, which is degenerate rather than fun.
+ * A retirement pays the same as last place. It used to pay nothing, on the
+ * argument that a full payout would make "whoever crashes most" the optimal
+ * pick — but paying zero made the slot's own logic run backwards at the
+ * bottom: the worse a car did, the more it paid, right up to the point where
+ * it did worst of all and paid nothing. The player who picked the right
+ * disaster was punished for being too right, and the slot's best outcome was a
+ * limping finish rather than the failure it is there to reward.
+ *
+ * Capping it at the back of the field rather than beyond is what keeps it from
+ * being degenerate: a retirement is worth exactly a last place and no more, so
+ * a car that reliably finishes 20th is as good a pick as one that reliably
+ * breaks, and neither runs away with the round.
+ *
+ * A disqualification still pays nothing. It is not a bad result, it is a
+ * removal from the classification — and unlike a retirement it is usually the
+ * team's own doing, so paying for it would put a bounty on a rule breach.
  */
 export function backmarkerBudget(
   finishPosition: number | null,
   classification: FinishClassification,
+  /** Cars entered this round, which is what "last place" is worth. */
+  fieldSize: number,
 ): number {
-  if (finishPosition === null || !isClassified(classification)) return 0;
-  return finishPosition;
+  if (classification === "disqualified") return 0;
+  if (!isClassified(classification)) return fieldSize;
+  return finishPosition ?? fieldSize;
 }
 
 export interface ConstructorRaceEntry {

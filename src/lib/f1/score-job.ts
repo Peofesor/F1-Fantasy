@@ -232,7 +232,7 @@ export async function loadRoundFacts(
     resultRows.length,
   );
 
-  return { drivers, constructorDrivers, constructorRanking };
+  return { drivers, constructorDrivers, constructorRanking, fieldSize: resultRows.length };
 }
 
 export async function scoreRound(

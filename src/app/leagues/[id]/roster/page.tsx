@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EMPTY_SELECTION, type RosterSelection } from "@/lib/f1/roster";
+import { carriedRoster } from "@/lib/f1/carry-forward";
 import { FREE_CHANGES_PER_ROUND, spendableCap } from "@/lib/f1/ledger";
 import {
   CHIP_LIST,
@@ -73,7 +74,17 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     .eq("round", round.round)
     .maybeSingle();
 
-  const slots = (existingRoster?.roster_slots ?? []) as unknown as SlotRow[];
+  // A team persists between rounds. The nightly job writes the carried roster,
+  // but the round opens the moment qualifying starts and the job runs at six in
+  // the morning — so between the two this page showed an empty grid and a bank
+  // of nothing, which reads as "my team is gone and my cap is spent" rather
+  // than "come back tomorrow". Derived here instead, on the same rules the job
+  // uses, so what you see now is what it will write.
+  const carried = existingRoster ? null : await carriedRoster(supabase, memberId, round);
+
+  const slots = (existingRoster?.roster_slots ??
+    carried?.slots ??
+    []) as unknown as SlotRow[];
 
   // Spending power is the bank plus what is already held: the current roster
   // is an asset that gets sold back when a slot is swapped.
@@ -125,7 +136,13 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
 
   // Chips target the roster, so the picker only offers what is actually fielded.
   const selection = slots.length
-    ? selectionFromSlots(slots, existingRoster ?? null)
+    ? selectionFromSlots(
+        slots,
+        existingRoster ??
+          (carried
+            ? { top_captain_id: carried.topCaptainId, mid_captain_id: carried.midCaptainId }
+            : null),
+      )
     : EMPTY_SELECTION;
   const chipDriverOptions = [...selection.top, ...selection.mid].map((driverId) => ({
     id: driverId,
@@ -192,6 +209,30 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
             Scoring
           </Link>
         </div>
+
+        {/* Said plainly, because the alternative is a member wondering why the
+            team they are looking at is not the one they remember saving — the
+            round moved on, not their squad. Auto-swaps are named rather than
+            counted: an involuntary change to your team is the one thing here
+            worth reading twice. */}
+        {carried && (
+          <p className="text-xs text-zinc-500">
+            Your team from round {carried.fromRound} carries over — it is yours until you change
+            it.
+            {carried.autoSwapped.length > 0 && (
+              <>
+                {" "}
+                {carried.autoSwapped
+                  .map(
+                    (swap) =>
+                      `${round.driverNames.get(swap.out) ?? round.constructorNames.get(swap.out) ?? swap.out} left the bracket and was replaced by ${round.driverNames.get(swap.in) ?? round.constructorNames.get(swap.in) ?? swap.in}`,
+                  )
+                  .join("; ")}
+                .
+              </>
+            )}
+          </p>
+        )}
       </header>
 
       <RosterBuilder

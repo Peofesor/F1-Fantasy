@@ -87,9 +87,11 @@ export default function RulesPage() {
           18. The reverse team does score points, more of them the lower it ranks that weekend.
         </p>
         <p className="text-xs">
-          A retirement pays nothing. That is deliberate: if a DNF paid the maximum, the best
-          backmarker would be whoever crashes most, which is a puzzle with one answer rather than
-          a choice.
+          A retirement pays the same as last place — the most the slot can pay, and no more. A
+          car that reliably finishes last is worth exactly as much as one that reliably breaks,
+          so &ldquo;whoever crashes most&rdquo; is a good pick rather than the only one. A
+          disqualification still pays nothing: it is a removal from the classification, not a bad
+          result.
         </p>
         <p>
           The <strong>top bracket is the top {TOP_BRACKET_SIZE} drivers</strong> by points scored
@@ -213,8 +215,8 @@ export default function RulesPage() {
       <Section title="The two slots that score differently">
         <p>
           <strong>Your backmarker scores no points at all.</strong> Instead they pay you cost cap
-          equal to their finishing position — P18 pays 18. A retirement pays nothing, so
-          picking a crash-prone driver is not a strategy.
+          equal to their finishing position — P18 pays 18. A retirement pays the same as last
+          place, so a driver who does not see the flag is the best outcome the slot has.
         </p>
         <p>
           <strong>A constructor scores its two drivers combined</strong>, so it swings about twice

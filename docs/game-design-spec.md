@@ -49,6 +49,7 @@ Total roster: **7 drivers + 3 constructors.**
 - **3 "top" slots** — must be filled by drivers in the top bracket.
 - **3 "mid" slots** — must be filled by drivers in the mid bracket.
 - **1 backmarker slot** — a free pick, any driver, no tier restriction. It **scores no points at all**: instead it generates **cost cap**, scaled by finishing position, so a worse finish pays more. It is still budget-costed to fill, which is what makes choosing *which* backmarker a real decision rather than free upside.
+- **A retirement pays the same as last place**, capped there. It used to pay nothing, to stop "whoever crashes most" being the optimal pick — but that made the slot's own logic run backwards at the bottom: the worse a car did the more it paid, right up to the point where it did worst of all and paid nothing, so the player who picked the right disaster was punished for being too right. The cap is what keeps it honest: a car that reliably finishes last is worth exactly as much as one that reliably breaks. A **disqualification** still pays nothing — a removal from the classification rather than a bad result, and usually the team's own doing.
 
 #### Bracket definition
 

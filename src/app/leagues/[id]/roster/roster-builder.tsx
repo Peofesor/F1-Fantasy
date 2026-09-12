@@ -248,7 +248,7 @@ const ROWS: {
     // once: they reward a bad finish by different means — the driver pays cost
     // cap, the team scores points — and the header has room for the shared
     // half of that, not the mechanism.
-    warning: "Reversed — a worse finish is worth more, but a retirement pays nothing",
+    warning: "Reversed — a worse finish is worth more, and a retirement pays the most",
     groups: [["backmarker"], ["reverse"]],
     filler: 2,
   },

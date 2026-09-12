@@ -6,6 +6,7 @@ import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { loadRoundContext } from "@/lib/f1/round-context";
 import { validateRoster, type RosterSelection } from "@/lib/f1/roster";
 import { rosterSlotRows } from "@/lib/f1/roster-slots";
+import { carriedRoster } from "@/lib/f1/carry-forward";
 import { EXTRA_CHANGE_FEE, ledgerBalance, rosterChangeEntries, spendableCap, summariseTransfers } from "@/lib/f1/ledger";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -215,12 +216,21 @@ export async function saveRoster(
     return { error: "Final Fix has already been used on this roster." };
   }
 
+  // What the member already holds this round. With no roster row yet, that is
+  // the team carried over from the last round they picked — the same answer the
+  // nightly job would have written. Treating it as nothing instead charged for
+  // every pick a second time, which is how a member arrived at the next race
+  // owning a full squad and a bank of 0.1.
+  const carried = existingRoster
+    ? null
+    : await carriedRoster(supabase, membership.id, context);
+
   const { data: previousSlots } = existingRoster
     ? await supabase
         .from("roster_slots")
         .select("driver_id, constructor_id")
         .eq("roster_id", existingRoster.id)
-    : { data: [] };
+    : { data: carried?.slots ?? [] };
 
   const previousDrivers = (previousSlots ?? [])
     .map((slot) => slot.driver_id)

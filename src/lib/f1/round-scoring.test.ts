@@ -31,6 +31,7 @@ const facts: RoundFacts = {
     ["slowteam", ["backmarker", "retiree"]],
   ]),
   constructorRanking: ["fastteam", "slowteam"],
+  fieldSize: 20,
 };
 
 const selection: RosterSelection = {
@@ -62,9 +63,11 @@ describe("scoreRoster", () => {
     expect(score.budget).toBe(18);
   });
 
-  it("pays no budget when the backmarker retired", () => {
+  it("pays a retired backmarker the same as last place", () => {
+    // The slot exists to reward a bad weekend, and a retirement is the worst
+    // one there is — paying nothing for it made the reward run backwards.
     const score = scoreRoster({ ...selection, backmarker: "retiree" }, facts);
-    expect(score.budget).toBe(0);
+    expect(score.budget).toBe(facts.fieldSize);
   });
 
   it("scores the reverse constructor on its race placing", () => {
