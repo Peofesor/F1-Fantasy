@@ -37,6 +37,7 @@ const facts: SettlementFacts = {
     ["twelfth", "Q1"],
   ]),
   fastestPitStopConstructorId: "quickteam",
+  winningConstructorId: "redbull",
   winnerNationality: "Italian",
   mostOvertakesDriverId: "eighth",
   safetyCarDeployed: true,
@@ -104,6 +105,18 @@ describe("settleBet", () => {
 
   it("matches nationality case-insensitively", () => {
     expect(settleBet("winner_nationality", "italian", facts)).toBe(true);
+  });
+
+  it("settles the winning team on the garage the winning car came from", () => {
+    expect(settleBet("winning_constructor", "redbull", facts)).toBe(true);
+    expect(settleBet("winning_constructor", "quickteam", facts)).toBe(false);
+  });
+
+  it("voids the winning team when no race result was ingested", () => {
+    // Not a loss: a team cannot be graded against a race nobody has recorded.
+    expect(
+      settleBet("winning_constructor", "redbull", { ...facts, winningConstructorId: null }),
+    ).toBeNull();
   });
 
   it("settles fastest lap, fastest pit stop, overtakes and lap-one leader", () => {

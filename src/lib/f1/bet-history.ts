@@ -250,6 +250,19 @@ export async function loadMarketHistory(
     }
   }
 
+  // --- winning team --------------------------------------------------------
+  //
+  // Every garage that raced gets an attempt, not just the winning one: a team
+  // that has never won would otherwise have no record at all and fall back to
+  // the listed price, which is the hole this window exists to close.
+  for (const rows of raceByRound.values()) {
+    const winner = rows.find((row) => row.position === 1);
+    if (!winner) continue;
+    for (const team of new Set(rows.map((row) => row.constructor_id))) {
+      push("winning_constructor", { selection: team, won: team === winner.constructor_id });
+    }
+  }
+
   // --- winner's nationality -----------------------------------------------
   const nationality = new Map(
     ((driverRows.data ?? []) as unknown as { driver_id: string; nationality: string | null }[]).map(

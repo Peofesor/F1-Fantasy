@@ -42,7 +42,6 @@ export function BetsPanel({
   odds,
   markets,
   leagueLimit,
-  slipLink = true,
 }: {
   leagueId: string;
   round: number;
@@ -72,12 +71,6 @@ export function BetsPanel({
   markets: MarketId[];
   /** The league's own per-bet ceiling, or null when the bank is the only one. */
   leagueLimit: number | null;
-  /**
-   * Whether to offer the link through to the slip. Off where the slip is
-   * already on screen — the bets page hosts this same form below the list it
-   * would be pointing at.
-   */
-  slipLink?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
   const [marketId, setMarketId] = useState<MarketId>("race_winner");
@@ -183,21 +176,9 @@ export function BetsPanel({
         pays; nothing is added later. They settle on the race.
       </p>
 
-      {/* The slip lives on its own page now. A link rather than the list:
-          this card is for deciding a bet, and re-reading the ones already
-          placed is a different errand that was crowding it out. */}
-      {slipLink && bets.length > 0 && (
-        <Link
-          href={`/leagues/${leagueId}/bets`}
-          className="mt-3 flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
-        >
-          <span>
-            {bets.length} bet{bets.length === 1 ? "" : "s"} on this round
-          </span>
-          <span className="text-zinc-500">View →</span>
-        </Link>
-      )}
-
+      {/* No link through to the slip here. The Placed bets button above this
+          card goes to the same page and already carries the same count, so this
+          was a second door to one room, directly under the first. */}
 
       {locked ? (
         <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">

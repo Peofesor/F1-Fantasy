@@ -22,6 +22,7 @@ export type MarketId =
   | "eliminated_q1"
   | "dnf"
   | "fastest_pit_stop"
+  | "winning_constructor"
   | "winner_nationality"
   | "most_overtakes"
   | "safety_car"
@@ -113,6 +114,19 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
   eliminated_q1: { id: "eliminated_q1", name: "Out in Q1", selection: "driver", group: "qualifying", odds: 2.5, description: "Eliminated in the first session.", available: true },
   dnf: { id: "dnf", name: "Does not finish", selection: "driver", group: "race", odds: 4, description: "Retires, is disqualified, or does not start.", available: true },
   fastest_pit_stop: { id: "fastest_pit_stop", name: "Fastest pit stop", selection: "constructor", group: "race", odds: 5, description: "Team records the quickest pit-lane time.", available: true },
+  winning_constructor: {
+    id: "winning_constructor",
+    name: "Winning team",
+    selection: "constructor",
+    group: "race",
+    // Two cars to a garage, so a team wins about twice as often as any one of
+    // its drivers: shorter than the 4 on the race winner. Only the fallback in
+    // any case — a team that has raced is priced on how often it has actually
+    // won, the same as every other selection.
+    odds: 2.5,
+    description: "The team whose car wins the race.",
+    available: true,
+  },
   winner_nationality: { id: "winner_nationality", name: "Winner's nationality", selection: "nationality", group: "race", odds: 3, description: "Nationality of the race winner.", available: true },
   most_overtakes: { id: "most_overtakes", name: "Most overtakes", selection: "driver", group: "race", odds: 5, description: "Makes the most on-track passes (house count).", available: true },
   safety_car: { id: "safety_car", name: "Safety car", selection: "yes_no", group: "race", odds: 1.6, description: "A safety car is deployed.", available: true },
@@ -332,6 +346,8 @@ export interface SettlementFacts {
    */
   poleDriverId: string | null;
   fastestPitStopConstructorId: string | null;
+  /** The garage the winning car came out of. */
+  winningConstructorId: string | null;
   winnerNationality: string | null;
   mostOvertakesDriverId: string | null;
   safetyCarDeployed: boolean;
@@ -403,6 +419,11 @@ export function settleBet(
       return facts.fastestPitStopConstructorId === null
         ? null
         : facts.fastestPitStopConstructorId === selection;
+
+    case "winning_constructor":
+      return facts.winningConstructorId === null
+        ? null
+        : facts.winningConstructorId === selection;
 
     case "winner_nationality":
       return facts.winnerNationality === null

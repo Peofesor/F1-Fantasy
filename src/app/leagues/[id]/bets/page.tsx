@@ -222,7 +222,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
             bank={balance}
             bets={mine}
             leagueLimit={league.max_stake}
-            slipLink={false}
             {...form}
           />
         }

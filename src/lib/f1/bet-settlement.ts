@@ -148,6 +148,7 @@ export async function loadSettlementFacts(
     fastestPitStopConstructorId: quickest?.driverId
       ? (constructorByDriver.get(quickest.driverId) ?? null)
       : null,
+    winningConstructorId: winner?.constructor_id ?? null,
     winnerNationality: winner ? (nationalities.get(winner.driver_id) ?? null) : null,
     mostOvertakesDriverId: topOvertaker ? (driverByNumber.get(topOvertaker[0]) ?? null) : null,
     safetyCarDeployed: (safetyCar.data ?? []).some((event) => /DEPLOYED/i.test(event.message)),
