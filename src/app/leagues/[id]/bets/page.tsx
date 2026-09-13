@@ -3,7 +3,6 @@ import Link from "next/link";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { loadCurrentEvent } from "@/lib/f1/event-status";
 import { loadMemberContext } from "../member-context";
-import { LeagueNav } from "../league-nav";
 import { BetsBrowser, type BrowsableRound, type LeagueBet } from "./bets-browser";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +32,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
   if (!round) {
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-4">
-        <LeagueNav leagueId={league.id} active="bets" />
         <p className="text-sm text-zinc-500">
           No rounds ingested for {league.season} yet, so there is nothing to bet on.
         </p>
@@ -179,7 +177,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-3 pt-2">
-        <LeagueNav leagueId={league.id} active="bets" />
 
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">

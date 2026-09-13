@@ -1,15 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-type Section = "hub" | "roster" | "paddock" | "bets";
-
-const TABS: { key: Section; label: string; path: string }[] = [
-  { key: "hub", label: "League", path: "" },
-  { key: "roster", label: "Roster", path: "/roster" },
-  { key: "paddock", label: "Paddock", path: "/paddock" },
+const TABS: { label: string; path: string }[] = [
+  { label: "League", path: "" },
+  { label: "Roster", path: "/roster" },
+  { label: "Paddock", path: "/paddock" },
   // Its own tab because it stopped being a page about you. It lists every
   // member's slip on any round of the season, which is a thing you go and look
   // at — not a step on the way to placing a bet.
-  { key: "bets", label: "Bets", path: "/bets" },
+  { label: "Bets", path: "/bets" },
 ];
 
 /**
@@ -23,8 +24,23 @@ const TABS: { key: Section; label: string; path: string }[] = [
  * doubling a driver, changing a slot after qualifying — so they open as a sheet
  * over the picker instead of sending you to another page to reason about a team
  * you can no longer see.
+ *
+ * It lives in the layout and reads its own active tab from the path, which is
+ * what makes a tap feel like a tap. Rendered per page and told which tab was
+ * active, the whole bar was part of the page being replaced: pressing Paddock
+ * left every tab looking exactly as it had until the server came back with the
+ * new page, a second or two later, and the one thing the app could have said
+ * immediately — "yes, that one" — was the thing it waited longest to say.
  */
-export function LeagueNav({ leagueId, active }: { leagueId: string; active: Section }) {
+export function LeagueNav({ leagueId }: { leagueId: string }) {
+  const pathname = usePathname();
+  const base = `/leagues/${leagueId}`;
+
+  // A member's profile sits under the league but is not one of its tabs. It has
+  // its own way back, and four tabs with none of them lit would suggest the app
+  // had lost track of where you were.
+  if (pathname.startsWith(`${base}/members/`)) return null;
+
   return (
     <nav className="flex items-center gap-1.5">
       {/* Out of this league entirely. The tabs beside it only move within one,
@@ -37,23 +53,26 @@ export function LeagueNav({ leagueId, active }: { leagueId: string; active: Sect
         ←
       </Link>
       <span className="flex flex-1 justify-center gap-1.5">
-      {TABS.map((tab) => {
-        const isActive = tab.key === active;
-        return (
-          <Link
-            key={tab.key}
-            href={`/leagues/${leagueId}${tab.path}`}
-            aria-current={isActive ? "page" : undefined}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
-              isActive
-                ? "bg-[var(--accent)] text-[var(--accent-ink)]"
-                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
+        {TABS.map((tab) => {
+          const href = `${base}${tab.path}`;
+          // Exact rather than a prefix: "" is a prefix of every other tab, so
+          // League would light up on all four.
+          const isActive = pathname === href || pathname === `${href}/`;
+          return (
+            <Link
+              key={tab.label}
+              href={href}
+              aria-current={isActive ? "page" : undefined}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
+                isActive
+                  ? "bg-[var(--accent)] text-[var(--accent-ink)]"
+                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+              }`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
       </span>
     </nav>
   );

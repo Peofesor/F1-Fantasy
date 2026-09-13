@@ -11,7 +11,6 @@ import {
   type ChipUsage,
 } from "@/lib/f1/chips";
 import { loadMemberContext } from "../member-context";
-import { LeagueNav } from "../league-nav";
 import { RosterBuilder, type PickOption } from "./roster-builder";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +55,6 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
   if (!round) {
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-4">
-        <LeagueNav leagueId={league.id} active="roster" />
         <p className="text-sm text-zinc-500">
           No rounds ingested for {league.season} yet, so there is nothing to pick for.
         </p>
@@ -199,7 +197,6 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
       <header className="space-y-2 pt-2">
-        <LeagueNav leagueId={league.id} active="roster" />
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{round.raceName}</h1>
           <Link

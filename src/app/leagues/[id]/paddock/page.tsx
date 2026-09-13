@@ -11,7 +11,6 @@ import {
 } from "@/lib/f1/chips";
 import { loadMemberContext } from "../member-context";
 import { ChipStore } from "./chip-store";
-import { LeagueNav } from "../league-nav";
 import { BetsPanel, type PlacedBet } from "./bets-panel";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +22,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
   if (!round) {
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-4">
-        <LeagueNav leagueId={league.id} active="paddock" />
         <p className="text-sm text-zinc-500">
           No rounds ingested for {league.season} yet, so there is nothing to bet on.
         </p>
@@ -150,7 +148,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-3 pt-2">
-        <LeagueNav leagueId={league.id} active="paddock" />
 
         {/* The bank leads: everything on this page spends it, and how much is
             left is the number that decides what you do next. */}

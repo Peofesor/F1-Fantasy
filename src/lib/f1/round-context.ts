@@ -99,22 +99,39 @@ export async function loadRoundContext(
   supabase: SupabaseClient,
   season: number,
 ): Promise<RoundContext | null> {
+  // Only the two price lists are keyed to a round, so everything else is asked
+  // for before the round is known rather than after it. Waiting turned one
+  // round trip into two on every page under a league, which is the sort of
+  // delay that reads as the app being slow rather than the network being far.
+  const pending = {
+    // Two seasons is more than the five-race window needs, and covers a
+    // window that straddles the season boundary.
+    results: supabase
+      .from("race_results")
+      .select("season, round, driver_id, constructor_id, position")
+      .in("season", [season - 1, season]),
+    priorDrivers: supabase
+      .from("driver_standings")
+      .select("driver_id, position")
+      .eq("season", season - 1),
+    priorConstructors: supabase
+      .from("constructor_standings")
+      .select("constructor_id, position")
+      .eq("season", season - 1),
+    drivers: supabase
+      .from("drivers")
+      .select("driver_id, given_name, family_name, nationality, headshot_url, team_colour"),
+    constructors: supabase.from("constructors").select("constructor_id, name"),
+  };
+
   const round = await currentRound(supabase, season);
   if (!round) return null;
 
   const [results, priorDrivers, priorConstructors, prices, constructorPrices, drivers, constructors] =
     await Promise.all([
-      // Two seasons is more than the five-race window needs, and covers a
-      // window that straddles the season boundary.
-      supabase
-        .from("race_results")
-        .select("season, round, driver_id, constructor_id, position")
-        .in("season", [season - 1, season]),
-      supabase.from("driver_standings").select("driver_id, position").eq("season", season - 1),
-      supabase
-        .from("constructor_standings")
-        .select("constructor_id, position")
-        .eq("season", season - 1),
+      pending.results,
+      pending.priorDrivers,
+      pending.priorConstructors,
       supabase
         .from("driver_prices")
         .select("driver_id, price")
@@ -125,8 +142,8 @@ export async function loadRoundContext(
         .select("constructor_id, price")
         .eq("season", season)
         .eq("round", round.round),
-      supabase.from("drivers").select("driver_id, given_name, family_name, nationality, headshot_url, team_colour"),
-      supabase.from("constructors").select("constructor_id, name"),
+      pending.drivers,
+      pending.constructors,
     ]);
 
   const resultRows = results.data ?? [];

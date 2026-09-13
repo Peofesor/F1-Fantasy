@@ -64,21 +64,24 @@ export async function loadMemberContext(leagueId: string): Promise<MemberContext
 
   const league = membership.leagues as unknown as MemberContext["league"];
 
-  const [round, { data: ledgerRows }] = await Promise.all([
+  // The calendar rides along rather than waiting for the round: it is the whole
+  // season's dates and does not depend on which round is being played, so
+  // asking for it afterwards spent a round trip on nothing. Three waves became
+  // two, on every page under a league.
+  const [round, { data: ledgerRows }, { data: calendar }] = await Promise.all([
     loadRoundContext(supabase, league.season),
     supabase.from("cost_cap_entries").select("amount").eq("member_id", membership.id),
+    supabase
+      .from("rounds")
+      .select("round, race_date")
+      .eq("season", league.season)
+      .order("round"),
   ]);
 
   // Which half of the season this round sits in, so chip allowances reset at
   // the summer break rather than running the whole year.
   let half: MemberContext["half"] = null;
   if (round) {
-    const { data: calendar } = await supabase
-      .from("rounds")
-      .select("round, race_date")
-      .eq("season", league.season)
-      .order("round");
-
     const rows = (calendar ?? []).map((entry) => ({
       round: entry.round,
       raceDate: entry.race_date as string,

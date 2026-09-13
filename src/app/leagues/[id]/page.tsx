@@ -6,7 +6,6 @@ import type { ChipAllowance } from "@/lib/f1/chips";
 import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
-import { LeagueNav } from "./league-nav";
 import { type MatchupPick, type Side } from "./matchup-grid";
 import { MembersPanel } from "./members-panel";
 import { type RoundBet } from "./bet-slip-list";
@@ -460,7 +459,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
       <header className="space-y-2 pt-2">
-        <LeagueNav leagueId={league.id} active="hub" />
         <h1 className="text-2xl font-semibold tracking-tight">{league.name}</h1>
         <p className="text-sm text-zinc-500">
           {league.season} · {league.mode === "duel" ? "Duel" : "Free-for-all"} · cost cap{" "}

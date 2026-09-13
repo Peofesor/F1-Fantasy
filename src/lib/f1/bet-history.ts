@@ -29,43 +29,38 @@ interface Attempt {
   won: boolean;
 }
 
-/** What PostgREST will return in one response, whatever the query asks for. */
-const PAGE_SIZE = 1000;
-
 export async function loadMarketHistory(
   supabase: SupabaseClient,
   season: number,
 ): Promise<MarketHistory> {
   const seasons = [season - 1, season];
 
-  // The calendar is read first so every other query can be narrowed to the
-  // window. A response holds at most a thousand rows, and two seasons of
-  // overtakes run to several thousand, so an unbounded query silently returned
-  // the oldest thousand — exactly the races the window excludes. "Most
-  // overtakes" ended up with no history at all, priced at its listed odds for
-  // everyone.
-  const { data: calendar } = await supabase
-    .from("rounds")
-    .select("season, round")
-    .in("season", seasons)
-    .order("season")
-    .order("round");
+  // The calendar puts the window in order and the last result says where it
+  // ends. Neither depends on the other, so they go together: run in sequence
+  // they were two round trips before the first useful query could be issued.
+  const [{ data: calendar }, { data: lastRace }] = await Promise.all([
+    supabase
+      .from("rounds")
+      .select("season, round")
+      .in("season", seasons)
+      .order("season")
+      .order("round"),
+    // Measured from the last round that actually ran, not the last one on the
+    // calendar: counting from a race still months away would push real results
+    // out of a window they belong in.
+    supabase
+      .from("race_results")
+      .select("season, round")
+      .in("season", seasons)
+      .order("season", { ascending: false })
+      .order("round", { ascending: false })
+      .limit(1),
+  ]);
 
   // Race weekends in order, so "how many races ago" is a position in that list
   // rather than a difference between round numbers that reset each season.
   const order = new Map<string, number>();
   (calendar ?? []).forEach((row, index) => order.set(`${row.season}:${row.round}`, index));
-
-  // Measured from the last round that actually ran, not the last one on the
-  // calendar: counting from a race still months away would push real results
-  // out of a window they belong in.
-  const { data: lastRace } = await supabase
-    .from("race_results")
-    .select("season, round")
-    .in("season", seasons)
-    .order("season", { ascending: false })
-    .order("round", { ascending: false })
-    .limit(1);
 
   const lastRun = lastRace?.[0];
   // Nothing raced in either season; every market keeps its listed price.
@@ -96,7 +91,7 @@ export async function loadMarketHistory(
   const scoped = (table: string, columns: string) =>
     supabase.from(table).select(columns).in("season", windowSeasons).in("round", windowRounds);
 
-  const [races, quali, sprints, safetyCars, pitStops, driverRows] = await Promise.all([
+  const [races, quali, sprints, safetyCars, pitStops, driverRows, overtakes] = await Promise.all([
     scoped(
       "race_results",
       "season, round, driver_id, constructor_id, driver_number, position, classification, fastest_lap_rank",
@@ -106,26 +101,15 @@ export async function loadMarketHistory(
     scoped("safety_car_events", "season, round"),
     scoped("pit_stops", "season, round, driver_id, pit_lane_seconds"),
     supabase.from("drivers").select("driver_id, nationality"),
+    // Counted in the database rather than here. Ten races of individual passes
+    // is a couple of thousand rows, which is more than one Data API response
+    // returns — so this was three sequential round trips and a few hundred
+    // kilobytes to arrive at about two hundred integers, and it was the slowest
+    // thing on the page.
+    scoped("overtake_counts", "season, round, driver_number, passes"),
   ]);
 
-  // Ten races of overtakes are still more than one response holds — a race
-  // produces upwards of a hundred — so this one is paged as well as scoped.
-  const overtakeRows: { season: number; round: number; overtaking_driver_number: number }[] = [];
-  for (let page = 0; ; page += 1) {
-    const { data } = await supabase
-      .from("overtakes")
-      .select("season, round, overtaking_driver_number")
-      .in("season", windowSeasons)
-      .in("round", windowRounds)
-      .eq("on_track", true)
-      .order("season")
-      .order("round")
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-    if (!data || data.length === 0) break;
-    overtakeRows.push(...(data as typeof overtakeRows));
-    if (data.length < PAGE_SIZE) break;
-  }
+  const overtakeRows = ((overtakes.data ?? []) as unknown as OvertakeCountRow[]).filter(inWindow);
 
   const attempts: Partial<Record<MarketId, Attempt[]>> = {};
   const push = (market: MarketId, attempt: Attempt) => {
@@ -218,10 +202,10 @@ export async function loadMarketHistory(
 
   // --- most overtakes, per race ------------------------------------------
   const passesByRound = new Map<string, Map<number, number>>();
-  for (const row of overtakeRows.filter(inWindow)) {
+  for (const row of overtakeRows) {
     const key = `${row.season}:${row.round}`;
     const counts = passesByRound.get(key) ?? new Map<number, number>();
-    counts.set(row.overtaking_driver_number, (counts.get(row.overtaking_driver_number) ?? 0) + 1);
+    counts.set(row.driver_number, Number(row.passes));
     passesByRound.set(key, counts);
   }
 
@@ -344,4 +328,11 @@ interface PitStopRow {
   round: number;
   driver_id: string;
   pit_lane_seconds: number | string | null;
+}
+
+interface OvertakeCountRow {
+  season: number;
+  round: number;
+  driver_number: number;
+  passes: number;
 }
