@@ -68,8 +68,10 @@ export async function placeBet(_previous: BetState, formData: FormData): Promise
   // driver (spec §8).
   // The roster is the bigger claim on the same cost cap, and it is not
   // optional the way a bet is. Betting first could leave a member unable to
-  // field a legal team, so the team comes first.
-  const { data: hasRoster } = await supabase.rpc("has_complete_roster", {
+  // field a legal team, so the team comes first. A team carried over from an
+  // earlier round counts: it is fielded and it is paid for, whether or not the
+  // nightly job has copied it into this round yet.
+  const { data: hasRoster } = await supabase.rpc("fields_complete_roster", {
     target_member: membership.id,
     target_season: league.season,
     target_round: round,

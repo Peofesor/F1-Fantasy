@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 
 import { grossMultiplier } from "@/lib/f1/bet-odds";
+import { RoundArrow } from "../../round-arrow";
 
 export interface Pick {
   slotType: string;
@@ -106,11 +107,16 @@ function Face({ pick }: { pick: Pick }) {
 }
 
 /**
- * One squad at a time, chosen from a list of races.
+ * One squad at a time, stepped through a race at a time.
  *
  * Every round stacked down the page made a fourteen-race season an enormous
  * scroll to answer a question that is always about one race: what did they
  * field at Monza. A picker turns that into one choice and one team.
+ *
+ * The picker is the hub's arrows rather than a dropdown, because it is the same
+ * movement through the same season — a member arriving from the round card and
+ * tapping a name should not have to learn a second control to do what they were
+ * just doing. It opens on the most recent race and steps back from there.
  *
  * All the rounds are sent with the page rather than fetched per choice. A
  * season is a couple of dozen small squads, so switching is instant and the
@@ -130,8 +136,18 @@ export function RosterHistory({
    */
   sealed: { round: number; raceName: string; bets: number } | null;
 }) {
-  const [round, setRound] = useState(squads[0]?.round ?? 0);
-  const squad = squads.find((entry) => entry.round === round) ?? squads[0];
+  // Stepped oldest-to-newest so the arrows point the way the season runs, while
+  // the list arrives newest first because that is the order a profile reads in.
+  const ordered = [...squads].sort((a, b) => a.round - b.round);
+  const [round, setRound] = useState(ordered[ordered.length - 1]?.round ?? 0);
+
+  const index = Math.max(
+    0,
+    ordered.findIndex((entry) => entry.round === round),
+  );
+  const squad = ordered[index];
+  const older = ordered[index - 1];
+  const newer = ordered[index + 1];
 
   const seal = sealed && (
     <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-center text-xs text-zinc-500 dark:border-zinc-700">
@@ -158,25 +174,32 @@ export function RosterHistory({
       {seal}
 
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] dark:border-zinc-800">
-      <div className="flex items-center gap-3 border-b border-zinc-200 p-3 dark:border-zinc-800">
-        <select
-          value={round}
-          onChange={(event) => setRound(Number(event.target.value))}
-          aria-label="Race"
-          className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {squads.map((entry) => (
-            <option key={entry.round} value={entry.round}>
-              R{entry.round} · {entry.raceName}
-            </option>
-          ))}
-        </select>
+      <div className="flex items-stretch gap-1 border-b border-zinc-200 p-2 dark:border-zinc-800">
+        <RoundArrow
+          direction="left"
+          label={older ? `Back to round ${older.round}` : "No earlier round"}
+          onClick={older ? () => setRound(older.round) : undefined}
+        />
 
-        {squad.points !== null && (
-          <span className="shrink-0 text-sm font-semibold tabular-nums">
-            {squad.points.toFixed(0)} pts
-          </span>
-        )}
+        <div className="min-w-0 flex-1 text-center">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+            Round {squad.round}
+          </p>
+          <h2 className="truncate text-base font-semibold">{squad.raceName}</h2>
+          <p className="text-xs text-zinc-500">
+            {squad.points !== null
+              ? `${squad.points.toFixed(0)} points`
+              : squad.picks.length === 0
+                ? "Bets only — no squad to show"
+                : "Not scored yet"}
+          </p>
+        </div>
+
+        <RoundArrow
+          direction="right"
+          label={newer ? `On to round ${newer.round}` : "No later round"}
+          onClick={newer ? () => setRound(newer.round) : undefined}
+        />
       </div>
 
       <div className="space-y-3 p-4">

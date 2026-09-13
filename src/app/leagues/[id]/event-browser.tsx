@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { eventStatus, type EventPhase, type EventStatus } from "@/lib/f1/event-status";
 import { BetSlipList, type RoundBet } from "./bet-slip-list";
+import { RoundArrow } from "./round-arrow";
 import { MatchupGrid, type Side } from "./matchup-grid";
 
 export interface BrowsableEvent {
@@ -152,9 +153,7 @@ export function EventBrowser({
   return (
     <section className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_18%,var(--background))] dark:border-zinc-800">
       <div className="flex items-stretch gap-1 border-b border-zinc-200 p-2 dark:border-zinc-800">
-        {/* Triangles rather than words, because the label is the race name in
-            the middle and two of those would be read as the choice itself. */}
-        <Arrow
+        <RoundArrow
           direction="left"
           label={older ? `Back to round ${older.round}` : "No earlier round"}
           onClick={older ? () => setRound(older.round) : undefined}
@@ -200,7 +199,7 @@ export function EventBrowser({
           </p>
         </div>
 
-        <Arrow
+        <RoundArrow
           direction="right"
           label={newer ? `On to round ${newer.round}` : "No later round"}
           onClick={newer ? () => setRound(newer.round) : undefined}
@@ -290,35 +289,5 @@ export function EventBrowser({
         </Link>
       </div>
     </section>
-  );
-}
-
-/**
- * One step through the season.
- *
- * Disabled rather than hidden at the ends of the calendar, so the header does
- * not change width when you reach the first race and the arrow you were
- * clicking does not move out from under the cursor.
- */
-function Arrow({
-  direction,
-  label,
-  onClick,
-}: {
-  direction: "left" | "right";
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      aria-label={label}
-      title={label}
-      className="shrink-0 rounded-lg px-2.5 text-sm text-zinc-500 transition enabled:hover:bg-zinc-100 disabled:opacity-25 dark:enabled:hover:bg-zinc-900"
-    >
-      {direction === "left" ? "◀" : "▶"}
-    </button>
   );
 }

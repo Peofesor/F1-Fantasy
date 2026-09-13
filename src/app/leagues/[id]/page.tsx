@@ -152,7 +152,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     ? await Promise.all(
         memberIds.map(async (member) => {
           const [team, count] = await Promise.all([
-            supabase.rpc("has_complete_roster", {
+            supabase.rpc("fields_complete_roster", {
               target_member: member,
               target_season: next.season,
               target_round: next.round,

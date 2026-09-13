@@ -75,7 +75,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
   ]);
 
   // Betting is gated on having a team, since both come out of the same cap.
-  const { data: hasRoster } = await supabase.rpc("has_complete_roster", {
+  const { data: hasRoster } = await supabase.rpc("fields_complete_roster", {
     target_member: memberId,
     target_season: round.season,
     target_round: round.round,

@@ -102,7 +102,7 @@ export default async function MemberPage({
   // handing over what it is.
   const [{ data: hasTeam }, { data: betCount }] = next
     ? await Promise.all([
-        supabase.rpc("has_complete_roster", {
+        supabase.rpc("fields_complete_roster", {
           target_member: memberId,
           target_season: next.season,
           target_round: next.round,
