@@ -1,9 +1,16 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import type { ChipRow } from "@/lib/f1/chips";
 import { cancelChip, playChip, type ChipState } from "./chip-actions";
+
+/** A driver on the roster, and which bracket's slot they fill. */
+export interface ChipDriverOption {
+  id: string;
+  name: string;
+  bracket: "top" | "mid";
+}
 
 export function ChipsPanel({
   leagueId,
@@ -11,18 +18,46 @@ export function ChipsPanel({
   chips,
   driverOptions,
   constructorOptions,
+  topCaptainId,
+  midCaptainId,
+  displacedCaptainId,
+  onCaptainMoved,
   locked,
 }: {
   leagueId: string;
   round: number;
   chips: ChipRow[];
-  driverOptions: { id: string; name: string }[];
+  driverOptions: ChipDriverOption[];
   constructorOptions: { id: string; name: string }[];
+  /** The current armbands, so SuperDriver can tell when it lands on one. */
+  topCaptainId: string | null;
+  midCaptainId: string | null;
+  /**
+   * The driver whose 2x this round's SuperDriver play moved, if it moved one.
+   * Taking the chip back has to put the armband somewhere, and this is who it
+   * was taken from.
+   */
+  displacedCaptainId: string | null;
+  /**
+   * Called when a SuperDriver play moves an armband, so the picker's draft
+   * matches what the server just wrote. Without it the next save would put the
+   * old captain back and undo the move.
+   */
+  onCaptainMoved: (bracket: "top" | "mid", driverId: string) => void;
   locked: boolean;
 }) {
   const [playState, playAction] = useActionState<ChipState, FormData>(playChip, null);
   const [cancelState, cancelAction] = useActionState<ChipState, FormData>(cancelChip, null);
   const [targets, setTargets] = useState<Record<string, string>>({});
+  // Who takes the 2x when the 3x lands on the driver already wearing it.
+  const [heir, setHeir] = useState("");
+  // Who takes the 2x back when the chip is taken back. Only the override is
+  // held in state: the default is whoever lost the armband, and that is a prop
+  // which arrives *after* the play — initialising state from it would have
+  // captured the null from before and left the choice empty on the one render
+  // where it matters.
+  const [returnPick, setReturnPick] = useState("");
+  const returnee = returnPick || (displacedCaptainId ?? "");
   // Playing or buying a chip spends cost cap and cannot be undone once the
   // round locks, so both wait behind a confirmation naming what is about to
   // happen. The pending action carries the form it will submit.
@@ -31,7 +66,22 @@ export function ChipsPanel({
     detail: string;
     confirmLabel: string;
     form: HTMLFormElement;
+    /** Run once the submit is actually let through. */
+    after?: () => void;
   } | null>(null);
+
+  /**
+   * Whether the submit now arriving is the one the dialog just let through.
+   *
+   * Confirming re-submits the same form, which fires the same onSubmit handler
+   * — so without this the guard cancelled the very submit it had just been
+   * confirmed for and put the dialog straight back up. Nothing could be played
+   * or taken back at all: the button appeared to do nothing.
+   *
+   * A ref rather than state because it is read inside the event handler that
+   * the same click triggers, before any re-render could deliver a new value.
+   */
+  const confirmed = useRef(false);
 
   /**
    * Intercepts a submit so the action can be described before it runs.
@@ -45,9 +95,14 @@ export function ChipsPanel({
     title: string,
     detail: string,
     confirmLabel: string,
+    after?: () => void,
   ) {
+    if (confirmed.current) {
+      confirmed.current = false;
+      return;
+    }
     event.preventDefault();
-    setPending({ title, detail, confirmLabel, form: event.currentTarget });
+    setPending({ title, detail, confirmLabel, form: event.currentTarget, after });
   }
 
   const message = playState ?? cancelState;
@@ -80,6 +135,42 @@ export function ChipsPanel({
                 ? constructorOptions
                 : [];
 
+          const target = targets[chip.chipId] ?? "";
+
+          // The 3x landing on the driver who already has the 2x wastes the
+          // armband on a slot that is boosted anyway — six times one driver and
+          // nothing on the rest. Rather than let that happen quietly, the play
+          // asks where the 2x should go instead.
+          const bracket =
+            chip.chipId === "super_driver"
+              ? driverOptions.find((option) => option.id === target)?.bracket
+              : undefined;
+          const wearer =
+            bracket === "top" ? topCaptainId : bracket === "mid" ? midCaptainId : null;
+          const displacesCaptain = Boolean(target) && target === wearer;
+          const heirs = displacesCaptain
+            ? driverOptions.filter((option) => option.bracket === bracket && option.id !== target)
+            : [];
+          const targetName = options.find((option) => option.id === target)?.name;
+          const heirName = heirs.find((option) => option.id === heir)?.name;
+
+          // Taking this chip back has to hand the 2x to somebody, because
+          // playing it took the armband off someone. Only this chip, and only
+          // when its play actually moved one.
+          const returns = chip.chipId === "super_driver" && Boolean(displacedCaptainId);
+          const returnBracket = displacedCaptainId
+            ? driverOptions.find((option) => option.id === displacedCaptainId)?.bracket
+            : undefined;
+          const returnOptions = returns
+            ? driverOptions.filter((option) => option.bracket === returnBracket)
+            : [];
+          const displacedName = returnOptions.find(
+            (option) => option.id === displacedCaptainId,
+          )?.name;
+          const returneeName = returns
+            ? returnOptions.find((option) => option.id === returnee)?.name
+            : undefined;
+
           return (
             <li
               key={chip.chipId}
@@ -98,84 +189,170 @@ export function ChipsPanel({
               <p className="mt-0.5 text-xs text-zinc-500">{chip.description}</p>
 
               {chip.playedThisRound ? (
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-emerald-700 dark:text-emerald-400">
-                    Played{chip.playedTarget ? ` on ${chip.playedTarget}` : ""}
-                  </span>
-                  {!locked && (
-                    <form
-                      action={cancelAction}
-                      onSubmit={(event) =>
-                        confirmFirst(
-                          event,
-                          `Take ${chip.name} back?`,
-                          "The use returns to your inventory and can be played again this season.",
-                          "Take it back",
-                        )
-                      }
-                    >
-                      <input type="hidden" name="leagueId" value={leagueId} />
-                      <input type="hidden" name="chipId" value={chip.chipId} />
-                      <input type="hidden" name="round" value={round} />
-                      <button className="text-xs text-zinc-500 underline underline-offset-2">
-                        Cancel
-                      </button>
-                    </form>
+                <div className="mt-2 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-emerald-700 dark:text-emerald-400">
+                      Played{chip.playedTarget ? ` on ${chip.playedTarget}` : ""}
+                    </span>
+                    {!locked && (
+                      <form
+                        action={cancelAction}
+                        onSubmit={(event) =>
+                          confirmFirst(
+                            event,
+                            `Take ${chip.name} back?`,
+                            [
+                              "The use returns to your inventory and can be played again this season.",
+                              returneeName && `The 2x goes to ${returneeName}.`,
+                            ]
+                              .filter(Boolean)
+                              .join(" "),
+                            "Take it back",
+                            // The armband is written by the same action, but the
+                            // picker's draft has to follow or the next save puts
+                            // the chip's choice back.
+                            returns && returnBracket && returnee
+                              ? () => onCaptainMoved(returnBracket, returnee)
+                              : undefined,
+                          )
+                        }
+                      >
+                        <input type="hidden" name="leagueId" value={leagueId} />
+                        <input type="hidden" name="chipId" value={chip.chipId} />
+                        <input type="hidden" name="round" value={round} />
+                        {returns && <input type="hidden" name="captain" value={returnee} />}
+                        <button
+                          disabled={returns && !returnee}
+                          className="text-xs text-zinc-500 underline underline-offset-2 disabled:no-underline disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Playing this moved an armband, so taking it back has to
+                      put one somewhere. Asked here rather than left for the
+                      player to notice: the chip is about to stop existing, and
+                      the 2x it displaced would otherwise outlive the reason it
+                      was moved. */}
+                  {returns && !locked && (
+                    <div className="rounded-md bg-amber-50 p-2 dark:bg-amber-950/40">
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        Playing this took the 2x off {displacedName ?? "another driver"}. Taking it
+                        back gives the 2x to:
+                      </p>
+                      <select
+                        value={returnee}
+                        onChange={(event) => setReturnPick(event.target.value)}
+                        aria-label="Who takes the 2x back"
+                        className="mt-1.5 w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-xs dark:border-amber-800 dark:bg-zinc-900"
+                      >
+                        <option value="">Choose a driver…</option>
+                        {returnOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="mt-2 flex flex-col gap-2">
                   {chip.available && !locked ? (
                     <form
                       action={playAction}
-                      onSubmit={(event) => {
-                        const target = targets[chip.chipId];
-                        const on = options.find((option) => option.id === target)?.name;
+                      onSubmit={(event) =>
                         confirmFirst(
                           event,
                           `Play ${chip.name}?`,
-                          on
-                            ? `${chip.description} It will apply to ${on} in round ${round}.`
-                            : `${chip.description} It applies to round ${round}.`,
+                          [
+                            chip.description,
+                            targetName
+                              ? `It will apply to ${targetName} in round ${round}.`
+                              : `It applies to round ${round}.`,
+                            heirName && `The 2x moves to ${heirName}.`,
+                          ]
+                            .filter(Boolean)
+                            .join(" "),
                           "Play it",
-                        );
-                      }}
-                      className="flex flex-wrap items-center gap-2"
+                          // Applied when the play is let through rather than
+                          // waiting on the round trip: the armband the picker
+                          // shows is the one the server is being told to write,
+                          // and a stale draft would save the old one back.
+                          displacesCaptain && bracket && heir
+                            ? () => onCaptainMoved(bracket, heir)
+                            : undefined,
+                        )
+                      }
+                      className="flex flex-col gap-2"
                     >
                       <input type="hidden" name="leagueId" value={leagueId} />
                       <input type="hidden" name="chipId" value={chip.chipId} />
                       <input type="hidden" name="round" value={round} />
-                      {options.length > 0 && (
-                        <select
-                          name="target"
-                          value={targets[chip.chipId] ?? ""}
-                          onChange={(event) =>
-                            setTargets((current) => ({
-                              ...current,
-                              [chip.chipId]: event.target.value,
-                            }))
-                          }
-                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {options.length > 0 && (
+                          <select
+                            name="target"
+                            value={target}
+                            onChange={(event) => {
+                              setTargets((current) => ({
+                                ...current,
+                                [chip.chipId]: event.target.value,
+                              }));
+                              // A driver chosen for one target is not an heir
+                              // for the next one.
+                              setHeir("");
+                            }}
+                            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          >
+                            <option value="">Choose {chip.target}…</option>
+                            {options.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <button
+                          disabled={displacesCaptain && !heir}
+                          className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
                         >
-                          <option value="">Choose {chip.target}…</option>
-                          {options.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
+                          Play
+                        </button>
+                      </div>
+
+                      {displacesCaptain && (
+                        <div className="rounded-md bg-amber-50 p-2 dark:bg-amber-950/40">
+                          <p className="text-xs text-amber-800 dark:text-amber-300">
+                            {targetName} already has the 2x. Doubling and tripling the same driver
+                            spends the armband on a slot that is boosted anyway — give it to
+                            another {bracket === "top" ? "top" : "midfield"} driver.
+                          </p>
+                          <select
+                            name="captain"
+                            required
+                            value={heir}
+                            onChange={(event) => setHeir(event.target.value)}
+                            className="mt-1.5 w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-xs dark:border-amber-800 dark:bg-zinc-900"
+                          >
+                            <option value="">Move the 2x to…</option>
+                            {heirs.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
-                      <button className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
-                        Play
-                      </button>
                     </form>
                   ) : (
                     <span className="text-xs text-zinc-500">
                       {locked ? "Round locked" : chip.reason}
                     </span>
                   )}
-
-
                 </div>
               )}
             </li>
@@ -184,7 +361,13 @@ export function ChipsPanel({
       </ul>
 
       {pending && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+        <div
+          // Tapping outside a confirmation is the same as declining it.
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setPending(null);
+          }}
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+        >
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl dark:bg-zinc-900">
             <h3 className="text-sm font-semibold">{pending.title}</h3>
             <p className="mt-1 text-sm text-zinc-500">{pending.detail}</p>
@@ -199,10 +382,14 @@ export function ChipsPanel({
               <button
                 type="button"
                 onClick={() => {
-                  const { form } = pending;
+                  const { form, after } = pending;
                   setPending(null);
+                  after?.();
                   // Submitting the original form keeps the Server Action and
                   // its hidden fields intact rather than rebuilding the request.
+                  // The flag lets this one past the guard that opened the
+                  // dialog, which would otherwise cancel it and reopen.
+                  confirmed.current = true;
                   form.requestSubmit();
                 }}
                 className="flex-1 rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--accent-ink)]"

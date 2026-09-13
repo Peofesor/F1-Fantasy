@@ -108,7 +108,7 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
   const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
     supabase
       .from("chip_plays")
-      .select("chip_id, round, target_driver_id, target_constructor_id")
+      .select("chip_id, round, target_driver_id, target_constructor_id, displaced_captain_id")
       .eq("member_id", memberId)
       .eq("season", round.season),
     supabase.from("chip_purchases").select("chip_id").eq("member_id", memberId),
@@ -132,6 +132,17 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
     return toChipRow(state, Boolean(played), targetName);
   });
 
+  // SuperDriver's mark on the picker: the slot it is played on scores triple,
+  // and a card that only ever showed the 2x armband left the bigger multiplier
+  // invisible on the screen where the team is chosen.
+  const superDriverPlay = (chipPlays ?? []).find(
+    (play) => play.chip_id === "super_driver" && play.round === round.round,
+  );
+  const superDriverId = superDriverPlay?.target_driver_id ?? null;
+  // Whose 2x that play took, so taking the chip back can offer it back rather
+  // than leaving the armband where a cancelled chip put it.
+  const displacedCaptainId = superDriverPlay?.displaced_captain_id ?? null;
+
   // Chips target the roster, so the picker only offers what is actually fielded.
   const selection = slots.length
     ? selectionFromSlots(
@@ -142,9 +153,15 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
             : null),
       )
     : EMPTY_SELECTION;
-  const chipDriverOptions = [...selection.top, ...selection.mid].map((driverId) => ({
+  // The bracket rides along because SuperDriver has to know it: an armband it
+  // displaces can only move to another driver of the same bracket.
+  const chipDriverOptions = [
+    ...selection.top.map((driverId) => ({ driverId, bracket: "top" as const })),
+    ...selection.mid.map((driverId) => ({ driverId, bracket: "mid" as const })),
+  ].map(({ driverId, bracket }) => ({
     id: driverId,
     name: round.driverNames.get(driverId) ?? driverId,
+    bracket,
   }));
   const chipConstructorOptions = selection.constructors.map((constructorId) => ({
     id: constructorId,
@@ -246,6 +263,8 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
         chips={chipRows}
         chipDriverOptions={chipDriverOptions}
         chipConstructorOptions={chipConstructorOptions}
+        superDriverId={superDriverId}
+        displacedCaptainId={displacedCaptainId}
         betsPlaced={betsPlaced ?? 0}
       />
     </main>

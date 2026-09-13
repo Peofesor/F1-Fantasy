@@ -15,7 +15,8 @@ export interface Pick {
   /** A team has no portrait of its own, so it is drawn as its two drivers. */
   lineup?: { name: string; headshotUrl?: string }[];
   colour?: string;
-  captain: boolean;
+  /** "2x", "3x" or null — what this pick's points were multiplied by. */
+  boost: string | null;
   price: number | null;
 }
 
@@ -91,12 +92,12 @@ function Face({ pick }: { pick: Pick }) {
             {pick.name.slice(0, 2).toUpperCase()}
           </span>
         )}
-        {pick.captain && (
+        {pick.boost && (
           <span
-            aria-label="captain, scores double"
+            aria-label={`scored ${pick.boost}`}
             className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1 text-[9px] font-bold leading-4 text-zinc-900"
           >
-            2x
+            {pick.boost}
           </span>
         )}
       </span>

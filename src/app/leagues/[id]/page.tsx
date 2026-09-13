@@ -78,6 +78,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     { data: fixtureRows },
     { data: rosterRows },
     { data: betRows },
+    { data: chipPlayRows },
     { data: driverRows },
     { data: constructorRows },
     { data: lineupRows },
@@ -130,6 +131,14 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     supabase
       .from("bets")
       .select("member_id, round, market_id, selection, stake, odds, outcome, returned")
+      .in("member_id", memberIds)
+      .eq("season", league.season),
+    // Only SuperDriver is read here: it is the one chip that lands on a named
+    // driver, so it is the one the squad cards can show. A rival's play stays
+    // withheld until their round locks, the same as their roster.
+    supabase
+      .from("chip_plays")
+      .select("member_id, round, chip_id, target_driver_id")
       .in("member_id", memberIds)
       .eq("season", league.season),
     supabase.from("drivers").select("driver_id, family_name, headshot_url, team_colour"),
@@ -291,6 +300,25 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     }[];
     const captains = [row?.top_captain_id, row?.mid_captain_id].filter(Boolean);
 
+    const superDriverId =
+      (chipPlayRows ?? []).find(
+        (play) =>
+          play.member_id === memberId &&
+          play.round === round &&
+          play.chip_id === "super_driver",
+      )?.target_driver_id ?? null;
+
+    /** The factor on a driver's score, as the badge should label it. */
+    const boostOn = (driverId: string): string | null => {
+      const doubled = captains.includes(driverId);
+      const tripled = driverId === superDriverId;
+      // Both is only reachable on a roster from before SuperDriver started
+      // moving the armband off its target, but 6x is what it scores.
+      if (doubled && tripled) return "6x";
+      if (tripled) return "3x";
+      return doubled ? "2x" : null;
+    };
+
     const pick = (slot: (typeof slots)[number]): MatchupPick => {
       if (slot.driver_id) {
         const driver = drivers.get(slot.driver_id);
@@ -298,7 +326,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           name: driver?.name ?? slot.driver_id,
           headshotUrl: driver?.headshotUrl,
           colour: driver?.colour,
-          captain: captains.includes(slot.driver_id),
+          boost: boostOn(slot.driver_id),
           isTeam: false,
         };
       }
@@ -307,7 +335,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         name: team?.name ?? slot.constructor_id!,
         colour: team?.colour,
         lineup: team?.lineup,
-        captain: false,
+        boost: null,
         isTeam: true,
       };
     };
@@ -315,19 +343,22 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     const ofType = (type: string) =>
       slots.filter((slot) => slot.slot_type === type).map(pick);
 
-    // The captain leads its bracket, which is where the card reads it. Sort is
-    // stable, so the rest keep the order the database gave them.
-    const captainFirst = (picks: MatchupPick[]) =>
-      [...picks].sort((a, b) => Number(b.captain) - Number(a.captain));
+    // The boosted driver leads its bracket — the armband, or SuperDriver where
+    // it has been played. It is the slot that decides the most and the one both
+    // players chose most deliberately, so it reads first rather than wherever
+    // the database happened to store it. Sort is stable, so the rest keep the
+    // order they came in.
+    const boostedFirst = (picks: MatchupPick[]) =>
+      [...picks].sort((a, b) => Number(Boolean(b.boost)) - Number(Boolean(a.boost)));
 
     /** Held open with nulls so both sides of a row are the same slot. */
     const pad = (picks: MatchupPick[], count: number) =>
       Array.from({ length: count }, (_, index) => picks[index] ?? null);
 
     const lineup = [
-      ...pad(captainFirst(ofType("driver_top")), 3),
+      ...pad(boostedFirst(ofType("driver_top")), 3),
       ofType("constructor_top")[0] ?? null,
-      ...pad(captainFirst(ofType("driver_mid")), 3),
+      ...pad(boostedFirst(ofType("driver_mid")), 3),
       ofType("constructor_mid")[0] ?? null,
       ofType("driver_backmarker")[0] ?? null,
       ofType("constructor_reverse")[0] ?? null,

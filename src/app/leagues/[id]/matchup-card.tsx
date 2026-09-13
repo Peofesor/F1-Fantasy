@@ -7,7 +7,13 @@ export interface MatchupPick {
   /** A team has no portrait of its own, so it is drawn as its two drivers. */
   lineup?: { name: string; headshotUrl?: string }[];
   colour?: string;
-  captain: boolean;
+  /**
+   * What this pick's points are multiplied by — "2x" for the armband, "3x" for
+   * SuperDriver — or null when nothing boosts it. The number rather than the
+   * name of the chip: on a card comparing two squads, what matters is how much
+   * a slot is worth, not which purchase made it so.
+   */
+  boost: string | null;
   /** Teams are drawn as two overlapping faces rather than one. */
   isTeam: boolean;
 }
@@ -25,12 +31,12 @@ export interface MatchupPick {
  * one both players chose most deliberately, so it reads first rather than
  * wherever the database happened to store it.
  */
-export const LINEUP_ROWS: { label: string; captain?: boolean }[] = [
-  { label: "Top", captain: true },
+export const LINEUP_ROWS: { label: string }[] = [
+  { label: "Top" },
   { label: "Top" },
   { label: "Top" },
   { label: "Top team" },
-  { label: "Mid", captain: true },
+  { label: "Mid" },
   { label: "Mid" },
   { label: "Mid" },
   { label: "Mid team" },
@@ -181,12 +187,12 @@ function PickFace({ pick, mirrored }: { pick: MatchupPick | null; mirrored: bool
             {pick.name.slice(0, 2).toUpperCase()}
           </span>
         )}
-        {pick.captain && (
+        {pick.boost && (
           <span
-            aria-label="captain, scores double"
+            aria-label={`scores ${pick.boost}`}
             className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1 text-[8px] font-bold leading-3 text-zinc-900"
           >
-            2x
+            {pick.boost}
           </span>
         )}
       </span>
@@ -361,17 +367,12 @@ export function MatchupLineup({ matchup }: { matchup: Matchup }) {
         >
           <PickFace pick={mine.slots[index] ?? null} mirrored={false} />
 
-          <span className="flex w-16 shrink-0 flex-col items-center">
-            <span className="text-center text-[9px] font-medium uppercase leading-tight tracking-wide text-zinc-400">
-              {row.label}
-            </span>
-            {/* Marked only where a captaincy is actually in play, so the row
-                never promises a double that nobody bought. Quieter than the
-                badge on the face: that one says which side has the captain,
-                this one only says which slot can hold it. */}
-            {row.captain && (mine.slots[index]?.captain || theirs?.slots[index]?.captain) && (
-              <span className="text-[8px] font-bold leading-3 text-amber-500">2x</span>
-            )}
+          {/* The multiplier used to be repeated here as well as on the face.
+              It only ever said which slot could hold the armband, and now that
+              SuperDriver can triple any of the six driver slots, the badge on
+              the face is the one that can tell the truth about a given pick. */}
+          <span className="w-16 shrink-0 text-center text-[9px] font-medium uppercase leading-tight tracking-wide text-zinc-400">
+            {row.label}
           </span>
 
           {theirs ? <PickFace pick={theirs.slots[index] ?? null} mirrored /> : <span className="min-w-0 flex-1" />}

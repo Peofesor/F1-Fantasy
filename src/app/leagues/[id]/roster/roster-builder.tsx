@@ -16,7 +16,7 @@ import type { ChipRow } from "@/lib/f1/chips";
 import { money } from "@/lib/f1/money";
 import { saveRoster, type SaveState } from "./actions";
 import { driverSeason, type DriverSeasonState } from "./driver-actions";
-import { ChipsPanel } from "./chips-panel";
+import { ChipsPanel, type ChipDriverOption } from "./chips-panel";
 
 export interface PickOption {
   id: string;
@@ -92,7 +92,11 @@ interface Props {
   /** Spare cap — what a chip is bought with. */
   balance: number;
   chips: ChipRow[];
-  chipDriverOptions: { id: string; name: string }[];
+  chipDriverOptions: ChipDriverOption[];
+  /** Who SuperDriver is played on this round, so the card can say 3x. */
+  superDriverId: string | null;
+  /** Who lost the 2x to that play, so taking the chip back can offer it back. */
+  displacedCaptainId: string | null;
   chipConstructorOptions: { id: string; name: string }[];
   /** Open bets for this round, shown as a count on the Bets button. */
   betsPlaced: number;
@@ -269,6 +273,8 @@ export function RosterBuilder({
   chips,
   chipDriverOptions,
   chipConstructorOptions,
+  superDriverId,
+  displacedCaptainId,
   betsPlaced,
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialSelection));
@@ -381,6 +387,23 @@ export function RosterBuilder({
   };
   const empty = slots.filter((slot) => !slot.occupantId).length;
   const needsCaptains = !draft.topCaptainId || !draft.midCaptainId;
+
+  /**
+   * What a driver's points are multiplied by, as the card should label it.
+   *
+   * SuperDriver will not sit on an armband any more — playing it on one moves
+   * the armband first — but a roster from before that rule can still hold both,
+   * and 6x is what such a slot actually scores. Saying 3x there would
+   * under-report it.
+   */
+  const boostOn = (driverId: string | null): string | null => {
+    if (!driverId) return null;
+    const doubled = driverId === draft.topCaptainId || driverId === draft.midCaptainId;
+    const tripled = driverId === superDriverId;
+    if (doubled && tripled) return "6x";
+    if (tripled) return "3x";
+    return doubled ? "2x" : null;
+  };
   // Captains are collected at save time, so they do not hold the button back.
   const readyToSave = empty === 0 && validation.remaining >= 0;
   const freeRemaining = Math.max(0, freeTransfers - transfersUsed);
@@ -554,11 +577,7 @@ export function RosterBuilder({
                         slot={slot}
                         option={slot.occupantId ? byId.get(slot.occupantId) : undefined}
                         locked={locked}
-                        captain={
-                          slot.occupantId !== null &&
-                          (slot.occupantId === draft.topCaptainId ||
-                            slot.occupantId === draft.midCaptainId)
-                        }
+                        boost={boostOn(slot.occupantId)}
                         onOpen={() =>
                           slot.occupantId ? setDetailSlot(slot) : setOpenSlot(slot)
                         }
@@ -612,7 +631,18 @@ export function RosterBuilder({
             type={needsCaptains ? "button" : "submit"}
             onClick={needsCaptains ? () => setAskingCaptains(true) : undefined}
             disabled={!readyToSave || saving || locked}
-            className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-40"
+            // Accent only when there is something to save. A permanently lit
+            // primary button is an instruction the page repeats whether or not
+            // it means anything, and it made a saved roster look unsaved.
+            //
+            // Still pressable when quiet: a roster carried over from last round
+            // matches what the page loaded, so nothing counts as unsaved, and
+            // it is exactly the roster a player might want to commit as-is.
+            className={`w-full rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-40 ${
+              unsaved
+                ? "bg-[var(--accent)] text-[var(--accent-ink)]"
+                : "border border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
+            }`}
           >
             {locked
               ? "Round locked"
@@ -667,7 +697,7 @@ export function RosterBuilder({
       )}
 
       {chipsOpen && (
-        <SheetShell>
+        <SheetShell onDismiss={() => setChipsOpen(false)}>
           <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
             <div>
               <h2 className="text-sm font-semibold">Chips</h2>
@@ -690,6 +720,16 @@ export function RosterBuilder({
               chips={chips}
               driverOptions={chipDriverOptions}
               constructorOptions={chipConstructorOptions}
+              topCaptainId={draft.topCaptainId}
+              midCaptainId={draft.midCaptainId}
+              displacedCaptainId={displacedCaptainId}
+              onCaptainMoved={(bracket, driverId) =>
+                setDraft((current) =>
+                  bracket === "top"
+                    ? { ...current, topCaptainId: driverId }
+                    : { ...current, midCaptainId: driverId },
+                )
+              }
               locked={locked}
             />
           </div>
@@ -851,10 +891,42 @@ function Avatar({ option, size }: { option: PickOption; size: number }) {
  * the small breakpoint up, because a picker stretched across a desktop monitor
  * puts a driver's name and their price at opposite ends of the screen.
  */
-function SheetShell({ children }: { children: React.ReactNode }) {
+/**
+ * The shell every sheet in the picker is drawn in.
+ *
+ * Dismissable from outside it, which is what people try first: tapping the
+ * dimmed area, or pressing Escape. The close button stays — a sheet whose only
+ * way out is a gesture nobody mentioned is worse than one with a button.
+ *
+ * On a phone it is a bottom sheet capped at 85% of the viewport rather than the
+ * full-bleed panel it was. Full-bleed left no background to tap, so the gesture
+ * had nowhere to land; the cap leaves a strip of the roster visible above,
+ * which both gives the tap a target and keeps the thing you were looking at in
+ * sight. `dvh` rather than `vh` because a phone's address bar collapses and
+ * `vh` would leave the sheet taller than the screen it is measured against.
+ *
+ * Long content still scrolls inside: every sheet body is a flex child with its
+ * own overflow, so the cap bounds them rather than clipping them.
+ */
+function SheetShell({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-center bg-black/40 sm:p-6">
-      <div className="flex h-full w-full max-w-md flex-col overflow-hidden bg-white dark:bg-zinc-950 sm:rounded-2xl sm:shadow-2xl">
+    <div
+      // Only a press that lands on the backdrop itself. Without the check, a
+      // click anywhere inside the sheet would bubble up here and close it.
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onDismiss();
+      }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-stretch sm:p-6"
+    >
+      <div className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl dark:bg-zinc-950 sm:max-h-none sm:rounded-2xl">
         {children}
       </div>
     </div>
@@ -880,13 +952,14 @@ function SlotCard({
   slot,
   option,
   locked,
-  captain,
+  boost,
   onOpen,
 }: {
   slot: Slot;
   option?: PickOption;
   locked: boolean;
-  captain: boolean;
+  /** What this slot multiplies by — "2x", "3x" — or null when it is unboosted. */
+  boost: string | null;
   onOpen: () => void;
 }) {
   const accent = option?.colour ? `#${option.colour}` : "#a1a1aa";
@@ -910,7 +983,7 @@ function SlotCard({
   return (
     <div
       className={`@container relative flex aspect-[3/4] min-h-[5.75rem] flex-col overflow-hidden rounded-xl border ${
-        captain ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
+        boost ? "border-amber-400 ring-1 ring-amber-400" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
       <span className="h-1 w-full shrink-0" style={{ backgroundColor: accent }} />
@@ -930,14 +1003,17 @@ function SlotCard({
         </span>
       </button>
 
-      {/* Only the captain is marked. Showing the badge on every eligible card
-          made it look as though the whole roster scored double. */}
-      {captain && (
+      {/* Only a boosted slot is marked. Showing the badge on every eligible
+          card made it look as though the whole roster scored double. The number
+          is the multiplier itself rather than the name of what caused it: the
+          armband and SuperDriver both end as a factor on this driver's score,
+          and which one it was is a question for the chips sheet. */}
+      {boost && (
         <span
-          aria-label={`${option.name} is captain, scoring double`}
+          aria-label={`${option.name} scores ${boost}`}
           className="absolute left-1 top-2 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-zinc-900"
         >
-          2x
+          {boost}
         </span>
       )}
     </div>
@@ -975,7 +1051,7 @@ function CaptainPrompt({
   ];
 
   return (
-    <SheetShell>
+    <SheetShell onDismiss={onCancel}>
       <header className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div>
           <h2 className="text-sm font-semibold">Who scores double?</h2>
@@ -1086,7 +1162,7 @@ function DetailSheet({
   const rounds = season && !("error" in season) ? season.rounds : [];
 
   return (
-    <SheetShell>
+    <SheetShell onDismiss={onClose}>
       <header className="flex items-start justify-between gap-3 border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex min-w-0 items-center gap-3">
           <span className="contents [--avatar:2.75rem]">
@@ -1288,7 +1364,7 @@ function ChooserSheet({
   }
 
   return (
-    <SheetShell>
+    <SheetShell onDismiss={onClose}>
       <header className="border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <div>

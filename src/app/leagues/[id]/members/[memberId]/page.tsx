@@ -71,7 +71,8 @@ export default async function MemberPage({
       supabase.from("rounds").select("round, race_name").eq("season", league.season),
     ]);
 
-  const [{ data: scores }, { data: betRows }, { data: lineupRows }, next] = await Promise.all([
+  const [{ data: scores }, { data: betRows }, { data: chipPlayRows }, { data: lineupRows }, next] =
+    await Promise.all([
     supabase
       .from("round_scores")
       .select("round, points")
@@ -82,6 +83,14 @@ export default async function MemberPage({
     supabase
       .from("bets")
       .select("round, market_id, selection, stake, odds, outcome, returned")
+      .eq("member_id", memberId)
+      .eq("season", league.season),
+    // SuperDriver is the one chip that lands on a named driver, so it is the one
+    // a squad of faces can show. Withheld before the round locks, the same as
+    // the roster it boosts.
+    supabase
+      .from("chip_plays")
+      .select("round, chip_id, target_driver_id")
       .eq("member_id", memberId)
       .eq("season", league.season),
     // A team has no colour of its own in the reference data; it comes from the
@@ -173,6 +182,22 @@ export default async function MemberPage({
 
   const squads: Squad[] = (rosters ?? []).map((roster) => {
     const captains = [roster.top_captain_id, roster.mid_captain_id].filter(Boolean);
+
+    const superDriverId =
+      (chipPlayRows ?? []).find(
+        (play) => play.round === roster.round && play.chip_id === "super_driver",
+      )?.target_driver_id ?? null;
+
+    /** The factor on a driver's score, as the badge should label it. */
+    const boostOn = (driverId: string): string | null => {
+      const doubled = captains.includes(driverId);
+      const tripled = driverId === superDriverId;
+      // Both only happens on a roster from before SuperDriver started moving
+      // the armband off its own target, but 6x is what it scored.
+      if (doubled && tripled) return "6x";
+      if (tripled) return "3x";
+      return doubled ? "2x" : null;
+    };
     const slots = (roster.roster_slots ?? []) as unknown as {
       slot_type: string;
       driver_id: string | null;
@@ -190,7 +215,7 @@ export default async function MemberPage({
           name: driver?.name ?? slot.driver_id,
           headshotUrl: driver?.headshotUrl,
           colour: driver?.colour,
-          captain: captains.includes(slot.driver_id),
+          boost: boostOn(slot.driver_id),
           price,
         };
       }
@@ -200,7 +225,7 @@ export default async function MemberPage({
         name: constructorName.get(slot.constructor_id!) ?? slot.constructor_id!,
         colour: teamColour.get(slot.constructor_id!),
         lineup: teamLineup.get(slot.constructor_id!),
-        captain: false,
+        boost: null,
         price,
       };
     });

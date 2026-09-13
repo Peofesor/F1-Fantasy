@@ -349,7 +349,13 @@ export async function saveRoster(
   // Captains sit on the roster row, so they are written on every save;
   // consumed transfer allowance persists, so a second save this round does not
   // reset it.
-  await supabase
+  //
+  // The result is checked. This was a bare `await` that discarded both the
+  // error and the row count, so a captain change the database refused — the
+  // update policy shuts at the lock — still reported "Roster saved", and the
+  // armband silently stayed where it was. `select` makes a no-op update
+  // distinguishable from a successful one, which no error code does.
+  const { data: updated, error: captainError } = await supabase
     .from("rosters")
     .update({
       top_captain_id: selection.topCaptainId,
@@ -359,7 +365,13 @@ export async function saveRoster(
         : {}),
       ...(locked ? { final_fix_used: true } : {}),
     })
-    .eq("id", roster.id);
+    .eq("id", roster.id)
+    .select("id");
+
+  if (captainError) return { error: captainError.message };
+  if (!updated || updated.length === 0) {
+    return { error: "Your picks were saved, but the captains could not be. Try again." };
+  }
 
   revalidatePath(`/leagues/${leagueId}/roster`);
   return { ok: true, savedAt: new Date().toISOString() };
