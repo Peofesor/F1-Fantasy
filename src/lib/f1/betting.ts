@@ -11,6 +11,7 @@
 
 export type MarketId =
   | "race_winner"
+  | "pole_position"
   | "podium"
   | "top_six"
   | "top_ten"
@@ -34,11 +35,30 @@ import { OPENF1_SUPPORTS, sourceEnabled } from "./data-sources";
 
 export type BetTiming = "pre_qualifying" | "pre_race";
 
+/**
+ * Which session a market is decided in.
+ *
+ * The board is a flat list of fourteen names, and a player scanning it has to
+ * read every one to find the two about Saturday. Grouping is the whole of the
+ * fix: a market is settled by qualifying, by the race, or by the sprint, and
+ * that is also the order the weekend happens in.
+ */
+export type MarketGroup = "qualifying" | "race" | "sprint";
+
+/** Headings for the groups, in the order a weekend runs. */
+export const MARKET_GROUPS: { id: MarketGroup; label: string }[] = [
+  { id: "qualifying", label: "Qualifying" },
+  { id: "sprint", label: "Sprint" },
+  { id: "race", label: "Race" },
+];
+
 export interface MarketDefinition {
   id: MarketId;
   name: string;
   /** What the selection refers to. */
   selection: "driver" | "constructor" | "nationality" | "yes_no";
+  /** The session that decides it, which is how the board is grouped. */
+  group: MarketGroup;
   /**
    * The market's baseline profit per unit staked, before the blind-bet premium
    * and before any record of the selection exists. `listedOdds` is what is
@@ -73,24 +93,34 @@ export interface MarketDefinition {
  * favourite landing there is close to a certainty.
  */
 export const MARKETS: Record<MarketId, MarketDefinition> = {
-  race_winner: { id: "race_winner", name: "Race winner", selection: "driver", odds: 4, description: "Names the winner.", available: true },
-  podium: { id: "podium", name: "Podium finish", selection: "driver", odds: 2, description: "Finishes in the top 3.", available: true },
-  top_six: { id: "top_six", name: "Top six", selection: "driver", odds: 1.5, description: "Finishes in the top 6.", available: true },
-  top_ten: { id: "top_ten", name: "Points finish", selection: "driver", odds: 1.3, description: "Finishes in the top 10.", available: true },
-  fastest_lap: { id: "fastest_lap", name: "Fastest lap", selection: "driver", odds: 5, description: "Sets the fastest lap.", available: true },
-  reached_q3: { id: "reached_q3", name: "Reaches Q3", selection: "driver", odds: 1.6, description: "Makes the top-10 shootout.", available: true },
-  eliminated_q1: { id: "eliminated_q1", name: "Out in Q1", selection: "driver", odds: 2.5, description: "Eliminated in the first session.", available: true },
-  dnf: { id: "dnf", name: "Does not finish", selection: "driver", odds: 4, description: "Retires, is disqualified, or does not start.", available: true },
-  fastest_pit_stop: { id: "fastest_pit_stop", name: "Fastest pit stop", selection: "constructor", odds: 5, description: "Team records the quickest pit-lane time.", available: true },
-  winner_nationality: { id: "winner_nationality", name: "Winner's nationality", selection: "nationality", odds: 3, description: "Nationality of the race winner.", available: true },
-  most_overtakes: { id: "most_overtakes", name: "Most overtakes", selection: "driver", odds: 5, description: "Makes the most on-track passes (house count).", available: true },
-  safety_car: { id: "safety_car", name: "Safety car", selection: "yes_no", odds: 1.6, description: "A safety car is deployed.", available: true },
-  sprint_winner: { id: "sprint_winner", name: "Sprint winner", selection: "driver", odds: 4, description: "Wins the sprint.", available: true, sprintOnly: true },
-  sprint_points: { id: "sprint_points", name: "Sprint points", selection: "driver", odds: 1.5, description: "Finishes the sprint in the top 8.", available: true, sprintOnly: true },
+  race_winner: { id: "race_winner", name: "Race winner", selection: "driver", group: "race", odds: 4, description: "Names the winner.", available: true },
+  pole_position: {
+    id: "pole_position",
+    name: "Pole position",
+    selection: "driver",
+    group: "qualifying",
+    odds: 4,
+    description: "Qualifies first. A grid penalty afterwards does not change it.",
+    available: true,
+  },
+  podium: { id: "podium", name: "Podium finish", selection: "driver", group: "race", odds: 2, description: "Finishes in the top 3.", available: true },
+  top_six: { id: "top_six", name: "Top six", selection: "driver", group: "race", odds: 1.5, description: "Finishes in the top 6.", available: true },
+  top_ten: { id: "top_ten", name: "Points finish", selection: "driver", group: "race", odds: 1.3, description: "Finishes in the top 10.", available: true },
+  fastest_lap: { id: "fastest_lap", name: "Fastest lap", selection: "driver", group: "race", odds: 5, description: "Sets the fastest lap.", available: true },
+  reached_q3: { id: "reached_q3", name: "Reaches Q3", selection: "driver", group: "qualifying", odds: 1.6, description: "Makes the top-10 shootout.", available: true },
+  eliminated_q1: { id: "eliminated_q1", name: "Out in Q1", selection: "driver", group: "qualifying", odds: 2.5, description: "Eliminated in the first session.", available: true },
+  dnf: { id: "dnf", name: "Does not finish", selection: "driver", group: "race", odds: 4, description: "Retires, is disqualified, or does not start.", available: true },
+  fastest_pit_stop: { id: "fastest_pit_stop", name: "Fastest pit stop", selection: "constructor", group: "race", odds: 5, description: "Team records the quickest pit-lane time.", available: true },
+  winner_nationality: { id: "winner_nationality", name: "Winner's nationality", selection: "nationality", group: "race", odds: 3, description: "Nationality of the race winner.", available: true },
+  most_overtakes: { id: "most_overtakes", name: "Most overtakes", selection: "driver", group: "race", odds: 5, description: "Makes the most on-track passes (house count).", available: true },
+  safety_car: { id: "safety_car", name: "Safety car", selection: "yes_no", group: "race", odds: 1.6, description: "A safety car is deployed.", available: true },
+  sprint_winner: { id: "sprint_winner", name: "Sprint winner", selection: "driver", group: "sprint", odds: 4, description: "Wins the sprint.", available: true, sprintOnly: true },
+  sprint_points: { id: "sprint_points", name: "Sprint points", selection: "driver", group: "sprint", odds: 1.5, description: "Finishes the sprint in the top 8.", available: true, sprintOnly: true },
   reached_q2: {
     id: "reached_q2",
     name: "Reaches Q2",
     selection: "driver",
+    group: "qualifying",
     odds: 1.4,
     description: "Survives the first qualifying cut.",
     // Withdrawn, for two reasons that point the same way.
@@ -106,12 +136,13 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
     // drivers in trouble is worse than not having it.
     available: false,
   },
-  beats_teammate_race: { id: "beats_teammate_race", name: "Beats teammate (race)", selection: "driver", odds: 1.8, description: "Finishes ahead of the other car in their garage.", available: true },
-  beats_teammate_qualifying: { id: "beats_teammate_qualifying", name: "Beats teammate (qualifying)", selection: "driver", odds: 1.8, description: "Out-qualifies the other car in their garage.", available: true },
+  beats_teammate_race: { id: "beats_teammate_race", name: "Beats teammate (race)", selection: "driver", group: "race", odds: 1.8, description: "Finishes ahead of the other car in their garage.", available: true },
+  beats_teammate_qualifying: { id: "beats_teammate_qualifying", name: "Beats teammate (qualifying)", selection: "driver", group: "qualifying", odds: 1.8, description: "Out-qualifies the other car in their garage.", available: true },
   lap_one_leader: {
     id: "lap_one_leader",
     name: "Leader after lap 1",
     selection: "driver",
+    group: "race",
     odds: 3.5,
     description: "Leads at the end of the opening lap.",
     // jolpica publishes lap-by-lap timing, but it is not ingested yet, so this
@@ -275,6 +306,12 @@ export interface SettlementFacts {
   fastestLapDriverId: string | null;
   /** Furthest qualifying session reached, by driver. */
   qualifyingReached: ReadonlyMap<string, "Q1" | "Q2" | "Q3">;
+  /**
+   * Whoever qualified first, which is not always whoever starts first — a grid
+   * penalty moves the car, not the pole. Null when qualifying has not been
+   * ingested for the round.
+   */
+  poleDriverId: string | null;
   fastestPitStopConstructorId: string | null;
   winnerNationality: string | null;
   mostOvertakesDriverId: string | null;
@@ -317,6 +354,12 @@ export function settleBet(
 
     case "fastest_lap":
       return facts.fastestLapDriverId === null ? null : facts.fastestLapDriverId === selection;
+
+    // Settled on the qualifying classification rather than on the grid: a
+    // penalty applied after the session moves where a car starts, and the pole
+    // was still won on Saturday.
+    case "pole_position":
+      return facts.poleDriverId === null ? null : facts.poleDriverId === selection;
 
     case "reached_q3": {
       const reached = facts.qualifyingReached.get(selection);

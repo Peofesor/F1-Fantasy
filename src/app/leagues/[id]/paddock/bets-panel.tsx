@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import {
   checkStake,
   MARKET_LIST,
+  MARKET_GROUPS,
   maxStake,
   MIN_STAKE,
   STAKE_STEP,
@@ -225,11 +226,25 @@ export function BetsPanel({
             }}
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           >
-            {sortedMarkets.map((entry) => (
-              <option key={entry.id} value={entry.id} disabled={placed.has(entry.id)}>
-                {entry.name} ({oddsRange(entry.id)}){placed.has(entry.id) ? " — already bet" : ""}
-              </option>
-            ))}
+            {/* Grouped by the session that settles it, in the order the
+                weekend runs. Fourteen markets in one flat list meant reading
+                all of them to find the two about Saturday, and the price
+                ordering inside the list — useful within a group — was what
+                scattered them. */}
+            {MARKET_GROUPS.map((group) => {
+              const inGroup = sortedMarkets.filter((entry) => entry.group === group.id);
+              if (inGroup.length === 0) return null;
+              return (
+                <optgroup key={group.id} label={group.label}>
+                  {inGroup.map((entry) => (
+                    <option key={entry.id} value={entry.id} disabled={placed.has(entry.id)}>
+                      {entry.name} ({oddsRange(entry.id)})
+                      {placed.has(entry.id) ? " — already bet" : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
 
           <p className="text-xs text-zinc-500">{market.description}</p>

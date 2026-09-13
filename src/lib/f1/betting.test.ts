@@ -30,6 +30,7 @@ const facts: SettlementFacts = {
     ["retiree", "retired"],
   ]),
   fastestLapDriverId: "third",
+  poleDriverId: "winner",
   qualifyingReached: new Map([
     ["winner", "Q3"],
     ["third", "Q3"],
@@ -76,6 +77,17 @@ describe("settleBet", () => {
   it("settles DNF on classification, not position", () => {
     expect(settleBet("dnf", "retiree", facts)).toBe(true);
     expect(settleBet("dnf", "twelfth", facts)).toBe(false);
+  });
+
+  it("settles pole on the qualifying classification", () => {
+    // Not on the grid: a penalty applied after the session moves where a car
+    // starts, and the pole was still won on Saturday.
+    expect(settleBet("pole_position", "winner", facts)).toBe(true);
+    expect(settleBet("pole_position", "third", facts)).toBe(false);
+  });
+
+  it("voids pole when qualifying was never ingested", () => {
+    expect(settleBet("pole_position", "winner", { ...facts, poleDriverId: null })).toBeNull();
   });
 
   it("settles qualifying progression", () => {

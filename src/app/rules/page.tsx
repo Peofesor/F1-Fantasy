@@ -18,7 +18,7 @@ import {
 import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
 import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
 import { CHIP_LIST } from "@/lib/f1/chips";
-import { MARKET_LIST } from "@/lib/f1/betting";
+import { MARKET_GROUPS, MARKET_LIST } from "@/lib/f1/betting";
 import { ODDS_WINDOW_RACES } from "@/lib/f1/bet-odds";
 import { TOP_BRACKET_SIZE, TOP_CONSTRUCTOR_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
 
@@ -284,11 +284,25 @@ export default function RulesPage() {
 
         {/* Markets, without prices. Listing the old fixed odds here promised a
             number the paddock then contradicted — "Race winner 4×" above a
-            board offering 0.80 to 12.00 depending on who you picked. */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-xs">
-          {MARKET_LIST.map((market) => (
-            <span key={market.id}>{market.name}</span>
-          ))}
+            board offering 0.80 to 12.00 depending on who you picked.
+
+            Grouped by the session that settles them, the same way the paddock
+            groups them, so the two screens describe one board. */}
+        <div className="space-y-1 pt-1 text-xs">
+          {MARKET_GROUPS.map((group) => {
+            const inGroup = MARKET_LIST.filter((market) => market.group === group.id);
+            if (inGroup.length === 0) return null;
+            return (
+              <div key={group.id} className="flex flex-wrap gap-x-3 gap-y-1">
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                  {group.label}
+                </span>
+                {inGroup.map((market) => (
+                  <span key={market.id}>{market.name}</span>
+                ))}
+              </div>
+            );
+          })}
         </div>
 
         <p className="pt-1 text-xs">

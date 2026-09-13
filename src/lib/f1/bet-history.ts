@@ -134,6 +134,7 @@ export async function loadMarketHistory(
 
   for (const row of qualiRows) {
     const reached = row.highest_session_reached;
+    push("pole_position", { selection: row.driver_id, won: row.position === 1 });
     push("reached_q3", { selection: row.driver_id, won: reached === "Q3" });
     push("reached_q2", { selection: row.driver_id, won: reached === "Q2" || reached === "Q3" });
     push("eliminated_q1", { selection: row.driver_id, won: reached === "Q1" });

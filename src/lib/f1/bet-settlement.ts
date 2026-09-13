@@ -143,6 +143,8 @@ export async function loadSettlementFacts(
         row.highest_session_reached as "Q1" | "Q2" | "Q3",
       ]),
     ),
+    poleDriverId:
+      (qualifying.data ?? []).find((row) => row.position === 1)?.driver_id ?? null,
     fastestPitStopConstructorId: quickest?.driverId
       ? (constructorByDriver.get(quickest.driverId) ?? null)
       : null,
