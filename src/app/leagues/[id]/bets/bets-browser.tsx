@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { money } from "@/lib/f1/money";
 
@@ -45,6 +45,7 @@ export function BetsBrowser({
   opening,
   locked,
   sealed,
+  form,
 }: {
   leagueId: string;
   rounds: BrowsableRound[];
@@ -66,6 +67,16 @@ export function BetsBrowser({
    * shrug at a rival who is actually in for fifty.
    */
   sealed: { name: string; count: number }[];
+  /**
+   * The betting form, built on the server for the open round.
+   *
+   * Handed in rather than rendered below the browser, because a form for one
+   * round under a list of another round's bets is a trap: during the Spanish
+   * weekend this page opened on Spain and offered, underneath it, a form that
+   * would have staked money on Azerbaijan. It is shown only while the round
+   * being read is the round it belongs to.
+   */
+  form: ReactNode;
 }) {
   const [round, setRound] = useState(opening);
   const selected = rounds.find((entry) => entry.round === round) ?? rounds[0];
@@ -73,15 +84,20 @@ export function BetsBrowser({
   const onRound = bets.filter((bet) => bet.round === round);
   const staked = onRound.reduce((total, bet) => total + bet.stake, 0);
 
+  // The one round a bet can still be placed on or taken back. Everything else
+  // this page shows is a record.
+  const isOpenRound = round === openRound;
+  const openRaceName = rounds.find((entry) => entry.round === openRound)?.raceName;
+
   // Your own bets are withdrawable only on the open round, and there they are
   // shown in full above the league's. Everywhere else you are just another
   // member of the list.
-  const yours = round === openRound && !locked;
+  const yours = isOpenRound && !locked;
   const mine = yours
     ? onRound.map((bet) => bet.own).filter((bet): bet is PlacedBet => bet !== null)
     : [];
   const theirs = yours ? onRound.filter((bet) => !bet.isSelf) : onRound;
-  const sealedHere = round === openRound ? sealed : [];
+  const sealedHere = isOpenRound ? sealed : [];
   const sealedTotal = sealedHere.reduce((total, entry) => total + entry.count, 0);
 
   return (
@@ -137,7 +153,9 @@ export function BetsBrowser({
           </p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] dark:border-zinc-800">
-            {theirs.length > 0 && <BetSlipList leagueId={leagueId} bets={theirs} />}
+            {theirs.length > 0 && (
+              <BetSlipList leagueId={leagueId} bets={theirs} stillOpen={isOpenRound && !locked} />
+            )}
 
             {sealedTotal > 0 && (
               <div
@@ -164,6 +182,30 @@ export function BetsBrowser({
               </div>
             )}
           </div>
+        )}
+      </section>
+
+      {/* The form follows the round being read. On any other round it is not
+          merely disabled but absent, and the page says why: an open form under
+          a race that has already qualified is an invitation to stake money on
+          the wrong weekend. */}
+      <section className="space-y-2">
+        <h2 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          {isOpenRound
+            ? `Place a bet on ${selected?.raceName ?? "this round"}`
+            : "Betting"}
+        </h2>
+
+        {isOpenRound ? (
+          form
+        ) : (
+          <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-xs leading-relaxed text-zinc-500 dark:border-zinc-700">
+            <strong className="text-zinc-700 dark:text-zinc-300">
+              No bets can be placed on {selected?.raceName ?? "this round"}.
+            </strong>{" "}
+            Betting closed when qualifying started, so this round is a record now.
+            {openRaceName && ` Choose ${openRaceName} above to place a bet.`}
+          </p>
         )}
       </section>
     </div>

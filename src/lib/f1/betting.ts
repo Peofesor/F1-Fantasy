@@ -290,6 +290,23 @@ export function checkStake(
 }
 
 /**
+ * What a bet's state is called on screen.
+ *
+ * An unsettled bet is two different things depending on its round, and calling
+ * both of them "open" was read as "you can still place this" long after the
+ * market had shut: on a race that had already qualified, every slip on the
+ * board still said open. A locked bet is riding on the race and cannot be
+ * withdrawn, which is the distinction the word has to carry.
+ *
+ * A settled outcome — won, lost, void — speaks for itself and is passed
+ * through.
+ */
+export function betStatus(outcome: string | null, stillOpen: boolean): string {
+  if (outcome) return outcome;
+  return stillOpen ? "open" : "locked";
+}
+
+/**
  * Total returned on a winning bet at a market's listed price.
  *
  * Prices are per selection now (see ./bet-odds.ts), so this is the fallback for

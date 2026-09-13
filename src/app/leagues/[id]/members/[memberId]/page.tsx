@@ -260,7 +260,12 @@ export default async function MemberPage({
         </h1>
       </header>
 
-      <RosterHistory squads={squads} name={displayName} sealed={sealed} />
+      <RosterHistory
+        squads={squads}
+        name={displayName}
+        sealed={sealed}
+        openRound={next?.round ?? null}
+      />
     </main>
   );
 }

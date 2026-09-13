@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { type MarketId } from "@/lib/f1/betting";
+import { betStatus, type MarketId } from "@/lib/f1/betting";
 import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
 import { money } from "@/lib/f1/money";
 import { cancelBet, type BetState } from "../paddock/bet-actions";
@@ -90,7 +90,7 @@ export function PlacedBets({
                       : "text-zinc-500"
                 }`}
               >
-                {bet.outcome ?? "open"}
+                {betStatus(bet.outcome, !locked)}
               </span>
             </div>
 

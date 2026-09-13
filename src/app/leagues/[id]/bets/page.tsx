@@ -199,6 +199,14 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         </div>
       </header>
 
+      {/* The same form the paddock carries, below the list rather than a link
+          across to another page: reading what is riding on a race is what ends
+          in wanting one of your own, and sending that impulse to the paddock —
+          past the chip store — lost the thing that prompted it.
+
+          It is handed to the browser rather than placed under it, because only
+          the browser knows which round is being read. Rendered here because it
+          is a server component, and passed through as a slot. */}
       <BetsBrowser
         leagueId={league.id}
         rounds={rounds}
@@ -207,26 +215,18 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         opening={opening}
         locked={form.locked}
         sealed={sealed}
+        form={
+          <BetsPanel
+            leagueId={league.id}
+            round={round.round}
+            bank={balance}
+            bets={mine}
+            leagueLimit={league.max_stake}
+            slipLink={false}
+            {...form}
+          />
+        }
       />
-
-      {/* The same form the paddock carries, below the list rather than a link
-          across to another page. Reading what is riding on a race is what ends
-          in wanting one of your own, and sending that impulse to the paddock —
-          past the chip store — lost the thing that prompted it. */}
-      <section className="space-y-2">
-        <h2 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-          Place a bet on {round.raceName}
-        </h2>
-        <BetsPanel
-          leagueId={league.id}
-          round={round.round}
-          bank={balance}
-          bets={mine}
-          leagueLimit={league.max_stake}
-          slipLink={false}
-          {...form}
-        />
-      </section>
     </main>
   );
 }

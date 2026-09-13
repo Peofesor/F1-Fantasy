@@ -259,7 +259,7 @@ export function EventBrowser({
               staked
             </span>
           </div>
-          <BetSlipList leagueId={leagueId} bets={event.bets} />
+          <BetSlipList leagueId={leagueId} bets={event.bets} stillOpen={Boolean(event.upcoming)} />
         </>
       ) : hiddenTotal === 0 ? (
         <p className="border-t border-zinc-200 px-4 py-2.5 text-xs text-zinc-500 dark:border-zinc-800">

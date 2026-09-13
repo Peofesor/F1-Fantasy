@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 
 import { grossMultiplier } from "@/lib/f1/bet-odds";
+import { betStatus } from "@/lib/f1/betting";
 import { money } from "@/lib/f1/money";
 import { RoundArrow } from "../../round-arrow";
 
@@ -127,6 +128,7 @@ export function RosterHistory({
   squads,
   name,
   sealed,
+  openRound,
 }: {
   squads: Squad[];
   name: string;
@@ -136,6 +138,11 @@ export function RosterHistory({
    * playing, which is the opposite of what it means.
    */
   sealed: { round: number; raceName: string; bets: number } | null;
+  /**
+   * The round still open for betting, or null when the season has none left.
+   * A bet on any other round has locked, whether or not it has settled yet.
+   */
+  openRound: number | null;
 }) {
   // Stepped oldest-to-newest so the arrows point the way the season runs, while
   // the list arrives newest first because that is the order a profile reads in.
@@ -248,7 +255,7 @@ export function RosterHistory({
                           : "text-zinc-500"
                     }`}
                   >
-                    {bet.outcome ?? "open"}
+                    {betStatus(bet.outcome, squad.round === openRound)}
                   </span>
                 </li>
               ))}

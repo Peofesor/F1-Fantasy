@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { betStatus } from "@/lib/f1/betting";
 import { money } from "@/lib/f1/money";
 
 export interface RoundBet {
@@ -26,7 +27,19 @@ export interface RoundBet {
  * running, because the two want the identical thing and the list is the half of
  * it worth getting right — the stake, what it pays, and whose it is.
  */
-export function BetSlipList({ leagueId, bets }: { leagueId: string; bets: RoundBet[] }) {
+export function BetSlipList({
+  leagueId,
+  bets,
+  stillOpen,
+}: {
+  leagueId: string;
+  bets: RoundBet[];
+  /**
+   * Whether this round can still be bet on, which decides what an unsettled bet
+   * is called. The list cannot work it out: it holds bets, not rounds.
+   */
+  stillOpen: boolean;
+}) {
   const byMember = new Map<string, RoundBet[]>();
   for (const bet of bets) {
     byMember.set(bet.memberId, [...(byMember.get(bet.memberId) ?? []), bet]);
@@ -83,7 +96,7 @@ export function BetSlipList({ leagueId, bets }: { leagueId: string; bets: RoundB
                         the word "won", which is the figure being looked for. */}
                     {bet.outcome === "won" && bet.returned
                       ? `+${money(bet.returned)}`
-                      : (bet.outcome ?? "open")}
+                      : betStatus(bet.outcome, stillOpen)}
                   </span>
                 </li>
               );
