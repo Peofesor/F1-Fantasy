@@ -7,10 +7,6 @@ const TABS: { label: string; path: string }[] = [
   { label: "League", path: "" },
   { label: "Roster", path: "/roster" },
   { label: "Paddock", path: "/paddock" },
-  // Its own tab because it stopped being a page about you. It lists every
-  // member's slip on any round of the season, which is a thing you go and look
-  // at — not a step on the way to placing a bet.
-  { label: "Bets", path: "/bets" },
 ];
 
 /**
@@ -36,10 +32,14 @@ export function LeagueNav({ leagueId }: { leagueId: string }) {
   const pathname = usePathname();
   const base = `/leagues/${leagueId}`;
 
-  // A member's profile sits under the league but is not one of its tabs. It has
-  // its own way back, and four tabs with none of them lit would suggest the app
-  // had lost track of where you were.
-  if (pathname.startsWith(`${base}/members/`)) return null;
+  // A member's profile and the bets page sit under the league but are not tabs
+  // of it. Bets was one until it proved to be a place you go *from* somewhere —
+  // the Bets button over the roster picker, or what is riding on the race on the
+  // league page — rather than one of the three screens the game is played on.
+  // Both have their own way back, and a bar with nothing lit would suggest the
+  // app had lost track of where you were.
+  if (pathname.startsWith(`${base}/members/`) || pathname.startsWith(`${base}/bets`))
+    return null;
 
   return (
     <nav className="flex items-center gap-1.5">
@@ -56,7 +56,7 @@ export function LeagueNav({ leagueId }: { leagueId: string }) {
         {TABS.map((tab) => {
           const href = `${base}${tab.path}`;
           // Exact rather than a prefix: "" is a prefix of every other tab, so
-          // League would light up on all four.
+          // League would light up on all of them.
           const isActive = pathname === href || pathname === `${href}/`;
           return (
             <Link

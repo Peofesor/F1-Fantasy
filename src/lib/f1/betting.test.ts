@@ -246,7 +246,7 @@ describe("a league's own stake ceiling", () => {
   });
 
   it("says which limit was hit, since the two need different fixes", () => {
-    expect(checkStake(50, 100, 10).reason).toContain("league caps a bet at 10.0");
+    expect(checkStake(50, 100, 10).reason).toContain("league caps a bet at $10.0M");
     expect(checkStake(200, 100, 500).reason).toContain("more cap than your bank holds");
   });
 

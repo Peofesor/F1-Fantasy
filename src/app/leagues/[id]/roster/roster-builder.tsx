@@ -13,6 +13,7 @@ import {
 } from "@/lib/f1/roster";
 import type { Tier } from "@/lib/f1/tiers";
 import type { ChipRow } from "@/lib/f1/chips";
+import { money } from "@/lib/f1/money";
 import { saveRoster, type SaveState } from "./actions";
 import { driverSeason, type DriverSeasonState } from "./driver-actions";
 import { ChipsPanel } from "./chips-panel";
@@ -469,9 +470,9 @@ export function RosterBuilder({
           </span>
           <span className="tabular-nums">
             <strong className={overBudget ? "text-red-600 dark:text-red-400" : ""}>
-              {validation.cost.toFixed(1)}
+              {money(validation.cost)}
             </strong>
-            <span className="text-zinc-500"> / {costCap.toFixed(1)}</span>
+            <span className="text-zinc-500"> / {money(costCap)}</span>
           </span>
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -620,7 +621,7 @@ export function RosterBuilder({
                 : empty > 0
                   ? `Pick ${empty} more`
                   : overBudget
-                    ? `Over by ${Math.abs(validation.remaining).toFixed(1)}`
+                    ? `Over by ${money(Math.abs(validation.remaining))}`
                     : "Save roster"}
           </button>
         </form>
@@ -671,7 +672,7 @@ export function RosterBuilder({
             <div>
               <h2 className="text-sm font-semibold">Chips</h2>
               <p className="text-xs text-zinc-500">
-                Round {round} · {balance.toFixed(1)} spare cap
+                Round {round} · {money(balance)} spare cap
               </p>
             </div>
             <button
@@ -925,7 +926,7 @@ function SlotCard({
           {option.shortName}
         </span>
         <span className="mt-auto shrink-0 text-[11px] tabular-nums text-zinc-500">
-          {option.price.toFixed(1)}
+          {money(option.price)}
         </span>
       </button>
 
@@ -1115,7 +1116,7 @@ function DetailSheet({
         <div className="mb-3 grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
             <span className="block text-xs text-zinc-500">Price</span>
-            <span className="tabular-nums text-lg font-semibold">{option.price.toFixed(1)}</span>
+            <span className="tabular-nums text-lg font-semibold">{money(option.price)}</span>
           </div>
           <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
             <span className="block text-xs text-zinc-500">Season points</span>
@@ -1292,7 +1293,7 @@ function ChooserSheet({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold">Choose a {slot.label.toLowerCase()}</h2>
-            <p className="text-xs text-zinc-500">{budget.toFixed(1)} available for this slot</p>
+            <p className="text-xs text-zinc-500">{money(budget)} available for this slot</p>
           </div>
           <button
             type="button"
@@ -1361,7 +1362,7 @@ function ChooserSheet({
                     )}
                   </span>
                 </span>
-                <span className="text-right tabular-nums text-sm">{option.price.toFixed(1)}</span>
+                <span className="text-right tabular-nums text-sm">{money(option.price)}</span>
                 <span className="text-right tabular-nums text-sm text-zinc-500">
                   {option.form.toFixed(0)}
                 </span>

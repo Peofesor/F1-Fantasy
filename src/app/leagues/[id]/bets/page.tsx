@@ -2,7 +2,10 @@ import Link from "next/link";
 
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { loadCurrentEvent } from "@/lib/f1/event-status";
+import { money } from "@/lib/f1/money";
 import { loadMemberContext } from "../member-context";
+import { loadBetForm } from "../paddock/bet-form-data";
+import { BetsPanel } from "../paddock/bets-panel";
 import { BetsBrowser, type BrowsableRound, type LeagueBet } from "./bets-browser";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +27,11 @@ export const dynamic = "force-dynamic";
  * round locks, so nobody can copy a rival's call before the deadline; the
  * counts come back even then, which is what lets the page distinguish a league
  * that has not bet from one whose bets it cannot see.
+ *
+ * It is not a tab. You arrive from the Bets button above the roster picker or
+ * from what is riding on the race on the league page, and the paddock's betting
+ * form comes with the page — so the bet this list makes you want can be placed
+ * without leaving it.
  */
 export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets">) {
   const { id } = await params;
@@ -39,31 +47,14 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
     );
   }
 
-  const [
-    { data: memberRows },
-    { data: calendar },
-    { data: roster },
-    event,
-    { data: qualifyingStarted },
-  ] = await Promise.all([
+  // The form's own loader answers the lock too — betting closes when qualifying
+  // starts, on the same clock as the roster — so the page and the form it hosts
+  // cannot disagree about whether a stake can still be taken back.
+  const [{ data: memberRows }, { data: calendar }, event, form] = await Promise.all([
     supabase.from("league_members").select("id, profile_id, profiles(display_name)").eq("league_id", id),
     supabase.from("rounds").select("round, race_name").eq("season", league.season),
-    // The manual freeze, which nothing sets today but which still overrides the
-    // clock when it is.
-    supabase
-      .from("rosters")
-      .select("locked_at")
-      .eq("member_id", memberId)
-      .eq("season", round.season)
-      .eq("round", round.round)
-      .maybeSingle(),
     loadCurrentEvent(supabase, league.season),
-    // Betting closes when qualifying starts, on the same clock as the roster,
-    // so a withdrawal is only offered while the weekend has not started.
-    supabase.rpc("is_round_locked", {
-      target_season: round.season,
-      target_round: round.round,
-    }),
+    loadBetForm(supabase, memberId, round),
   ]);
 
   const members = (memberRows ?? []).map((member) => ({
@@ -165,6 +156,13 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         ? Math.max(...withBets)
         : round.round;
 
+  // Your own open slip, in the shape the form wants: it greys out a market you
+  // have already bet on, which is the one thing the form cannot work out alone.
+  const mine = bets
+    .filter((bet) => bet.round === round.round)
+    .map((bet) => bet.own)
+    .filter((own): own is NonNullable<typeof own> => own !== null);
+
   const sealed = placed
     .map((entry) => ({
       name: nameByMemberId.get(entry.member) ?? "Unknown",
@@ -177,18 +175,25 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-3 pt-2">
+        {/* Bets is no longer a tab, so the tab bar hides itself here and this is
+            the whole way back. Back to the league rather than out to the list of
+            them: both routes in — the Bets button over the roster picker and
+            what is riding on the race — start inside this league. */}
+        <Link
+          href={`/leagues/${league.id}`}
+          className="inline-flex items-center gap-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
+        >
+          ← {league.name}
+        </Link>
 
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-              {league.name}
-            </p>
-            <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight">Bets</h1>
+            <h1 className="truncate text-xl font-semibold tracking-tight">Bets</h1>
           </div>
           <p className="shrink-0 text-right text-xs text-zinc-500">
             your bank
             <span className="block text-base font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-              {balance.toFixed(1)}
+              {money(balance)}
             </span>
           </p>
         </div>
@@ -200,16 +205,28 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
         bets={bets}
         openRound={round.round}
         opening={opening}
-        locked={Boolean(roster?.locked_at) || Boolean(qualifyingStarted)}
+        locked={form.locked}
         sealed={sealed}
       />
 
-      <Link
-        href={`/leagues/${league.id}/paddock`}
-        className="block rounded-lg bg-[var(--accent)] px-4 py-2.5 text-center text-sm font-medium text-[var(--accent-ink)]"
-      >
-        Place a bet on {round.raceName}
-      </Link>
+      {/* The same form the paddock carries, below the list rather than a link
+          across to another page. Reading what is riding on a race is what ends
+          in wanting one of your own, and sending that impulse to the paddock —
+          past the chip store — lost the thing that prompted it. */}
+      <section className="space-y-2">
+        <h2 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          Place a bet on {round.raceName}
+        </h2>
+        <BetsPanel
+          leagueId={league.id}
+          round={round.round}
+          bank={balance}
+          bets={mine}
+          leagueLimit={league.max_stake}
+          slipLink={false}
+          {...form}
+        />
+      </section>
     </main>
   );
 }

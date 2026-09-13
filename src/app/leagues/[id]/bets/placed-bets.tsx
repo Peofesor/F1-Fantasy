@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { type MarketId } from "@/lib/f1/betting";
 import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { money } from "@/lib/f1/money";
 import { cancelBet, type BetState } from "../paddock/bet-actions";
 
 export interface PlacedBet {
@@ -52,7 +53,7 @@ export function PlacedBets({
   return (
     <section className="space-y-3">
       <p className="text-xs text-zinc-500">
-        {bets.length} bet{bets.length === 1 ? "" : "s"} · {staked.toFixed(1)} staked
+        {bets.length} bet{bets.length === 1 ? "" : "s"} · {money(staked)} staked
         {open > 0 && ` · ${open} still open`}
       </p>
 
@@ -98,12 +99,12 @@ export function PlacedBets({
             <div className="mt-2 flex items-baseline justify-between gap-3 text-xs text-zinc-500">
               <span className="tabular-nums">
                 {bet.odds === null ? (
-                  `${bet.stake.toFixed(1)} at listed odds`
+                  `${money(bet.stake)} at listed odds`
                 ) : (
                   <>
-                    {bet.stake.toFixed(1)} × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
+                    {money(bet.stake)} × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {payoutAt(bet.stake, bet.odds).toFixed(1)}
+                      {money(payoutAt(bet.stake, bet.odds))}
                     </span>{" "}
                     if it lands
                   </>
@@ -111,7 +112,7 @@ export function PlacedBets({
               </span>
               {bet.returned !== null && bet.returned > 0 && (
                 <span className="shrink-0 tabular-nums text-emerald-600 dark:text-emerald-400">
-                  +{bet.returned.toFixed(1)}
+                  +{money(bet.returned)}
                 </span>
               )}
             </div>
@@ -124,7 +125,7 @@ export function PlacedBets({
                 <input type="hidden" name="marketId" value={bet.marketId} />
                 <input type="hidden" name="round" value={round} />
                 <button className="text-xs text-zinc-500 underline underline-offset-2">
-                  Withdraw · {bet.stake.toFixed(1)} back
+                  Withdraw · {money(bet.stake)} back
                 </button>
               </form>
             )}

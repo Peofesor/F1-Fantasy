@@ -54,7 +54,7 @@ export function LeagueSettings({
         </label>
 
         <label className="block space-y-1">
-          <span className="text-xs text-zinc-500">Maximum stake per bet</span>
+          <span className="text-xs text-zinc-500">Maximum stake per bet ($M)</span>
           <input
             name="maxStake"
             type="number"

@@ -12,6 +12,7 @@ import {
 import { loadMarketHistory } from "@/lib/f1/bet-history";
 import { oddsFor } from "@/lib/f1/bet-odds";
 import { ledgerBalance } from "@/lib/f1/ledger";
+import { money } from "@/lib/f1/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 
@@ -262,10 +263,10 @@ export async function cancelBet(
   // the entry is recoverable by hand from the bet's absence.
   if (refundError) {
     throw new Error(
-      `Bet withdrawn but the ${Number(bet.stake).toFixed(1)} was not returned: ${refundError.message}`,
+      `Bet withdrawn but the ${money(Number(bet.stake))} was not returned: ${refundError.message}`,
     );
   }
 
   revalidatePath(`/leagues/${leagueId}/paddock`);
-  return { ok: true, message: `Bet withdrawn, ${Number(bet.stake).toFixed(1)} returned.` };
+  return { ok: true, message: `Bet withdrawn, ${money(Number(bet.stake))} returned.` };
 }

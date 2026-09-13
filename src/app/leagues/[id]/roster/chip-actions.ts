@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { canPurchase, chipAvailability, CHIPS, type ChipId, type ChipUsage } from "@/lib/f1/chips";
 import { ledgerBalance } from "@/lib/f1/ledger";
+import { money } from "@/lib/f1/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 
@@ -156,7 +157,7 @@ export async function buyChip(_previous: ChipState, formData: FormData): Promise
     ok: true,
     message:
       quantity > 1
-        ? `Bought ${quantity} × ${CHIPS[chipId].name} for ${check.total.toFixed(1)}.`
+        ? `Bought ${quantity} × ${CHIPS[chipId].name} for ${money(check.total)}.`
         : `Bought ${CHIPS[chipId].name}.`,
   };
 }

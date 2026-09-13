@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 
 import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { money } from "@/lib/f1/money";
 import { placeBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
@@ -41,6 +42,7 @@ export function BetsPanel({
   odds,
   markets,
   leagueLimit,
+  slipLink = true,
 }: {
   leagueId: string;
   round: number;
@@ -70,6 +72,12 @@ export function BetsPanel({
   markets: MarketId[];
   /** The league's own per-bet ceiling, or null when the bank is the only one. */
   leagueLimit: number | null;
+  /**
+   * Whether to offer the link through to the slip. Off where the slip is
+   * already on screen — the bets page hosts this same form below the list it
+   * would be pointing at.
+   */
+  slipLink?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<BetState, FormData>(placeBet, null);
   const [marketId, setMarketId] = useState<MarketId>("race_winner");
@@ -161,7 +169,7 @@ export function BetsPanel({
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold">Bets</h2>
         <span className="text-xs text-zinc-500">
-          bank {bank.toFixed(1)} · max stake {limit.toFixed(1)}
+          bank {money(bank)} · max stake {money(limit)}
           {leagueLimit !== null && leagueLimit < bank ? " (league cap)" : ""}
         </span>
       </div>
@@ -178,7 +186,7 @@ export function BetsPanel({
       {/* The slip lives on its own page now. A link rather than the list:
           this card is for deciding a bet, and re-reading the ones already
           placed is a different errand that was crowding it out. */}
-      {bets.length > 0 && (
+      {slipLink && bets.length > 0 && (
         <Link
           href={`/leagues/${leagueId}/bets`}
           className="mt-3 flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
@@ -292,7 +300,7 @@ export function BetsPanel({
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
             </label>
-            <span className="shrink-0 text-sm text-zinc-500">stake</span>
+            <span className="shrink-0 text-sm text-zinc-500">$M stake</span>
           </div>
 
           {/* The deadline, said where the bet is actually being made rather
@@ -312,14 +320,14 @@ export function BetsPanel({
                   Returns if it lands
                 </p>
                 <p className="text-2xl font-semibold tabular-nums leading-none text-emerald-700 dark:text-emerald-400">
-                  {payoutAt(stake, selectedOdds).toFixed(1)}
+                  {money(payoutAt(stake, selectedOdds))}
                 </p>
               </div>
               <p className="shrink-0 text-right text-xs text-zinc-500">
                 <span className="block tabular-nums text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   {grossMultiplier(selectedOdds).toFixed(2)}x
                 </span>
-                on {stake.toFixed(1)}
+                on {money(stake)}
               </p>
             </div>
           ) : (

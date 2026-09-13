@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 
 import { grossMultiplier } from "@/lib/f1/bet-odds";
+import { money } from "@/lib/f1/money";
 import { RoundArrow } from "../../round-arrow";
 
 export interface Pick {
@@ -100,7 +101,7 @@ function Face({ pick }: { pick: Pick }) {
       </span>
       <span className="w-full truncate text-[10px] leading-tight">{pick.name}</span>
       {pick.price !== null && (
-        <span className="text-[10px] tabular-nums text-zinc-500">{pick.price.toFixed(1)}</span>
+        <span className="text-[10px] tabular-nums text-zinc-500">{money(pick.price)}</span>
       )}
     </span>
   );
@@ -235,7 +236,7 @@ export function RosterHistory({
                     {bet.market} — <span className="text-zinc-500">{bet.selection}</span>
                   </span>
                   <span className="shrink-0 tabular-nums text-zinc-500">
-                    {bet.stake.toFixed(1)}
+                    {money(bet.stake)}
                     {bet.odds !== null && ` × ${grossMultiplier(bet.odds).toFixed(2)}`}
                   </span>
                   <span

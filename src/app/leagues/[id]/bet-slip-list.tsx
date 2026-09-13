@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { money } from "@/lib/f1/money";
 
 export interface RoundBet {
   memberId: string;
@@ -58,13 +59,13 @@ export function BetSlipList({ leagueId, bets }: { leagueId: string; bets: RoundB
                       figure is profit per unit — shown raw it read as getting
                       less back than you staked. */}
                   <span className="shrink-0 tabular-nums text-zinc-500">
-                    {bet.stake.toFixed(1)}
+                    {money(bet.stake)}
                     {bet.odds !== null && (
                       <>
                         {" "}
                         × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
                         <span className="text-zinc-900 dark:text-zinc-100">
-                          {payoutAt(bet.stake, bet.odds).toFixed(1)}
+                          {money(payoutAt(bet.stake, bet.odds))}
                         </span>
                       </>
                     )}
@@ -81,7 +82,7 @@ export function BetSlipList({ leagueId, bets }: { leagueId: string; bets: RoundB
                     {/* A settled winner shows what it actually paid rather than
                         the word "won", which is the figure being looked for. */}
                     {bet.outcome === "won" && bet.returned
-                      ? `+${bet.returned.toFixed(1)}`
+                      ? `+${money(bet.returned)}`
                       : (bet.outcome ?? "open")}
                   </span>
                 </li>

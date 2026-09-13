@@ -18,6 +18,7 @@ import {
 import { CONSTRUCTOR_SLOTS, MID_SLOTS, TOP_SLOTS } from "@/lib/f1/roster";
 import { EXTRA_CHANGE_FEE, FREE_CHANGES_PER_ROUND } from "@/lib/f1/ledger";
 import { CHIP_LIST } from "@/lib/f1/chips";
+import { money } from "@/lib/f1/money";
 import { MARKET_GROUPS, MARKET_LIST } from "@/lib/f1/betting";
 import { ODDS_WINDOW_RACES } from "@/lib/f1/bet-odds";
 import { TOP_BRACKET_SIZE, TOP_CONSTRUCTOR_BRACKET_SIZE, ROLLING_WINDOW_ROUNDS } from "@/lib/f1/tiers";
@@ -227,8 +228,8 @@ export default function RulesPage() {
 
       <Section title="Transfers and the cost cap">
         <p>
-          {FREE_CHANGES_PER_ROUND} free changes each round, then {EXTRA_CHANGE_FEE} cost cap per
-          change. Your cap moves with your roster: it grows when a driver you own rises in price
+          {FREE_CHANGES_PER_ROUND} free changes each round, then {money(EXTRA_CHANGE_FEE)} cost cap
+          per change. Your cap moves with your roster: it grows when a driver you own rises in price
           and shrinks when they fall, so a bad pick costs you twice.
         </p>
         <p>
@@ -243,7 +244,7 @@ export default function RulesPage() {
             <Row
               key={chip.id}
               label={`${chip.name} — ${chip.description}`}
-              value={`${chip.price}`}
+              value={money(chip.price)}
             />
           ))}
         </div>

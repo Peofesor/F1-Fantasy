@@ -9,6 +9,8 @@
  * deterministic and re-runnable rather than a judgement call.
  */
 
+import { money } from "./money";
+
 export type MarketId =
   | "race_winner"
   | "pole_position"
@@ -273,14 +275,14 @@ export function checkStake(
 ): StakeCheck {
   const max = maxStake(bank, leagueLimit);
   if (!Number.isFinite(stake) || stake < MIN_STAKE) {
-    return { allowed: false, max, reason: `Minimum stake is ${MIN_STAKE.toFixed(1)}.` };
+    return { allowed: false, max, reason: `Minimum stake is ${money(MIN_STAKE)}.` };
   }
   if (stake > max) {
     // Which limit bit is worth saying: "your bank" and "the house rule" call
     // for different fixes.
     const reason =
       leagueLimit !== null && leagueLimit < bank
-        ? `This league caps a bet at ${leagueLimit.toFixed(1)}.`
+        ? `This league caps a bet at ${money(leagueLimit)}.`
         : "You cannot stake more cap than your bank holds.";
     return { allowed: false, max, reason };
   }

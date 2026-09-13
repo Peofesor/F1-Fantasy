@@ -3,6 +3,7 @@
 import { useActionState, useRef } from "react";
 
 import { DEFAULT_COST_CAP, MIN_COST_CAP } from "@/lib/f1/ledger";
+import { money } from "@/lib/f1/money";
 import { ChipAllowanceFields } from "./chip-allowance-fields";
 import { createLeague, joinLeague, type LeagueActionState } from "./actions";
 
@@ -129,7 +130,9 @@ export function LeagueForms() {
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs text-zinc-500">Budget per member</span>
+            {/* The unit is in the label because it cannot be in the field: a
+                number input holds a number, so "$M" has nowhere else to go. */}
+            <span className="text-xs text-zinc-500">Budget per member ($M)</span>
             {/* A minimum, and no maximum. Below the minimum there is no legal
                 team to buy and the league would refuse every roster; above it,
                 how hard the league is belongs to whoever is running it. */}
@@ -142,7 +145,7 @@ export function LeagueForms() {
               className={inputClass}
             />
             <span className="block text-[11px] text-zinc-500">
-              At least {MIN_COST_CAP}, which is about what the cheapest legal team costs. No upper
+              At least {money(MIN_COST_CAP, 0)}, which is about what the cheapest legal team costs. No upper
               limit — set it high and everyone can afford the quick cars.
             </span>
           </label>

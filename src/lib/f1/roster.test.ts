@@ -68,7 +68,7 @@ describe("validateRoster", () => {
   it("rejects an otherwise legal roster that exceeds the cap", () => {
     const result = validateRoster(legal, { ...context, costCap: 130 });
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("Over budget by 15.0"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("Over budget by $15.0M"))).toBe(true);
   });
 
   it("still reports composition as complete when only the budget fails", () => {

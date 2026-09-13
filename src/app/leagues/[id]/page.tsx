@@ -3,10 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { buildLeagueStats } from "@/lib/f1/league-stats";
 import type { ChipAllowance } from "@/lib/f1/chips";
+import { money } from "@/lib/f1/money";
 import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
-import { type MatchupPick, type Side } from "./matchup-grid";
+import { LINEUP_ROWS, type Matchup, type MatchupPick, type Side } from "./matchup-card";
 import { MembersPanel } from "./members-panel";
 import { type RoundBet } from "./bet-slip-list";
 import { EventBrowser, type BrowsableEvent } from "./event-browser";
@@ -202,19 +203,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
   const nextRound = (calendar ?? []).find((entry) => entry.round === next?.round);
 
-  /** Who you are drawn against in one round, or null on a bye. */
-  const opponentIn = (round: number): string | null => {
-    const fixture = (fixtureRows ?? []).find(
-      (entry) =>
-        entry.round === round &&
-        (entry.home_member_id === selfMemberId || entry.away_member_id === selfMemberId),
-    );
-    if (!fixture) return null;
-    return fixture.home_member_id === selfMemberId
-      ? fixture.away_member_id
-      : fixture.home_member_id;
-  };
-
   const drivers = new Map(
     (driverRows ?? []).map((row) => [
       row.driver_id,
@@ -324,9 +312,35 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       };
     };
 
-    const inBracket = (...types: string[]) =>
-      slots.filter((slot) => types.includes(slot.slot_type)).map(pick);
+    const ofType = (type: string) =>
+      slots.filter((slot) => slot.slot_type === type).map(pick);
 
+    // The captain leads its bracket, which is where the card reads it. Sort is
+    // stable, so the rest keep the order the database gave them.
+    const captainFirst = (picks: MatchupPick[]) =>
+      [...picks].sort((a, b) => Number(b.captain) - Number(a.captain));
+
+    /** Held open with nulls so both sides of a row are the same slot. */
+    const pad = (picks: MatchupPick[], count: number) =>
+      Array.from({ length: count }, (_, index) => picks[index] ?? null);
+
+    const lineup = [
+      ...pad(captainFirst(ofType("driver_top")), 3),
+      ofType("constructor_top")[0] ?? null,
+      ...pad(captainFirst(ofType("driver_mid")), 3),
+      ofType("constructor_mid")[0] ?? null,
+      ofType("driver_backmarker")[0] ?? null,
+      ofType("constructor_reverse")[0] ?? null,
+    ];
+
+    if (lineup.length !== LINEUP_ROWS.length) {
+      // Not reachable from the code above, but the card lines the two sides up
+      // by index alone: a row added to one and not the other would silently
+      // compare a top driver against a backmarker.
+      throw new Error(`Lineup is ${lineup.length} slots, card expects ${LINEUP_ROWS.length}`);
+    }
+
+    const standing = standings.find((entry) => entry.memberId === memberId);
     const counted = sideStatus.find((entry) => entry.member === memberId);
     const score = (scoreRows ?? []).find(
       (entry) => entry.member_id === memberId && entry.round === round,
@@ -335,9 +349,11 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     return {
       memberId,
       name: nameByMemberId.get(memberId) ?? "Unknown",
-      top: inBracket("driver_top", "constructor_top"),
-      mid: inBracket("driver_mid", "constructor_mid"),
-      back: inBracket("driver_backmarker", "constructor_reverse"),
+      slots: lineup,
+      record: standing
+        ? { wins: standing.wins, draws: standing.draws, losses: standing.losses }
+        : null,
+      seasonPoints: standing?.points ?? 0,
       hasTeam: open ? (counted?.hasTeam ?? false) : Boolean(row),
       bets: open
         ? (counted?.bets ?? 0)
@@ -348,6 +364,56 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           ? null
           : Number(score.duel_points),
     };
+  };
+
+  /**
+   * Every fixture of one round, yours first.
+   *
+   * The hub used to build your own duel and stop there, which answered half of
+   * what a league asks on a Sunday: whether you are winning, but not whether the
+   * result matters. The rest of the round was reachable only by opening each
+   * rival's profile in turn.
+   *
+   * On the round still open the rows come back empty for everyone but you —
+   * row-level security withholds them until the lock — so those cards say the
+   * team is hidden rather than showing it. That is the same information the
+   * single card gave before, now given about the whole round.
+   */
+  const matchupsFor = (round: number, open: boolean): Matchup[] => {
+    const drawn = (fixtureRows ?? []).filter((fixture) => fixture.round === round);
+
+    const cards: Matchup[] = drawn.map((fixture) => {
+      const isSelf =
+        fixture.home_member_id === selfMemberId || fixture.away_member_id === selfMemberId;
+      // Your own side leads its card, so the left column is yours wherever you
+      // appear — the draw decides who is at home, and the reader should not have
+      // to find themselves before they can read a score.
+      const [left, right] =
+        fixture.away_member_id === selfMemberId
+          ? [fixture.away_member_id, fixture.home_member_id]
+          : [fixture.home_member_id, fixture.away_member_id];
+
+      return {
+        id: `${left}-${right}`,
+        sides: [sideFor(left, round, open), sideFor(right, round, open)],
+        isSelf,
+      };
+    });
+
+    // A bye leaves you off the fixture list, and your squad is still the one you
+    // came to look at. Other members' byes are left out: a lone side with
+    // nothing to compare it to is not a matchup, and four of them would bury the
+    // ones that are. A league with no fixtures at all — free-for-all, or before
+    // the schedule is drawn — lands here too, which is how it keeps its card.
+    const paired = new Set(drawn.flatMap((f) => [f.home_member_id, f.away_member_id]));
+    if (selfMemberId && !paired.has(selfMemberId)) {
+      const mine = sideFor(selfMemberId, round, open);
+      if (mine.hasTeam || mine.points !== null) {
+        cards.unshift({ id: selfMemberId, sides: [mine], isSelf: true });
+      }
+    }
+
+    return cards.sort((a, b) => Number(b.isSelf) - Number(a.isSelf));
   };
 
   /**
@@ -365,10 +431,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           const scored = (scoreRows ?? []).some(
             (score) => score.round === entry.round && memberIds.includes(score.member_id),
           );
-          const opponentId = opponentIn(entry.round);
-          const mine = selfMemberId ? sideFor(selfMemberId, entry.round, false) : null;
-          const theirs = opponentId ? sideFor(opponentId, entry.round, false) : null;
-
           return {
             round: entry.round,
             raceName: entry.race_name,
@@ -382,16 +444,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
               : entry.round === event.round
                 ? event.status
                 : ({ phase: "settling", live: false } as const),
-            // Both squads when there was a duel, and your own alone when there
-            // was not — a bye, a round before the schedule was drawn, or a
-            // league that does not play head to head. Dropping it in those
-            // cases threw away the one squad there was to look at.
-            sides:
-              mine && theirs
-                ? [mine, theirs]
-                : mine && (mine.hasTeam || mine.points !== null)
-                  ? [mine]
-                  : [],
+            matchups: matchupsFor(entry.round, false),
             drawn: (fixtureRows ?? []).some((fixture) => fixture.round === entry.round),
             bets: betsOn(entry.round),
           };
@@ -400,12 +453,16 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         // an arrow that lands on one is an arrow that wasted a click. The round
         // being run always stays, even when it is empty: it is the one the card
         // exists to announce.
+        // Kept on the same test as before, asked of your own card rather than
+        // of the round: the other fixtures are worth showing on a round you
+        // played, and worth nothing on one you were not there for.
         .filter(
           (entry) =>
-            entry.round === event.round || entry.sides.length > 0 || entry.bets.length > 0,
+            entry.round === event.round ||
+            entry.matchups.some((matchup) => matchup.isSelf) ||
+            entry.bets.length > 0,
         );
 
-  const nextOpponentId = next ? opponentIn(next.round) : null;
   const roundBets = next ? betsOn(next.round) : [];
 
   // A member whose bets are counted but not returned has them sealed. Derived
@@ -431,8 +488,6 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   const upcomingEvent: BrowsableEvent | null =
     next && nextRound
       ? (() => {
-          const mine = selfMemberId ? sideFor(selfMemberId, next.round, true) : null;
-          const theirs = nextOpponentId ? sideFor(nextOpponentId, next.round, true) : null;
           return {
             round: next.round,
             raceName: nextRound.race_name,
@@ -441,7 +496,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
             scored: false,
             status: null,
             upcoming: true,
-            sides: mine ? (theirs ? [mine, theirs] : [mine]) : [],
+            matchups: matchupsFor(next.round, true),
             drawn: (fixtureRows ?? []).some((fixture) => fixture.round === next.round),
             bets: roundBets,
             hiddenBets,
@@ -462,7 +517,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         <h1 className="text-2xl font-semibold tracking-tight">{league.name}</h1>
         <p className="text-sm text-zinc-500">
           {league.season} · {league.mode === "duel" ? "Duel" : "Free-for-all"} · cost cap{" "}
-          {Number(league.starting_cost_cap).toFixed(0)}
+          {money(Number(league.starting_cost_cap), 0)}
         </p>
       </header>
 

@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { MARKETS, marketsForRound, type MarketId } from "@/lib/f1/betting";
-import { loadMarketHistory } from "@/lib/f1/bet-history";
-import { oddsFor } from "@/lib/f1/bet-odds";
+import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import {
   CHIP_LIST,
   chipAvailability,
@@ -9,7 +7,9 @@ import {
   type ChipId,
   type ChipUsage,
 } from "@/lib/f1/chips";
+import { money } from "@/lib/f1/money";
 import { loadMemberContext } from "../member-context";
+import { loadBetForm } from "./bet-form-data";
 import { ChipStore } from "./chip-store";
 import { BetsPanel, type PlacedBet } from "./bets-panel";
 
@@ -54,69 +54,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
     };
   });
 
-  // Betting closes when qualifying starts, on the same clock as the roster —
-  // one deadline for the whole round. Asked of the database rather than derived
-  // here, so the form shuts on the same answer the insert policy will give.
-  // `locked_at` stays beside it as the manual freeze it has always been.
-  const [{ data: roster }, { data: qualifyingStarted }] = await Promise.all([
-    supabase
-      .from("rosters")
-      .select("locked_at")
-      .eq("member_id", memberId)
-      .eq("season", round.season)
-      .eq("round", round.round)
-      .maybeSingle(),
-    supabase.rpc("is_round_locked", {
-      target_season: round.season,
-      target_round: round.round,
-    }),
-  ]);
-
-  // Betting is gated on having a team, since both come out of the same cap.
-  const { data: hasRoster } = await supabase.rpc("fields_complete_roster", {
-    target_member: memberId,
-    target_season: round.season,
-    target_round: round.round,
-  });
-
-  // Sprint markets exist only on a sprint weekend. Settlement already voids
-  // them elsewhere, but a voided bet is discovered on Sunday night — by which
-  // point the player has spent a weekend holding a slip that was never going to
-  // pay. Not offering it is the same rule applied at the only useful moment.
-  const marketsThisRound = marketsForRound(round.hasSprint);
-
-  // Odds are per selection now, so every option carries its own price. Priced
-  // once here rather than per option in the client, which cannot see history.
-  const history = await loadMarketHistory(supabase, round.season);
-  const odds: Record<string, Record<string, number | null>> = {};
-  for (const market of marketsThisRound) {
-    const bySelection = history.get(market.id);
-    if (!bySelection) continue;
-    // Null is carried through rather than dropped: a selection the house will
-    // not take is not the same as one nobody has raced yet, and the client
-    // falls back to the listed price for the second. Dropping the first would
-    // quote a withdrawn near-certainty at its listed odds — the widest hole of
-    // the lot.
-    odds[market.id] = Object.fromEntries(
-      [...bySelection.keys()].map((selection) => [
-        selection,
-        oddsFor(market.id, bySelection.get(selection)),
-      ]),
-    );
-  }
-
-  // Priced competitors only. driverNames holds every driver the reference data
-  // has ever seen, which was offering bets on Magnussen and Sargeant in a 2026
-  // race; the price list is built from this season's results.
-  const bettableDrivers = [...round.driverPrices.keys()].map((driverId) => ({
-    id: driverId,
-    name: round.driverNames.get(driverId) ?? driverId,
-  }));
-
-  const bettableConstructors = [...round.constructorPrices.keys()].map((constructorId) => ({
-    id: constructorId,
-    name: round.constructorNames.get(constructorId) ?? constructorId,
-  }));
+  const form = await loadBetForm(supabase, memberId, round);
 
   // Chip inventory, so the store can show what is already in hand.
   const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
@@ -143,8 +81,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
     );
   });
 
-  const nationalities = [...new Set([...round.driverNationalities.values()])].sort();
-
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-3 pt-2">
@@ -158,7 +94,7 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
                 Paddock · to spend
               </p>
               <p className="mt-0.5 text-3xl font-semibold tabular-nums leading-none">
-                {balance.toFixed(1)}
+                {money(balance)}
               </p>
             </div>
             <p className="shrink-0 text-right text-xs text-zinc-500">
@@ -189,14 +125,8 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         round={round.round}
         bank={balance}
         bets={placedBets}
-        drivers={bettableDrivers}
-        constructors={bettableConstructors}
-        nationalities={nationalities}
-        locked={Boolean(roster?.locked_at) || Boolean(qualifyingStarted)}
-        hasRoster={Boolean(hasRoster)}
-        odds={odds}
-        markets={marketsThisRound.map((market) => market.id)}
         leagueLimit={league.max_stake}
+        {...form}
       />
 
       <ChipStore leagueId={league.id} chips={chipRows} balance={balance} />

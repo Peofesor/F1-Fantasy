@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { MAX_CHIP_QUANTITY, type ChipRow } from "@/lib/f1/chips";
+import { money } from "@/lib/f1/money";
 import { buyChip, type ChipState } from "../roster/chip-actions";
 
 /**
@@ -94,7 +95,7 @@ export function ChipStore({
                   </span>
 
                   <span className="mt-2 text-sm font-semibold tabular-nums">
-                    {chip.price.toFixed(1)}
+                    {money(chip.price)}
                   </span>
                 </button>
               </li>
@@ -115,7 +116,7 @@ export function ChipStore({
 
           <div className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-sm font-semibold">{selected.name}</span>
-            <span className="shrink-0 text-xs text-zinc-500">{selected.price.toFixed(1)} each</span>
+            <span className="shrink-0 text-xs text-zinc-500">{money(selected.price)} each</span>
           </div>
 
           <div className="mt-3 flex items-center gap-2">
@@ -137,7 +138,7 @@ export function ChipStore({
               disabled={pending || !affordable}
               className="ml-auto rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-ink)] disabled:opacity-40"
             >
-              {pending ? "Buying…" : `Buy for ${total.toFixed(1)}`}
+              {pending ? "Buying…" : `Buy for ${money(total)}`}
             </button>
           </div>
 
@@ -147,13 +148,13 @@ export function ChipStore({
           <p className="mt-2 text-xs tabular-nums text-zinc-500">
             {affordable ? (
               <>
-                {balance.toFixed(1)} to spend − {total.toFixed(1)} ={" "}
-                <strong className="text-zinc-900 dark:text-zinc-100">{remaining.toFixed(1)}</strong>{" "}
+                {money(balance)} to spend − {money(total)} ={" "}
+                <strong className="text-zinc-900 dark:text-zinc-100">{money(remaining)}</strong>{" "}
                 left
               </>
             ) : (
               <span className="text-red-600 dark:text-red-400">
-                That costs {total.toFixed(1)} and you have {balance.toFixed(1)}.
+                That costs {money(total)} and you have {money(balance)}.
               </span>
             )}
           </p>

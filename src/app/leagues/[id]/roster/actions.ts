@@ -8,6 +8,7 @@ import { validateRoster, type RosterSelection } from "@/lib/f1/roster";
 import { rosterSlotRows } from "@/lib/f1/roster-slots";
 import { carriedRoster } from "@/lib/f1/carry-forward";
 import { EXTRA_CHANGE_FEE, ledgerBalance, rosterChangeEntries, spendableCap, summariseTransfers } from "@/lib/f1/ledger";
+import { money } from "@/lib/f1/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SaveState = { error: string } | { ok: true; savedAt: string } | null;
@@ -308,8 +309,8 @@ export async function saveRoster(
   if (validation.cost + fee > costCap) {
     return {
       error:
-        `That needs ${(validation.cost + fee).toFixed(1)} including a ` +
-        `${fee.toFixed(1)} transfer fee, but your cap is ${costCap.toFixed(1)}.`,
+        `That needs ${money(validation.cost + fee)} including a ` +
+        `${money(fee)} transfer fee, but your cap is ${money(costCap)}.`,
     };
   }
 

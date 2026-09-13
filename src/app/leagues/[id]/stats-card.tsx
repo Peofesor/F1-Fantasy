@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { domainOf, type MemberSeries } from "@/lib/f1/league-stats";
+import { money } from "@/lib/f1/money";
 
 /**
  * The league's season as two panels sharing an x-axis.
@@ -73,7 +74,7 @@ function Panel({ series, metric, label, hovered, onHover }: PanelProps) {
       <figcaption className="mb-1 flex items-baseline justify-between text-xs text-zinc-500">
         <span>{label}</span>
         <span className="tabular-nums">
-          {metric === "cap" ? high.toFixed(1) : Math.round(high)} max
+          {metric === "cap" ? money(high) : Math.round(high)} max
         </span>
       </figcaption>
 
@@ -206,7 +207,7 @@ export function StatsCard({ series }: { series: MemberSeries[] }) {
               />
               <span>{member.name}</span>
               <span className="tabular-nums text-zinc-500">
-                {line ? `${Math.round(line.points)} · ${line.cap.toFixed(1)}` : member.total}
+                {line ? `${Math.round(line.points)} · ${money(line.cap)}` : member.total}
               </span>
             </li>
           );

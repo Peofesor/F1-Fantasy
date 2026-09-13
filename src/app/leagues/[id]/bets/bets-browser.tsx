@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { money } from "@/lib/f1/money";
+
 import { BetSlipList, type RoundBet } from "../bet-slip-list";
 import { PlacedBets, type PlacedBet } from "./placed-bets";
 
@@ -101,7 +103,7 @@ export function BetsBrowser({
         </select>
 
         <span className="shrink-0 text-xs tabular-nums text-zinc-500">
-          {onRound.length} bet{onRound.length === 1 ? "" : "s"} · {staked.toFixed(1)}
+          {onRound.length} bet{onRound.length === 1 ? "" : "s"} · {money(staked)}
         </span>
       </div>
 

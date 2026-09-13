@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { eventStatus, type EventPhase, type EventStatus } from "@/lib/f1/event-status";
+import { money } from "@/lib/f1/money";
 import { BetSlipList, type RoundBet } from "./bet-slip-list";
 import { RoundArrow } from "./round-arrow";
-import { MatchupGrid, type Side } from "./matchup-grid";
+import { MatchupCarousel } from "./matchup-carousel";
+import { type Matchup } from "./matchup-card";
 
 export interface BrowsableEvent {
   round: number;
@@ -24,10 +26,12 @@ export interface BrowsableEvent {
    */
   status: EventStatus | null;
   /**
-   * The squads to compare, yours first. Two on a drawn round, one when there
-   * was nobody to face, and none when there is nothing to show at all.
+   * Every fixture of the round, yours first. One card per duel — two squads,
+   * or one where somebody had a bye — and none at all when there is nothing to
+   * show. The whole round rather than only your own: on a Sunday the question
+   * is not just whether you are winning but whether it matters.
    */
-  sides: Side[];
+  matchups: Matchup[];
   /** Whether the round had fixtures at all, which tells a bye from no draw. */
   drawn: boolean;
   bets: RoundBet[];
@@ -148,7 +152,11 @@ export function EventBrowser({
   const hidden = event.hiddenBets ?? [];
   const hiddenTotal = hidden.reduce((total, entry) => total + entry.count, 0);
   const staked = event.bets.reduce((total, bet) => total + bet.stake, 0);
-  const result = event.sides[0]?.duelPoints;
+  // Your own fixture decides the wording in the header. It is the first card,
+  // but found by its flag rather than by position so a round you sat out — where
+  // the first card is somebody else's — cannot report their result as yours.
+  const yours = event.matchups.find((matchup) => matchup.isSelf);
+  const result = yours?.sides[0]?.duelPoints;
 
   return (
     <section className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_18%,var(--background))] dark:border-zinc-800">
@@ -206,18 +214,15 @@ export function EventBrowser({
         />
       </div>
 
-      {/* The fixture is named before the squads on the round to come, because
-          that is the question the browser is being stepped right to answer:
-          who you are drawn against next. On a round already run the scores in
-          the grid say it. */}
-      {event.upcoming && duel && event.sides.length > 1 && (
-        <p className="px-3 pt-2.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-          Next matchup · {event.sides[0].name} v {event.sides[1].name}
-        </p>
-      )}
-
-      {event.sides.length > 0 ? (
-        <MatchupGrid leagueId={leagueId} sides={event.sides} />
+      {/* The fixture used to be named in a line above the squads. The card
+          names both members itself now, so the line was saying it twice. */}
+      {event.matchups.length > 0 ? (
+        <MatchupCarousel
+          key={event.round}
+          leagueId={leagueId}
+          matchups={event.matchups}
+          duel={duel}
+        />
       ) : (
         <p className="px-4 py-3 text-xs text-zinc-500">
           {duel && event.drawn
@@ -235,7 +240,7 @@ export function EventBrowser({
           members somebody sits out every round, and telling that player the
           owner needs to draw fixtures would send them chasing a problem that
           does not exist. */}
-      {event.upcoming && duel && event.sides.length === 1 && (
+      {event.upcoming && duel && yours?.sides.length === 1 && (
         <p className="px-4 pb-3 text-xs text-zinc-500">
           {event.drawn
             ? `You have a bye in round ${event.round} — an odd number of members means one sits out each race. Your points still count toward the season total.`
@@ -250,7 +255,7 @@ export function EventBrowser({
               {event.scored ? "Settled" : "Riding on it"}
             </span>
             <span className="shrink-0 tabular-nums">
-              {event.bets.length} bet{event.bets.length === 1 ? "" : "s"} · {staked.toFixed(1)}{" "}
+              {event.bets.length} bet{event.bets.length === 1 ? "" : "s"} · {money(staked)}{" "}
               staked
             </span>
           </div>
@@ -280,12 +285,17 @@ export function EventBrowser({
         </div>
       )}
 
-      <div className="border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+      {/* The way into the betting page now that it is not a tab, so it is a
+          button rather than a grey footnote. "Bets" rather than a description of
+          what is through it: the destination is named the same everywhere it is
+          offered — here, and above the roster picker. */}
+      <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
         <Link
           href={`/leagues/${leagueId}/bets`}
-          className="text-xs text-zinc-500 underline-offset-2 hover:underline"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-[var(--accent-ink)]"
         >
-          Every round, every member →
+          Bets
+          <span aria-hidden>→</span>
         </Link>
       </div>
     </section>

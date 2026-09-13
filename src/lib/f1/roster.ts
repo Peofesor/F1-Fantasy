@@ -1,3 +1,4 @@
+import { money } from "./money";
 import type { Tier } from "./tiers";
 
 /**
@@ -200,7 +201,7 @@ export function validateRoster(
   const cost = rosterCostOf(selection, context);
   const remaining = Math.round((context.costCap - cost) * 10) / 10;
   if (remaining < 0) {
-    errors.push(`Over budget by ${Math.abs(remaining).toFixed(1)}.`);
+    errors.push(`Over budget by ${money(Math.abs(remaining))}.`);
   }
 
   const complete =
