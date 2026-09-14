@@ -13,7 +13,7 @@ import {
 } from "@/lib/f1/roster";
 import type { Tier } from "@/lib/f1/tiers";
 import type { ChipRow } from "@/lib/f1/chips";
-import { EXTRA_CHANGE_FEE } from "@/lib/f1/ledger";
+import { EXTRA_CHANGE_FEE, summariseTransfers } from "@/lib/f1/ledger";
 import { money } from "@/lib/f1/money";
 import { saveRoster, type SaveState } from "./actions";
 import { driverSeason, type DriverSeasonState } from "./driver-actions";
@@ -84,7 +84,6 @@ interface Props {
   leagueId: string;
   costCap: number;
   transfersUsed: number;
-  freeTransfers: number;
   drivers: PickOption[];
   constructors: PickOption[];
   initialSelection: RosterSelection;
@@ -268,7 +267,6 @@ export function RosterBuilder({
   leagueId,
   costCap,
   transfersUsed,
-  freeTransfers,
   drivers,
   constructors,
   initialSelection,
@@ -412,7 +410,34 @@ export function RosterBuilder({
   };
   // Captains are collected at save time, so they do not hold the button back.
   const readyToSave = empty === 0 && validation.remaining >= 0;
-  const freeRemaining = Math.max(0, freeTransfers - transfersUsed);
+
+  /**
+   * What the draft on screen would cost in transfers, recomputed as it changes.
+   *
+   * The header used to read the count straight off `transfersUsed`, which is
+   * the saved roster's figure — so swapping three drivers still said two free
+   * transfers right up until the save, and the fee only appeared in the ledger
+   * afterwards. The same function the Server Action charges with is run here,
+   * for the same reason the validator is: what you are told while picking
+   * should be what the server does when you save.
+   */
+  const ids = (list: readonly (string | null)[]) =>
+    list.filter((id): id is string => Boolean(id));
+
+  const transfers = useMemo(
+    () =>
+      summariseTransfers(
+        ids([...initialSelection.top, ...initialSelection.mid, initialSelection.backmarker]),
+        ids([...initialSelection.constructors, initialSelection.reverseConstructor]),
+        ids([...selection.top, ...selection.mid, selection.backmarker]),
+        ids([...selection.constructors, selection.reverseConstructor]),
+        transfersUsed,
+      ),
+    [initialSelection, selection, transfersUsed],
+  );
+
+  // What is left after the changes already on screen, not before them.
+  const freeRemaining = Math.max(0, transfers.freeRemaining - transfers.changes);
   const playedThisRound = chips.filter((chip) => chip.playedThisRound).length;
   const overBudget = validation.remaining < 0;
 
@@ -497,10 +522,16 @@ export function RosterBuilder({
               transfer is charged — when the first two of a round are free and
               only the third onward costs anything. Naming the amount is also
               the only way to know what the next swap will actually take. */}
-          <span className="text-zinc-500">
+          <span className={transfers.fee > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-500"}>
             {freeRemaining > 0
               ? `${freeRemaining} free transfer${freeRemaining === 1 ? "" : "s"} left`
-              : `${money(EXTRA_CHANGE_FEE)} per transfer now`}
+              : transfers.chargeable > 0
+                ? // Named before the save rather than discovered in the ledger
+                  // after it. This is the one number a player would want back.
+                  `${transfers.chargeable} paid transfer${
+                    transfers.chargeable === 1 ? "" : "s"
+                  } · ${money(transfers.fee)}`
+                : `${money(EXTRA_CHANGE_FEE)} per transfer now`}
           </span>
           <span className="tabular-nums">
             <strong className={overBudget ? "text-red-600 dark:text-red-400" : ""}>

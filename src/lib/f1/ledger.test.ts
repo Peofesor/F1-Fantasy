@@ -166,6 +166,21 @@ describe("summariseTransfers", () => {
     expect(summary.chargeable).toBe(2);
   });
 
+  it("reports the allowance before the changes, not after them", () => {
+    // The roster header counts down live while slots are being swapped, and it
+    // does that by subtracting `changes` from `freeRemaining` itself. If this
+    // ever started returning the figure net of the changes, the header would
+    // subtract them twice and claim a fee a round early.
+    const untouched = summariseTransfers(["a", "b"], [], ["a", "b"], []);
+    expect(untouched.freeRemaining).toBe(FREE_CHANGES_PER_ROUND);
+    expect(untouched.changes).toBe(0);
+
+    const oneSwapped = summariseTransfers(["a", "b"], [], ["a", "x"], []);
+    expect(oneSwapped.freeRemaining).toBe(FREE_CHANGES_PER_ROUND);
+    expect(oneSwapped.changes).toBe(1);
+    expect(oneSwapped.chargeable).toBe(0);
+  });
+
   it("counts constructor changes alongside driver changes", () => {
     const summary = summariseTransfers(["a"], ["x"], ["a"], ["y"]);
     expect(summary.changes).toBe(1);

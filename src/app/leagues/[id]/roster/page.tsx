@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { EMPTY_SELECTION, type RosterSelection } from "@/lib/f1/roster";
 import { carriedRoster } from "@/lib/f1/carry-forward";
-import { FREE_CHANGES_PER_ROUND, spendableCap } from "@/lib/f1/ledger";
+import { spendableCap } from "@/lib/f1/ledger";
 import {
   CHIP_LIST,
   chipAvailability,
@@ -253,7 +253,6 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
         leagueId={league.id}
         costCap={costCap}
         transfersUsed={existingRoster?.transfers_used ?? 0}
-        freeTransfers={FREE_CHANGES_PER_ROUND}
         drivers={drivers}
         constructors={constructors}
         initialSelection={selection}
