@@ -15,7 +15,7 @@ export function Standings({
   rows,
   names,
   mode,
-  inPlay,
+  cash,
   currentMemberId,
 }: {
   leagueId: string;
@@ -23,10 +23,10 @@ export function Standings({
   names: ReadonlyMap<string, string>;
   mode: LeagueMode;
   /**
-   * Cap each member has committed: the value of the team they are fielding plus
-   * anything still riding on a bet. Keyed by member; missing means nothing in.
+   * Where each member's cap is, keyed by member: the squad they hold, the bank
+   * left over, the stakes still riding, and the three added up.
    */
-  inPlay: ReadonlyMap<string, number>;
+  cash: ReadonlyMap<string, { drivers: number; bank: number; bets: number; total: number }>;
   currentMemberId?: string;
 }) {
   const scored = rows.some((row) => row.roundsPlayed > 0);
@@ -39,11 +39,13 @@ export function Standings({
           ? "Ranked on match points — win 1, draw 0.5. Ties split on total points."
           : "Ranked on cumulative fantasy points."}
       </p>
-      {/* What the last column counts, because "in play" could mean three things
-          and the sealing is the part that would otherwise look like a bug. */}
+      {/* What the money columns count. Drivers includes the teams held as well
+          as the drivers — it is the whole squad — and the sealing is the part
+          that would otherwise look like a bug. */}
       <p className="mt-0.5 text-xs text-zinc-500">
-        In play is the team being fielded plus any stake still riding. A rival&rsquo;s next team
-        and bets are sealed until qualifying, so theirs counts the last race until then.
+        Drivers is the whole squad at today&rsquo;s prices, teams included; bets is what is still
+        riding and cannot be got back yet. A rival&rsquo;s next squad and bets are sealed until
+        qualifying, so theirs count the last race until then.
       </p>
 
       {!scored ? (
@@ -65,7 +67,10 @@ export function Standings({
                   <th className="w-16 py-1 text-right font-medium">W-D-L</th>
                 )}
                 <th className="w-20 py-1 text-right font-medium">Points</th>
-                <th className="w-20 py-1 text-right font-medium">In play</th>
+                <th className="w-20 py-1 text-right font-medium">Drivers</th>
+                <th className="w-20 py-1 text-right font-medium">Bank</th>
+                <th className="w-20 py-1 text-right font-medium">Bets</th>
+                <th className="w-24 py-1 text-right font-medium">Total cash</th>
               </tr>
             </thead>
             <tbody>
@@ -95,7 +100,16 @@ export function Standings({
                   )}
                   <td className="py-1.5 text-right tabular-nums">{row.points.toFixed(0)}</td>
                   <td className="py-1.5 text-right tabular-nums text-zinc-500">
-                    {money(inPlay.get(row.memberId) ?? 0)}
+                    {money(cash.get(row.memberId)?.drivers ?? 0)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                    {money(cash.get(row.memberId)?.bank ?? 0)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                    {money(cash.get(row.memberId)?.bets ?? 0)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums">
+                    {money(cash.get(row.memberId)?.total ?? 0)}
                   </td>
                 </tr>
               ))}

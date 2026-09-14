@@ -232,8 +232,8 @@ const ROWS: {
   hint: string;
   /** Called out under the heading when the row does not score the usual way. */
   warning?: string;
-  groups: SlotKind[][];
-  filler?: number;
+  /** A null is a blank cell, which holds a short row in the columns above it. */
+  groups: (SlotKind | null)[][];
 }[] = [
   {
     title: "Top",
@@ -254,8 +254,12 @@ const ROWS: {
     // cap, the team scores points — and the header has room for the shared
     // half of that, not the mechanism.
     warning: "Reversed — a worse finish is worth more, and a retirement pays the most",
-    groups: [["backmarker"], ["reverse"]],
-    filler: 2,
+    // The pair used to sit in the first two driver columns, which put the
+    // backmarker team under the midfield drivers rather than under the teams it
+    // belongs with. Two blanks push them right: the backmarker driver lands
+    // under the last midfield driver and the backmarker team under the other
+    // two teams, so each column holds one kind of pick the whole way down.
+    groups: [[null, null, "backmarker"], ["reverse"]],
   },
 ];
 
@@ -369,7 +373,7 @@ export function RosterBuilder({
 
   /** How many picks a tier takes, and how many of them are made. */
   const rowSlots = (row: (typeof ROWS)[number]) =>
-    row.groups.reduce((total, group) => total + group.length, 0);
+    row.groups.reduce((total, group) => total + group.filter(Boolean).length, 0);
 
   const rowFilled = (row: (typeof ROWS)[number]) => {
     // Walks the row the same way the render does, since a kind repeats within
@@ -378,6 +382,7 @@ export function RosterBuilder({
     let filled = 0;
     for (const group of row.groups) {
       for (const kind of group) {
+        if (!kind) continue;
         const index = seen.get(kind) ?? 0;
         seen.set(kind, index + 1);
         if (bySlot.get(kind + "-" + index)?.occupantId) filled += 1;
@@ -567,7 +572,8 @@ export function RosterBuilder({
                   }}
                   className={groupIndex > 0 ? "ml-3 grid gap-2" : "grid gap-2"}
                 >
-                  {group.map((kind) => {
+                  {group.map((kind, cellIndex) => {
+                    if (!kind) return <div key={`blank-${cellIndex}`} aria-hidden />;
                     const index = counts.get(kind) ?? 0;
                     counts.set(kind, index + 1);
                     const slot = bySlot.get(kind + "-" + index)!;
@@ -586,9 +592,6 @@ export function RosterBuilder({
                   })}
                 </div>
               ))}
-              {row.filler ? (
-                <div aria-hidden style={{ flex: row.filler + " 1 0%" }} />
-              ) : null}
             </div>
           </section>
         );

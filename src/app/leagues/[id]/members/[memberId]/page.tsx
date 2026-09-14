@@ -61,7 +61,7 @@ export default async function MemberPage({
       supabase
         .from("rosters")
         .select(
-          "round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id, price_paid)",
+          "round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id, price_paid, points)",
         )
         .eq("member_id", memberId)
         .eq("season", league.season)
@@ -203,10 +203,12 @@ export default async function MemberPage({
       driver_id: string | null;
       constructor_id: string | null;
       price_paid: number | string | null;
+      points: number | string | null;
     }[];
 
     const picks: Pick[] = slots.map((slot) => {
       const price = slot.price_paid === null ? null : Number(slot.price_paid);
+      const points = slot.points === null || slot.points === undefined ? null : Number(slot.points);
 
       if (slot.driver_id) {
         const driver = drivers.get(slot.driver_id);
@@ -217,6 +219,7 @@ export default async function MemberPage({
           colour: driver?.colour,
           boost: boostOn(slot.driver_id),
           price,
+          points,
         };
       }
 
@@ -227,6 +230,7 @@ export default async function MemberPage({
         lineup: teamLineup.get(slot.constructor_id!),
         boost: null,
         price,
+        points,
       };
     });
 

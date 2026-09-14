@@ -18,6 +18,8 @@ export interface Pick {
   /** "2x", "3x" or null — what this pick's points were multiplied by. */
   boost: string | null;
   price: number | null;
+  /** What it scored for the round, boost included. Null before the round is scored. */
+  points: number | null;
 }
 
 export interface Bet {
@@ -42,6 +44,35 @@ const BRACKETS: { label: string; types: string[] }[] = [
   { label: "Midfield", types: ["driver_mid", "constructor_mid"] },
   { label: "Back of the grid", types: ["driver_backmarker", "constructor_reverse"] },
 ];
+
+/**
+ * What a pick scored, signed and coloured the way the round card does it, so a
+ * pick reads identically wherever it is met.
+ *
+ * Zero takes no sign in either direction. The backmarker reads with a minus
+ * because it is scored the other way up, but on a round where it paid cost cap
+ * instead its score really is nothing — and "-0" is not a number anyone means.
+ */
+function PickPoints({ pick }: { pick: Pick }) {
+  const points = pick.points ?? 0;
+  if (points === 0) {
+    return <span className="text-[11px] font-medium tabular-nums text-zinc-500">0 pts</span>;
+  }
+
+  const backmarker = pick.slotType === "driver_backmarker";
+  const lost = !backmarker && points < 0;
+
+  return (
+    <span
+      className={`text-[11px] font-medium tabular-nums ${
+        lost ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+      }`}
+    >
+      {backmarker ? `-${Math.abs(points).toFixed(0)}` : `${points > 0 ? "+" : ""}${points.toFixed(0)}`}{" "}
+      pts
+    </span>
+  );
+}
 
 function Face({ pick }: { pick: Pick }) {
   const accent = pick.colour ? `#${pick.colour}` : "#a1a1aa";
@@ -102,6 +133,12 @@ function Face({ pick }: { pick: Pick }) {
         )}
       </span>
       <span className="w-full truncate text-[10px] leading-tight">{pick.name}</span>
+      {/* What it scored, then what it cost. The profile showed only the price,
+          which said what the pick was worth to buy and nothing about whether it
+          was worth buying — the question a rival's page is opened to answer.
+          Signed and coloured the same way the round card does it, so a pick
+          reads identically wherever it is met. */}
+      {pick.points !== null && <PickPoints pick={pick} />}
       {pick.price !== null && (
         <span className="text-[10px] tabular-nums text-zinc-500">{money(pick.price)}</span>
       )}
@@ -213,7 +250,17 @@ export function RosterHistory({
 
       <div className="space-y-3 p-4">
         {BRACKETS.map((bracket) => {
-          const inBracket = squad.picks.filter((pick) => bracket.types.includes(pick.slotType));
+          // Drivers first, team last, which is the order the roster picker
+          // lays a bracket out in. The rows arrived in whatever order the
+          // database returned them, so a team could lead its own bracket here
+          // and trail it there — the same squad reading differently depending
+          // on which screen you met it on.
+          const inBracket = squad.picks
+            .filter((pick) => bracket.types.includes(pick.slotType))
+            .sort(
+              (a, b) =>
+                bracket.types.indexOf(a.slotType) - bracket.types.indexOf(b.slotType),
+            );
           if (inBracket.length === 0) return null;
           return (
             <div key={bracket.label}>

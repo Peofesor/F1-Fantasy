@@ -61,6 +61,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   const roster = members?.map((member) => ({
     id: member.id,
     isSelf: member.profile_id === user.id,
+    isOwner: member.profile_id === league.owner_id,
     name:
       (member.profiles as unknown as { display_name: string } | null)?.display_name ??
       "Unknown",
@@ -204,15 +205,20 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   );
 
   /**
-   * What each member has committed: the team they are fielding, valued at
-   * today's prices, plus every stake still riding on an unsettled bet.
+   * Where each member's cap currently is, split three ways.
    *
-   * Taken from the most recent roster that can actually be read, which is the
-   * round being picked for on your own row and the last locked race on a
-   * rival's — their next team is sealed until qualifying, and this reports what
-   * it can see rather than pretending the sealed round is empty.
+   * One number for "committed" hid the thing worth comparing: two members on
+   * the same total are in completely different positions if one of it is a team
+   * and the other's is riding on a bet. Drivers is the squad valued at today's
+   * prices, bank is what is left uncommitted, bets is what cannot be got back
+   * until the race settles — and the three add up to everything they have.
+   *
+   * The squad is taken from the most recent roster that can actually be read,
+   * which is the round being picked for on your own row and the last locked
+   * race on a rival's: their next team is sealed until qualifying, and this
+   * reports what it can see rather than pretending the sealed round is empty.
    */
-  const inPlay = new Map<string, number>();
+  const cash = new Map<string, { drivers: number; bank: number; bets: number; total: number }>();
   for (const memberId of memberIds) {
     const latest = (rosterRows ?? [])
       .filter((entry) => entry.member_id === memberId)
@@ -223,17 +229,29 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       constructor_id: string | null;
     }[];
 
-    const roster = slots.reduce((total, slot) => {
+    const drivers = slots.reduce((total, slot) => {
       if (slot.driver_id) return total + (driverPrice.get(slot.driver_id) ?? 0);
       if (slot.constructor_id) return total + (constructorPrice.get(slot.constructor_id) ?? 0);
       return total;
     }, 0);
 
-    const staked = (betRows ?? [])
+    // A stake leaves the bank the moment it is placed, so it is counted here
+    // rather than there — adding both would have every open bet twice.
+    const bets = (betRows ?? [])
       .filter((bet) => bet.member_id === memberId && bet.outcome === null)
       .reduce((total, bet) => total + Number(bet.stake), 0);
 
-    inPlay.set(memberId, Math.round((roster + staked) * 10) / 10);
+    const bank = (allLedger ?? [])
+      .filter((entry) => entry.member_id === memberId)
+      .reduce((total, entry) => total + Number(entry.amount), 0);
+
+    const round1 = (value: number) => Math.round(value * 10) / 10;
+    cash.set(memberId, {
+      drivers: round1(drivers),
+      bank: round1(bank),
+      bets: round1(bets),
+      total: round1(drivers + bank + bets),
+    });
   }
 
   const standings = buildStandings(
@@ -667,7 +685,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         rows={standings}
         names={nameByMemberId}
         mode={league.mode as LeagueMode}
-        inPlay={inPlay}
+        cash={cash}
         currentMemberId={selfMemberId}
       />
 

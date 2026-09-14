@@ -9,6 +9,8 @@ interface Member {
   id: string;
   name: string;
   isSelf: boolean;
+  /** Who created the league. Shown to everyone: it is who to ask. */
+  isOwner: boolean;
 }
 
 /**
@@ -55,13 +57,23 @@ export function MembersPanel({
 
       <ul className="mt-2 space-y-1 text-sm">
         {members.map((member) => (
-          <li key={member.id} className="flex items-baseline justify-between gap-3">
+          <li key={member.id} className="flex items-baseline gap-2">
             <Link
               href={`/leagues/${leagueId}/members/${member.id}`}
-              className="min-w-0 truncate underline-offset-2 hover:underline"
+              className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
             >
               {member.name}
             </Link>
+
+            {/* The owner is named for the whole league, not just to itself.
+                They set the budget, the chips and the fixtures, so everyone
+                should know whose league they have joined — and who to ask when
+                something needs changing. */}
+            {member.isOwner && (
+              <span className="shrink-0 rounded-full bg-[var(--accent)] px-2 text-[10px] font-semibold leading-4 text-[var(--accent-ink)]">
+                owner
+              </span>
+            )}
 
             {member.isSelf ? (
               <span className="shrink-0 text-xs text-zinc-500">you</span>
