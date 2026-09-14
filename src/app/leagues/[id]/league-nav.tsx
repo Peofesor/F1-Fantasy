@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS: { label: string; path: string }[] = [
   { label: "League", path: "" },
   { label: "Roster", path: "/roster" },
-  { label: "Paddock", path: "/paddock" },
+  { label: "Bets", path: "/paddock" },
 ];
 
 /**

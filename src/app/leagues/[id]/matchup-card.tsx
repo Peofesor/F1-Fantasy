@@ -34,6 +34,12 @@ export interface MatchupPick {
    */
   scoresPoints?: boolean;
   /**
+   * Whether this is the backmarker, which is scored the other way up: it earns
+   * by finishing badly, so its score is shown with a minus even though it is
+   * added like any other.
+   */
+  isBackmarker?: boolean;
+  /**
    * How the score came together, for the sheet a tap opens. Null on a round
    * scored before breakdowns were recorded, and on one not yet scored — in
    * both cases the pick is simply not a button.
@@ -273,13 +279,35 @@ function SlotPoints({ pick, better }: { pick: MatchupPick; better: boolean }) {
     );
   }
 
+  // Signed, because the sign is the fastest thing to read on a row of ten: a
+  // pick that earned carries a plus and goes green, one that cost you keeps its
+  // own minus and goes red.
+  //
+  // The backmarker is the exception that has to be shown, not explained. It is
+  // scored the other way up — the further back the car finishes, the more it
+  // earns — so it reads with a minus to say which way it is pointing, and stays
+  // green because it is still money in the bank. The sheet behind it shows the
+  // arithmetic as it actually adds up.
+  // A zero stays grey either way. Nothing was earned and nothing was lost, and
+  // colouring it green would put a pick that did nothing in the same ink as one
+  // that won the round.
+  const lost = !pick.isBackmarker && pick.points < 0;
+  const earned = pick.points !== 0;
+  const sign = pick.isBackmarker ? "-" : pick.points > 0 ? "+" : "";
+  const magnitude = pick.isBackmarker ? Math.abs(pick.points) : pick.points;
+
   return (
     <span
       className={`text-[11px] leading-tight tabular-nums ${better ? "font-semibold" : ""} ${
-        pick.points < 0 ? "text-red-600 dark:text-red-400" : "text-zinc-700 dark:text-zinc-300"
+        lost
+          ? "text-red-600 dark:text-red-400"
+          : earned
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-zinc-500"
       }`}
     >
-      {pick.points.toFixed(0)} pts
+      {sign}
+      {magnitude.toFixed(0)} pts
     </span>
   );
 }

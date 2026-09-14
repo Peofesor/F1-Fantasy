@@ -1,23 +1,15 @@
 import Link from "next/link";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
-import {
-  CHIP_LIST,
-  chipAvailability,
-  toChipRow,
-  type ChipId,
-  type ChipUsage,
-} from "@/lib/f1/chips";
 import { money } from "@/lib/f1/money";
 import { loadMemberContext } from "../member-context";
 import { loadBetForm } from "./bet-form-data";
-import { ChipStore } from "./chip-store";
 import { BetsPanel, type PlacedBet } from "./bets-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function BetsPage({ params }: PageProps<"/leagues/[id]/paddock">) {
   const { id } = await params;
-  const { supabase, memberId, league, round, balance, half } = await loadMemberContext(id);
+  const { supabase, memberId, memberName, league, round, balance } = await loadMemberContext(id);
 
   if (!round) {
     return (
@@ -56,31 +48,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
 
   const form = await loadBetForm(supabase, memberId, round);
 
-  // Chip inventory, so the store can show what is already in hand.
-  const [{ data: chipPlays }, { data: chipPurchases }] = await Promise.all([
-    supabase
-      .from("chip_plays")
-      .select("chip_id, round")
-      .eq("member_id", memberId)
-      .eq("season", round.season),
-    supabase.from("chip_purchases").select("chip_id").eq("member_id", memberId),
-  ]);
-
-  const usage: ChipUsage[] = (chipPlays ?? []).map((play) => ({
-    chipId: play.chip_id as ChipId,
-    round: play.round,
-  }));
-
-  const chipRows = CHIP_LIST.map((definition) => {
-    const owned = (chipPurchases ?? []).filter((row) => row.chip_id === definition.id).length;
-    return toChipRow(
-      chipAvailability(definition.id, usage, owned, round.round, half),
-      (chipPlays ?? []).some(
-        (play) => play.chip_id === definition.id && play.round === round.round,
-      ),
-    );
-  });
-
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
       <header className="space-y-3 pt-2">
@@ -91,13 +58,20 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                Paddock · to spend
+                To spend
               </p>
               <p className="mt-0.5 text-3xl font-semibold tabular-nums leading-none">
                 {money(balance)}
               </p>
             </div>
+            {/* Whose bank this is, above the race it is being spent on. In a
+                league of four the balance alone does not say who is looking at
+                it, and this is the one page where the number is the whole
+                point. */}
             <p className="shrink-0 text-right text-xs text-zinc-500">
+              <span className="block font-semibold text-zinc-900 dark:text-zinc-100">
+                {memberName}
+              </span>
               {round.raceName}
               <span className="block">Round {round.round}</span>
             </p>
@@ -129,7 +103,6 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/padd
         {...form}
       />
 
-      <ChipStore leagueId={league.id} chips={chipRows} balance={balance} />
     </main>
   );
 }

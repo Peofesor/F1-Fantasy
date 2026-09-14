@@ -25,5 +25,5 @@ export const LINEUP_ROWS: { label: string }[] = [
   { label: "Mid" },
   { label: "Mid team" },
   { label: "Backmarker" },
-  { label: "Reverse team" },
+  { label: "Backmarker team" },
 ];

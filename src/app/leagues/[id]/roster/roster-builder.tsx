@@ -137,7 +137,7 @@ const SLOT_LABELS: Record<SlotKind, string> = {
   backmarker: "Backmarker",
   constructorTop: "Top team",
   constructorMid: "Mid team",
-  reverse: "Reverse team",
+  reverse: "Backmarker team",
 };
 
 /**
@@ -519,7 +519,7 @@ export function RosterBuilder({
           </button>
 
           <Link
-            href={`/leagues/${leagueId}/bets`}
+            href={`/leagues/${leagueId}/paddock`}
             className="relative rounded-lg border border-zinc-300 px-3 py-2.5 text-center text-sm font-medium dark:border-zinc-700"
           >
             Bets
@@ -718,6 +718,7 @@ export function RosterBuilder({
               leagueId={leagueId}
               round={round}
               chips={chips}
+              balance={balance}
               driverOptions={chipDriverOptions}
               constructorOptions={chipConstructorOptions}
               topCaptainId={draft.topCaptainId}

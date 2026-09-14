@@ -3,7 +3,8 @@
 import { useActionState, useRef, useState } from "react";
 
 import type { ChipRow } from "@/lib/f1/chips";
-import { cancelChip, playChip, type ChipState } from "./chip-actions";
+import { money } from "@/lib/f1/money";
+import { buyChip, cancelChip, playChip, type ChipState } from "./chip-actions";
 
 /** A driver on the roster, and which bracket's slot they fill. */
 export interface ChipDriverOption {
@@ -16,6 +17,7 @@ export function ChipsPanel({
   leagueId,
   round,
   chips,
+  balance,
   driverOptions,
   constructorOptions,
   topCaptainId,
@@ -27,6 +29,8 @@ export function ChipsPanel({
   leagueId: string;
   round: number;
   chips: ChipRow[];
+  /** Spare cap, so a chip that cannot be afforded says so before it is tapped. */
+  balance: number;
   driverOptions: ChipDriverOption[];
   constructorOptions: { id: string; name: string }[];
   /** The current armbands, so SuperDriver can tell when it lands on one. */
@@ -48,6 +52,7 @@ export function ChipsPanel({
 }) {
   const [playState, playAction] = useActionState<ChipState, FormData>(playChip, null);
   const [cancelState, cancelAction] = useActionState<ChipState, FormData>(cancelChip, null);
+  const [buyState, buyAction] = useActionState<ChipState, FormData>(buyChip, null);
   const [targets, setTargets] = useState<Record<string, string>>({});
   // Who takes the 2x when the 3x lands on the driver already wearing it.
   const [heir, setHeir] = useState("");
@@ -105,13 +110,14 @@ export function ChipsPanel({
     setPending({ title, detail, confirmLabel, form: event.currentTarget, after });
   }
 
-  const message = playState ?? cancelState;
+  const message = playState ?? cancelState ?? buyState;
 
   return (
     // Titled by the sheet that opens it, so it carries no heading of its own.
     <section>
       <p className="text-xs text-zinc-500">
-        One free use each per season. Buy more in the paddock. One chip of a kind per round.
+        One free use each per season, and more can be bought here. One chip of a kind per round,
+        and a bought chip is not refundable.
       </p>
 
       {message && (
@@ -182,8 +188,40 @@ export function ChipsPanel({
             >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium">{chip.name}</span>
-                <span className="shrink-0 text-xs text-zinc-500">
-                  {`${chip.freeRemaining + chip.purchasedRemaining} left · ${chip.usedThisSeason} played`}
+                <span className="flex shrink-0 items-baseline gap-2">
+                  {/* Buying sits beside the count it changes. It used to be a
+                      separate store on another page, which meant leaving the
+                      team you were deciding about to go and buy the thing you
+                      wanted to use on it. */}
+                  <form
+                    action={buyAction}
+                    onSubmit={(event) =>
+                      confirmFirst(
+                        event,
+                        `Buy ${chip.name}?`,
+                        `${money(chip.price)} from your ${money(balance)}. Chips are not refundable — once bought, the cap is spent whether or not you ever play it.`,
+                        `Buy for ${money(chip.price)}`,
+                      )
+                    }
+                  >
+                    <input type="hidden" name="leagueId" value={leagueId} />
+                    <input type="hidden" name="chipId" value={chip.chipId} />
+                    <input type="hidden" name="quantity" value={1} />
+                    <button
+                      disabled={chip.price > balance}
+                      title={
+                        chip.price > balance
+                          ? `${money(chip.price)} and you have ${money(balance)}`
+                          : undefined
+                      }
+                      className="rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 dark:border-zinc-700"
+                    >
+                      Buy · {money(chip.price)}
+                    </button>
+                  </form>
+                  <span className="text-xs text-zinc-500">
+                    {`${chip.freeRemaining + chip.purchasedRemaining} left · ${chip.usedThisSeason} played`}
+                  </span>
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-zinc-500">{chip.description}</p>

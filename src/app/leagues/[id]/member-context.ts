@@ -19,6 +19,8 @@ export interface MemberContext {
   supabase: SupabaseClient;
   /** `league_members.id`, which is what every gameplay table keys off. */
   memberId: string;
+  /** The signed-in member's own display name, for saying whose page this is. */
+  memberName: string;
   league: {
     id: string;
     name: string;
@@ -54,7 +56,7 @@ export async function loadMemberContext(leagueId: string): Promise<MemberContext
     // leagues and league_members, so PostgREST sees a second relationship
     // between them and refuses an unqualified embed.
     .select(
-      "id, leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap, max_stake, chip_allowance, theme)",
+      "id, profiles(display_name), leagues!league_members_league_id_fkey(id, name, season, starting_cost_cap, max_stake, chip_allowance, theme)",
     )
     .eq("league_id", leagueId)
     .eq("profile_id", user.id)
@@ -100,6 +102,9 @@ export async function loadMemberContext(leagueId: string): Promise<MemberContext
   return {
     supabase,
     memberId: membership.id,
+    memberName:
+      (membership.profiles as unknown as { display_name: string } | null)?.display_name ??
+      "You",
     league,
     round,
     half,

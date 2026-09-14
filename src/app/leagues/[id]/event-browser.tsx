@@ -291,7 +291,7 @@ export function EventBrowser({
           offered — here, and above the roster picker. */}
       <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
         <Link
-          href={`/leagues/${leagueId}/bets`}
+          href={`/leagues/${leagueId}/paddock`}
           className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-[var(--accent-ink)]"
         >
           Bets

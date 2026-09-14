@@ -362,6 +362,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           // is not a bad pick — it is the wrong currency. The row says so
           // rather than letting the zero be read as a failure.
           scoresPoints: slot.slot_type !== "driver_backmarker",
+          isBackmarker: slot.slot_type === "driver_backmarker",
           breakdown: breakdownFor(slot),
         };
       }
