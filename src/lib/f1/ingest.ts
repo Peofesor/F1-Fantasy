@@ -230,6 +230,19 @@ export async function ingestRound(
   const { sessionKey, warning } = await resolveOpenF1Session(race, season);
   if (warning) warnings.push(warning);
 
+  // The roster lock deadline. On a sprint weekend the sprint runs before the
+  // main race but after qualifying, so qualifying remains the earliest point at
+  // which the grid starts being decided.
+  //
+  // The results feed does not carry session times — only the schedule feed
+  // does — so this is null on every round ingested here. Writing that null
+  // erased the deadline the calendar had set: the round stopped counting as a
+  // weekend that had started, so it vanished from the event browser and the
+  // arrows jumped straight over it. Calendar ingestion owns the column, the
+  // same way this owns `openf1_session_key`, so it is only written when the
+  // payload actually carries one.
+  const qualifyingAt = sessionInstant(race.Qualifying);
+
   assertOk(
     (
       await supabase.from("rounds").upsert(
@@ -243,10 +256,7 @@ export async function ingestRound(
           locality: race.Circuit.Location.locality,
           race_date: race.date,
           race_time: race.time ? race.time.replace("Z", "") : null,
-          // The roster lock deadline. On a sprint weekend the sprint runs
-          // before the main race but after qualifying, so qualifying remains
-          // the earliest point at which the grid starts being decided.
-          qualifying_at: sessionInstant(race.Qualifying),
+          ...(qualifyingAt === null ? {} : { qualifying_at: qualifyingAt }),
           openf1_session_key: sessionKey,
         },
         { onConflict: "season,round" },
