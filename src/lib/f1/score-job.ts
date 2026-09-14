@@ -28,6 +28,7 @@ export interface ScoreReport {
 interface SlotRow {
   slot_type: string;
   slot_index: number;
+  price_paid: number;
   driver_id: string | null;
   constructor_id: string | null;
 }
@@ -248,7 +249,7 @@ export async function scoreRound(
   const { data: rosters, error } = await supabase
     .from("rosters")
     .select(
-      "id, member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, slot_index, driver_id, constructor_id)",
+      "id, member_id, top_captain_id, mid_captain_id, roster_slots(slot_type, slot_index, driver_id, constructor_id, price_paid)",
     )
     .eq("season", season)
     .eq("round", round);
@@ -289,6 +290,24 @@ export async function scoreRound(
   const pointsByMember = new Map<string, number>();
   const scoreRows: { member_id: string; season: number; round: number; points: number; duel_points: number | null }[] = [];
   const ledgerEntries: LedgerEntry[] = [];
+  /**
+   * Each pick's own score, written back onto the slot that made it.
+   *
+   * The whole roster is upserted rather than updated slot by slot, so a round
+   * costs one request instead of one per pick. That means resending the columns
+   * the row already has — a partial upsert would fail the not-null on
+   * `price_paid` if it ever had to insert — so they are carried through
+   * unchanged from what was read.
+   */
+  const slotPointRows: {
+    roster_id: string;
+    slot_type: string;
+    slot_index: number;
+    driver_id: string | null;
+    constructor_id: string | null;
+    price_paid: number;
+    points: number;
+  }[] = [];
 
   for (const roster of rosters ?? []) {
     const slots = (roster.roster_slots ?? []) as unknown as SlotRow[];
@@ -305,6 +324,26 @@ export async function scoreRound(
 
     const score = scoreRoster(selection, facts, active);
     pointsByMember.set(roster.member_id, score.points);
+
+    // Matched on who the pick was rather than on the slot it sat in: scoring
+    // labels both constructor brackets "constructor", while the roster keeps
+    // them apart as constructor_top and constructor_mid. A competitor can fill
+    // only one slot on a roster — there are unique indexes saying so — which
+    // makes the occupant the unambiguous key between the two.
+    const scoredFor = new Map(score.slots.map((entry) => [entry.competitorId, entry.points]));
+    for (const slot of slots) {
+      const points = scoredFor.get(slot.driver_id ?? slot.constructor_id ?? "");
+      if (points === undefined) continue;
+      slotPointRows.push({
+        roster_id: roster.id,
+        slot_type: slot.slot_type,
+        slot_index: slot.slot_index,
+        driver_id: slot.driver_id,
+        constructor_id: slot.constructor_id,
+        price_paid: slot.price_paid,
+        points,
+      });
+    }
     scoreRows.push({
       member_id: roster.member_id,
       season,
@@ -390,6 +429,13 @@ export async function scoreRound(
       .from("round_scores")
       .upsert(scoreRows, { onConflict: "member_id,season,round" });
     if (writeError) throw new Error(`Could not write scores: ${writeError.message}`);
+  }
+
+  if (slotPointRows.length) {
+    const { error: slotError } = await supabase
+      .from("roster_slots")
+      .upsert(slotPointRows, { onConflict: "roster_id,slot_type,slot_index" });
+    if (slotError) throw new Error(`Could not write slot points: ${slotError.message}`);
   }
 
   // Ledger entries for this round are replaced rather than appended to, so

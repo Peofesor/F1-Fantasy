@@ -124,7 +124,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     supabase
       .from("rosters")
       .select(
-        "member_id, round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id)",
+        "member_id, round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id, points)",
       )
       .in("member_id", memberIds)
       .eq("season", league.season),
@@ -297,6 +297,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       slot_type: string;
       driver_id: string | null;
       constructor_id: string | null;
+      /** Null until the round is scored; numeric comes back as a string. */
+      points: number | string | null;
     }[];
     const captains = [row?.top_captain_id, row?.mid_captain_id].filter(Boolean);
 
@@ -319,6 +321,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       return doubled ? "2x" : null;
     };
 
+    // What the pick scored, once the round has been. Null and zero are
+    // different answers — nothing scored yet, against scored nothing — so the
+    // absent case is preserved rather than collapsed to 0.
+    const scoredPoints = (slot: (typeof slots)[number]): number | null =>
+      slot.points === null || slot.points === undefined ? null : Number(slot.points);
+
     const pick = (slot: (typeof slots)[number]): MatchupPick => {
       if (slot.driver_id) {
         const driver = drivers.get(slot.driver_id);
@@ -328,6 +336,11 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           colour: driver?.colour,
           boost: boostOn(slot.driver_id),
           isTeam: false,
+          points: scoredPoints(slot),
+          // The backmarker is paid in cost cap, not points, so a 0 next to it
+          // is not a bad pick — it is the wrong currency. The row says so
+          // rather than letting the zero be read as a failure.
+          scoresPoints: slot.slot_type !== "driver_backmarker",
         };
       }
       const team = constructors.get(slot.constructor_id!);
@@ -337,6 +350,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         lineup: team?.lineup,
         boost: null,
         isTeam: true,
+        points: scoredPoints(slot),
+        scoresPoints: true,
       };
     };
 

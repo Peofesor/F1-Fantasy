@@ -16,6 +16,17 @@ export interface MatchupPick {
   boost: string | null;
   /** Teams are drawn as two overlapping faces rather than one. */
   isTeam: boolean;
+  /**
+   * What this pick scored for the round, boost included, or null before the
+   * round is scored. Null and 0 are different answers and are shown as such.
+   */
+  points?: number | null;
+  /**
+   * Whether this slot pays in points at all. The backmarker pays cost cap
+   * instead, so its 0 means "not that kind of slot" rather than "scored
+   * nothing", and a row that showed the number flat would libel the pick.
+   */
+  scoresPoints?: boolean;
 }
 
 /**
@@ -122,7 +133,16 @@ function MemberAvatar({ side, size }: { side: Side; size: number }) {
  * label: the two things being compared end up adjacent instead of a column
  * apart.
  */
-function PickFace({ pick, mirrored }: { pick: MatchupPick | null; mirrored: boolean }) {
+function PickFace({
+  pick,
+  mirrored,
+  better = false,
+}: {
+  pick: MatchupPick | null;
+  mirrored: boolean;
+  /** Whether this pick out-scored the one it faces, which the score is bolded for. */
+  better?: boolean;
+}) {
   if (!pick) {
     return (
       <span
@@ -199,13 +219,52 @@ function PickFace({ pick, mirrored }: { pick: MatchupPick | null; mirrored: bool
       {/* Wrapped rather than truncated: two squads mirrored across a label
           leave each name about half a phone wide, and an ellipsis there hides
           the one word being compared. */}
-      <span
-        className={`line-clamp-2 min-w-0 flex-1 text-[11px] leading-tight ${
-          mirrored ? "text-right" : ""
-        }`}
-      >
-        {displayName(pick)}
+      <span className={`flex min-w-0 flex-1 flex-col ${mirrored ? "items-end" : "items-start"}`}>
+        <span className={`line-clamp-2 w-full text-[11px] leading-tight ${mirrored ? "text-right" : ""}`}>
+          {displayName(pick)}
+        </span>
+        {/* The score sits under the name rather than in a column of its own.
+            Two more columns is what a phone does not have: they took about
+            thirty pixels a side and turned "Ferrari" into "Fen". Under the name
+            it costs nothing horizontally, and the two numbers still land on one
+            row either side of the slot they belong to. */}
+        <SlotPoints pick={pick} better={better} />
       </span>
+    </span>
+  );
+}
+
+/**
+ * What one pick scored, under the name it belongs to.
+ *
+ * Nothing at all before the round is scored, so a squad still to run reads
+ * exactly as it did before this existed.
+ *
+ * `better` bolds the higher of the two in a row. Ten rows of colour would be
+ * noise, but the row is on the card to be won or lost, and bold says which
+ * without adding a fifth thing to look at. A negative score is red, because it
+ * is the one number here that means the opposite of what its size suggests.
+ */
+function SlotPoints({ pick, better }: { pick: MatchupPick; better: boolean }) {
+  if (pick.points === null || pick.points === undefined) return null;
+
+  // The backmarker pays cost cap rather than points, so its zero is a category
+  // rather than a score. Saying so does not read as a pick that failed.
+  if (pick.scoresPoints === false) {
+    return (
+      <span className="text-[10px] leading-tight text-zinc-400" title="Pays cost cap, not points">
+        pays cap
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`text-[11px] leading-tight tabular-nums ${better ? "font-semibold" : ""} ${
+        pick.points < 0 ? "text-red-600 dark:text-red-400" : "text-zinc-700 dark:text-zinc-300"
+      }`}
+    >
+      {pick.points.toFixed(0)} pts
     </span>
   );
 }
@@ -360,24 +419,51 @@ export function MatchupLineup({ matchup }: { matchup: Matchup }) {
           {emptyNote(side)}
         </p>
       ))}
-      {LINEUP_ROWS.map((row, index) => (
-        <div
-          key={`${row.label}-${index}`}
-          className="flex items-center gap-2 px-2.5 py-1.5 odd:bg-[color-mix(in_oklab,var(--accent)_7%,var(--background))]"
-        >
-          <PickFace pick={mine.slots[index] ?? null} mirrored={false} />
+      {LINEUP_ROWS.map((row, index) => {
+        const ours = mine.slots[index] ?? null;
+        const yours = theirs?.slots[index] ?? null;
 
-          {/* The multiplier used to be repeated here as well as on the face.
-              It only ever said which slot could hold the armband, and now that
-              SuperDriver can triple any of the six driver slots, the badge on
-              the face is the one that can tell the truth about a given pick. */}
-          <span className="w-16 shrink-0 text-center text-[9px] font-medium uppercase leading-tight tracking-wide text-zinc-400">
-            {row.label}
-          </span>
+        // Only a scored row has a better side, and only where the two differ:
+        // bolding both halves of a draw says nothing and looks like an error.
+        const scored = (pick: MatchupPick | null) =>
+          pick && pick.scoresPoints !== false && pick.points !== null && pick.points !== undefined
+            ? pick.points
+            : null;
+        const ourPoints = scored(ours);
+        const theirPoints = scored(yours);
+        const comparable = ourPoints !== null && theirPoints !== null && ourPoints !== theirPoints;
 
-          {theirs ? <PickFace pick={theirs.slots[index] ?? null} mirrored /> : <span className="min-w-0 flex-1" />}
-        </div>
-      ))}
+        return (
+          <div
+            key={`${row.label}-${index}`}
+            className="flex items-center gap-2 px-2.5 py-1.5 odd:bg-[color-mix(in_oklab,var(--accent)_7%,var(--background))]"
+          >
+            <PickFace
+              pick={ours}
+              mirrored={false}
+              better={comparable && ourPoints > theirPoints}
+            />
+
+            {/* The multiplier used to be repeated here as well as on the face.
+                It only ever said which slot could hold the armband, and now that
+                SuperDriver can triple any of the six driver slots, the badge on
+                the face is the one that can tell the truth about a given pick. */}
+            <span className="w-16 shrink-0 text-center text-[9px] font-medium uppercase leading-tight tracking-wide text-zinc-400">
+              {row.label}
+            </span>
+
+            {theirs ? (
+              <PickFace
+                pick={yours}
+                mirrored
+                better={comparable && theirPoints > ourPoints}
+              />
+            ) : (
+              <span className="min-w-0 flex-1" />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
