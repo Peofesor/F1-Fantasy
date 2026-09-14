@@ -93,6 +93,28 @@ describe("transferFeeEntries", () => {
   it("charges nothing for no changes at all", () => {
     expect(transferFeeEntries("m", 2026, 5, 0)).toEqual([]);
   });
+
+  it("charges nothing at every count up to the allowance", () => {
+    // The rule players are told is "your first two are free". Pinned across
+    // the whole range rather than at the boundary, so an off-by-one that
+    // charged the second change could not pass.
+    for (let changes = 0; changes <= FREE_CHANGES_PER_ROUND; changes++) {
+      expect(transferFeeEntries("m", 2026, 5, changes)).toEqual([]);
+    }
+  });
+
+  it("charges a round five for each change past the free two", () => {
+    // The amount is deliberately a whole number: it is weighed against a squad
+    // priced in millions, and it is meant to be felt.
+    expect(EXTRA_CHANGE_FEE).toBe(5);
+    expect(FREE_CHANGES_PER_ROUND).toBe(2);
+
+    const [one] = transferFeeEntries("m", 2026, 5, 3);
+    expect(one.amount).toBe(-5);
+
+    const [two] = transferFeeEntries("m", 2026, 5, 4);
+    expect(two.amount).toBe(-10);
+  });
 });
 
 describe("backmarkerPayoutEntry", () => {

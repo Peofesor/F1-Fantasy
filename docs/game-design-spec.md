@@ -262,7 +262,7 @@ Measured on the real 2026 Monza round against a roster scoring 193: Turbo +65, K
 ## 7. Roster changes (transfers)
 
 - **2 free changes per round**, matching the official game. One would make any reaction to a price move or a mid-season driver swap punitive; unlimited would make the cap irrelevant, since you could always chase the best-value picks.
-- **4.0 cost cap per change beyond the allowance** — the price of the cheapest possible driver, so an extra transfer costs about as much as a backmarker and three or four cost a real upgrade. The official game charges points; charging the cap keeps every cost in this game denominated in one currency (§2).
+- **5.0 cost cap per change beyond the allowance**, and nothing at all within it. Raised from 4.0 on 2026-09-14: four was the price of the cheapest driver, which made the fee read as a rounding error beside a roster in the hundreds. Five is a round number a player can weigh against a squad priced in whole millions, and the fee is meant to be felt. The official game charges points; charging the cap keeps every cost in this game denominated in one currency (§2).
 - A roster's first submission in a round is not a transfer — only later edits are.
 - The Wildcard chip (§6) removes this cost entirely for one week when used.
 

@@ -141,12 +141,18 @@ export const FREE_CHANGES_PER_ROUND = 2;
 /**
  * Cost cap charged per change beyond the free allowance.
  *
- * Set at 4.0 — the price of the cheapest possible driver — so an extra transfer
- * costs about as much as a backmarker, and three or four of them cost a real
- * upgrade. The official game charges points instead; charging the cap keeps
- * every cost in this game denominated in one currency (spec §2).
+ * Nothing is charged for the first `FREE_CHANGES_PER_ROUND` changes of a round:
+ * reacting to a price move or a driver change is part of playing, not something
+ * to be taxed. This is what the third change onward costs.
+ *
+ * A round 5 rather than the 4 it started at. Four was the price of the cheapest
+ * driver, which made the fee read as a rounding error next to a roster in the
+ * hundreds; five is a number a player can hold in their head against a squad
+ * priced in whole millions, and it is meant to be felt. The official game
+ * charges points instead; charging the cap keeps every cost in this game
+ * denominated in one currency (spec §2).
  */
-export const EXTRA_CHANGE_FEE = 4.0;
+export const EXTRA_CHANGE_FEE = 5.0;
 
 export function transferFeeEntries(
   memberId: string,

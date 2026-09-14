@@ -13,6 +13,7 @@ import {
 } from "@/lib/f1/roster";
 import type { Tier } from "@/lib/f1/tiers";
 import type { ChipRow } from "@/lib/f1/chips";
+import { EXTRA_CHANGE_FEE } from "@/lib/f1/ledger";
 import { money } from "@/lib/f1/money";
 import { saveRoster, type SaveState } from "./actions";
 import { driverSeason, type DriverSeasonState } from "./driver-actions";
@@ -491,10 +492,15 @@ export function RosterBuilder({
     <div className="space-y-4">
       <section className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
         <div className="flex items-baseline justify-between text-sm">
+          {/* Said as a price rather than as a state. "Transfers cost cap" sat
+              beside the budget figure and read as a standing rule — that every
+              transfer is charged — when the first two of a round are free and
+              only the third onward costs anything. Naming the amount is also
+              the only way to know what the next swap will actually take. */}
           <span className="text-zinc-500">
             {freeRemaining > 0
-              ? `${freeRemaining} free transfer${freeRemaining === 1 ? "" : "s"}`
-              : "Transfers cost cap"}
+              ? `${freeRemaining} free transfer${freeRemaining === 1 ? "" : "s"} left`
+              : `${money(EXTRA_CHANGE_FEE)} per transfer now`}
           </span>
           <span className="tabular-nums">
             <strong className={overBudget ? "text-red-600 dark:text-red-400" : ""}>
