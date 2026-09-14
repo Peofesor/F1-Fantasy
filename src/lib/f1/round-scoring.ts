@@ -30,11 +30,44 @@ export interface RoundFacts {
   fieldSize: number;
 }
 
+/**
+ * One contributing line in a slot's score, ready to be read rather than
+ * recomputed.
+ *
+ * Deliberately flat and presentation-neutral: a driver's line is a scoring
+ * component ("Race", "Overtakes"), a team's line is one of its cars. The label
+ * is the final word for components; for a car it is the driver id, which only
+ * the page can turn into a name, so `driverId` marks that case rather than
+ * making every reader guess which kind of label it is holding.
+ */
+export interface SlotBreakdownLine {
+  label: string;
+  /** Set when the line is one of a team's cars; `label` is then the same id. */
+  driverId?: string;
+  points: number;
+}
+
+/**
+ * How a slot's score came together, in the order it should be read.
+ *
+ * `subtotal` is before any chip: the multiplier is on the pick's badge already,
+ * and the difference between this and the stored points is what the chip did.
+ * A slot nobody can break down — a backmarker, or a pick with no result —
+ * carries an empty list and says why in `note`.
+ */
+export interface SlotBreakdown {
+  lines: SlotBreakdownLine[];
+  subtotal: number;
+  note?: string;
+}
+
 export interface SlotScore {
   slot: string;
   competitorId: string;
   points: number;
   breakdown?: ScoreBreakdown;
+  /** The same score told as lines, for showing a player where it came from. */
+  detail: SlotBreakdown;
 }
 
 export interface RosterScore {
@@ -69,6 +102,36 @@ export function constructorScore(constructorId: string, facts: RoundFacts): numb
  * A missing competitor scores nothing rather than throwing: a driver can be
  * replaced mid-season, and a roster picked before that should still score.
  */
+/**
+ * A driver's scoring components as readable lines, zeros left out.
+ *
+ * Everything that scored nothing is dropped: a list of ten rows where eight say
+ * 0 buries the two that explain the score. Penalties are the exception worth
+ * naming — they are the reason a good race can still read badly — but they are
+ * only ever non-zero when something went wrong, so the same rule covers them.
+ *
+ * Ordered as the weekend ran rather than by size, so the list can be read as a
+ * story: Saturday, then Sunday, then what was added or taken off at the end.
+ */
+function driverLines(breakdown: ScoreBreakdown): SlotBreakdownLine[] {
+  const labels: [keyof ScoreBreakdown, string][] = [
+    ["qualifying", "Qualifying"],
+    ["qualifyingProgress", "Qualifying progress"],
+    ["sprint", "Sprint"],
+    ["race", "Race finish"],
+    ["positionsGained", "Positions gained"],
+    ["overtakes", "Overtakes"],
+    ["fastestLap", "Fastest lap"],
+    ["driverOfTheDay", "Driver of the day"],
+    ["teammate", "Beat teammate"],
+    ["penalties", "Penalties"],
+  ];
+
+  return labels
+    .map(([key, label]) => ({ label, points: breakdown[key] }))
+    .filter((line) => line.points !== 0);
+}
+
 export function scoreRoster(
   selection: RosterSelection,
   facts: RoundFacts,
@@ -84,6 +147,16 @@ export function scoreRoster(
       competitorId: driverId,
       points: breakdown?.total ?? 0,
       breakdown,
+      detail: breakdown
+        ? { lines: driverLines(breakdown), subtotal: breakdown.total }
+        : {
+            lines: [],
+            subtotal: 0,
+            // A driver in the field would have a result, so this is one who was
+            // not: withdrawn, or never entered. Saying nothing here would leave
+            // a bare 0 looking like a scoring failure.
+            note: "Did not take part in this round.",
+          },
     });
   };
 
@@ -97,25 +170,64 @@ export function scoreRoster(
     budget = input
       ? backmarkerBudget(input.finishPosition, input.classification, facts.fieldSize)
       : 0;
-    slots.push({ slot: "driver_backmarker", competitorId: selection.backmarker, points: 0 });
+    slots.push({
+      slot: "driver_backmarker",
+      competitorId: selection.backmarker,
+      points: 0,
+      detail: {
+        lines: [],
+        subtotal: 0,
+        note: `Pays cost cap, not points. Earned ${budget} this round.`,
+      },
+    });
   }
 
   for (const constructorId of selection.constructors) {
+    // A team's score is its cars added up, so its cars are the breakdown. Two
+    // lines that sum to the total is the whole explanation.
+    const seats = facts.constructorDrivers.get(constructorId) ?? [];
+    const lines = seats.map((driverId) => ({
+      label: driverId,
+      driverId,
+      points: facts.drivers.get(driverId) ? scoreDriver(facts.drivers.get(driverId)!).total : 0,
+    }));
+
     slots.push({
       slot: "constructor",
       competitorId: constructorId,
       points: constructorScore(constructorId, facts),
+      detail: {
+        lines,
+        subtotal: constructorScore(constructorId, facts),
+        note: lines.length === 0 ? "No cars classified for this team." : undefined,
+      },
     });
   }
 
   if (selection.reverseConstructor) {
+    const placing = facts.constructorRanking.indexOf(selection.reverseConstructor);
+    const points = reverseConstructorPoints(
+      selection.reverseConstructor,
+      facts.constructorRanking,
+    );
+
     slots.push({
       slot: "constructor_reverse",
       competitorId: selection.reverseConstructor,
-      points: reverseConstructorPoints(
-        selection.reverseConstructor,
-        facts.constructorRanking,
-      ),
+      points,
+      detail: {
+        lines:
+          placing === -1
+            ? []
+            : [{ label: `Finished ${placing + 1} of ${facts.constructorRanking.length} teams`, points }],
+        subtotal: points,
+        // The slot pays for being slow, which is the opposite of every other
+        // row on the card and worth saying where the number is read.
+        note:
+          placing === -1
+            ? "This team was not ranked on race pace this round."
+            : "The reverse slot pays one point per place from the front, so a slower team is worth more.",
+      },
     });
   }
 

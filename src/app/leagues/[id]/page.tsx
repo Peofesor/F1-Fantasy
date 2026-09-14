@@ -7,7 +7,8 @@ import { money } from "@/lib/f1/money";
 import { LeagueSettings } from "./league-settings";
 import { LeaveLeague } from "./leave-league";
 import { StatsCard } from "./stats-card";
-import { LINEUP_ROWS, type Matchup, type MatchupPick, type Side } from "./matchup-card";
+import { type Matchup, type MatchupPick, type Side } from "./matchup-card";
+import { LINEUP_ROWS } from "./lineup-rows";
 import { MembersPanel } from "./members-panel";
 import { type RoundBet } from "./bet-slip-list";
 import { EventBrowser, type BrowsableEvent } from "./event-browser";
@@ -124,7 +125,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     supabase
       .from("rosters")
       .select(
-        "member_id, round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id, points)",
+        "member_id, round, top_captain_id, mid_captain_id, roster_slots(slot_type, driver_id, constructor_id, points, breakdown)",
       )
       .in("member_id", memberIds)
       .eq("season", league.season),
@@ -299,6 +300,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       constructor_id: string | null;
       /** Null until the round is scored; numeric comes back as a string. */
       points: number | string | null;
+      /** Scoring lines as the score job wrote them; null before it ran. */
+      breakdown: {
+        lines: { label: string; driverId?: string; points: number }[];
+        subtotal: number;
+        note?: string;
+      } | null;
     }[];
     const captains = [row?.top_captain_id, row?.mid_captain_id].filter(Boolean);
 
@@ -327,6 +334,20 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     const scoredPoints = (slot: (typeof slots)[number]): number | null =>
       slot.points === null || slot.points === undefined ? null : Number(slot.points);
 
+    // Scoring works in driver ids because names are not its business. A team's
+    // breakdown is its two cars, so those ids become names here, where the
+    // reference data already is.
+    const breakdownFor = (slot: (typeof slots)[number]) => {
+      if (!slot.breakdown) return null;
+      return {
+        ...slot.breakdown,
+        lines: slot.breakdown.lines.map((line) => ({
+          label: line.driverId ? (drivers.get(line.driverId)?.name ?? line.driverId) : line.label,
+          points: line.points,
+        })),
+      };
+    };
+
     const pick = (slot: (typeof slots)[number]): MatchupPick => {
       if (slot.driver_id) {
         const driver = drivers.get(slot.driver_id);
@@ -341,6 +362,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           // is not a bad pick — it is the wrong currency. The row says so
           // rather than letting the zero be read as a failure.
           scoresPoints: slot.slot_type !== "driver_backmarker",
+          breakdown: breakdownFor(slot),
         };
       }
       const team = constructors.get(slot.constructor_id!);
@@ -352,6 +374,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         isTeam: true,
         points: scoredPoints(slot),
         scoresPoints: true,
+        breakdown: breakdownFor(slot),
       };
     };
 

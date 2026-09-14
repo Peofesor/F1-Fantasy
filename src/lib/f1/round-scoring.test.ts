@@ -131,3 +131,51 @@ describe("resolveDuel", () => {
     expect(outcome.awayDuelPoints).toBe(0.5);
   });
 });
+
+describe("slot breakdowns", () => {
+  const detailFor = (competitorId: string, sel: RosterSelection = selection) =>
+    scoreRoster(sel, facts).slots.find((slot) => slot.competitorId === competitorId)!.detail;
+
+  it("adds up to what the slot scored", () => {
+    // The sheet prints the lines and then the total. If they disagreed, the
+    // player would be reading an explanation of a different number.
+    for (const slot of scoreRoster(selection, facts).slots) {
+      if (slot.detail.lines.length === 0) continue;
+      const summed = slot.detail.lines.reduce((total, line) => total + line.points, 0);
+      expect(summed).toBe(slot.detail.subtotal);
+    }
+  });
+
+  it("leaves out the components that scored nothing", () => {
+    // Ten rows of which eight say 0 buries the two that explain the score.
+    const detail = detailFor("winner");
+    expect(detail.lines.every((line) => line.points !== 0)).toBe(true);
+    expect(detail.lines.map((line) => line.label)).toContain("Race finish");
+  });
+
+  it("breaks a team down into its cars", () => {
+    const detail = detailFor("fastteam");
+    expect(detail.lines.map((line) => line.driverId)).toEqual(["winner", "second"]);
+    expect(detail.subtotal).toBe(constructorScore("fastteam", facts));
+  });
+
+  it("says a pick was not in the race rather than showing a bare zero", () => {
+    const detail = detailFor("ghost", { ...selection, top: ["ghost"] });
+    expect(detail.lines).toHaveLength(0);
+    expect(detail.note).toMatch(/did not take part/i);
+  });
+
+  it("says the backmarker pays cap, and how much", () => {
+    const detail = detailFor("backmarker");
+    expect(detail.subtotal).toBe(0);
+    expect(detail.note).toMatch(/cost cap/i);
+  });
+
+  it("keeps the subtotal before the chip that multiplied it", () => {
+    // The sheet shows "Subtotal, then Boosted 2x", so the subtotal has to be
+    // the pre-chip figure even though the slot's points are post-chip.
+    const boosted = scoreRoster(selection, facts, { captainIds: ["winner"] });
+    const slot = boosted.slots.find((entry) => entry.competitorId === "winner")!;
+    expect(slot.detail.subtotal * 2).toBe(slot.points);
+  });
+});

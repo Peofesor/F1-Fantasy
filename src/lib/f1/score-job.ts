@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { rankConstructorsForRace } from "./scoring";
-import { resolveDuel, scoreRoster, type RoundFacts } from "./round-scoring";
+import { resolveDuel, scoreRoster, type RoundFacts, type SlotBreakdown } from "./round-scoring";
 import { backmarkerPayoutEntry, priceDriftEntries, type LedgerEntry } from "./ledger";
 import type { ActiveChips } from "./chips";
 import type { DriverRaceInput } from "./scoring";
@@ -307,6 +307,7 @@ export async function scoreRound(
     constructor_id: string | null;
     price_paid: number;
     points: number;
+    breakdown: SlotBreakdown | null;
   }[] = [];
 
   for (const roster of rosters ?? []) {
@@ -330,10 +331,10 @@ export async function scoreRound(
     // them apart as constructor_top and constructor_mid. A competitor can fill
     // only one slot on a roster — there are unique indexes saying so — which
     // makes the occupant the unambiguous key between the two.
-    const scoredFor = new Map(score.slots.map((entry) => [entry.competitorId, entry.points]));
+    const scoredFor = new Map(score.slots.map((entry) => [entry.competitorId, entry]));
     for (const slot of slots) {
-      const points = scoredFor.get(slot.driver_id ?? slot.constructor_id ?? "");
-      if (points === undefined) continue;
+      const scored = scoredFor.get(slot.driver_id ?? slot.constructor_id ?? "");
+      if (!scored) continue;
       slotPointRows.push({
         roster_id: roster.id,
         slot_type: slot.slot_type,
@@ -341,7 +342,8 @@ export async function scoreRound(
         driver_id: slot.driver_id,
         constructor_id: slot.constructor_id,
         price_paid: slot.price_paid,
-        points,
+        points: scored.points,
+        breakdown: scored.detail ?? null,
       });
     }
     scoreRows.push({

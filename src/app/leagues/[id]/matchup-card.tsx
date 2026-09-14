@@ -1,5 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
+
+import { LINEUP_ROWS } from "./lineup-rows";
+import { PickBreakdownSheet, type PickBreakdown } from "./pick-breakdown";
 
 export interface MatchupPick {
   name: string;
@@ -27,33 +33,13 @@ export interface MatchupPick {
    * nothing", and a row that showed the number flat would libel the pick.
    */
   scoresPoints?: boolean;
+  /**
+   * How the score came together, for the sheet a tap opens. Null on a round
+   * scored before breakdowns were recorded, and on one not yet scored — in
+   * both cases the pick is simply not a button.
+   */
+  breakdown?: PickBreakdown | null;
 }
-
-/**
- * The rows a squad is laid out in, and the order they are read in.
- *
- * Fixed and shared by both sides, which is the whole point: the left and right
- * of a row are the same slot, so the comparison is "my top captain against
- * theirs" rather than "my fourth pick against their first". An unfilled slot is
- * a null in the array rather than a missing entry, so the two columns never
- * drift out of step.
- *
- * The captain leads its bracket. It is the slot that decides the most and the
- * one both players chose most deliberately, so it reads first rather than
- * wherever the database happened to store it.
- */
-export const LINEUP_ROWS: { label: string }[] = [
-  { label: "Top" },
-  { label: "Top" },
-  { label: "Top" },
-  { label: "Top team" },
-  { label: "Mid" },
-  { label: "Mid" },
-  { label: "Mid" },
-  { label: "Mid team" },
-  { label: "Backmarker" },
-  { label: "Reverse team" },
-];
 
 export interface Side {
   memberId: string;
@@ -137,11 +123,14 @@ function PickFace({
   pick,
   mirrored,
   better = false,
+  onOpen,
 }: {
   pick: MatchupPick | null;
   mirrored: boolean;
   /** Whether this pick out-scored the one it faces, which the score is bolded for. */
   better?: boolean;
+  /** Opens the breakdown. Absent when there is nothing to break down. */
+  onOpen?: () => void;
 }) {
   if (!pick) {
     return (
@@ -158,10 +147,19 @@ function PickFace({
   const accent = pick.colour ? `#${pick.colour}` : "#a1a1aa";
   const seats = pick.lineup?.slice(0, 2) ?? [];
 
+  // A pick with a breakdown is a button; one without stays inert rather than
+  // offering a tap that would open an empty sheet. Rendered as the same row
+  // either way, so the lineup does not change shape when a round is scored.
+  const Row = onOpen ? "button" : "span";
+
   return (
-    <span
-      className={`flex min-w-0 flex-1 items-center gap-2 ${mirrored ? "flex-row-reverse" : ""}`}
-      title={pick.name}
+    <Row
+      type={onOpen ? "button" : undefined}
+      onClick={onOpen}
+      className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
+        mirrored ? "flex-row-reverse" : ""
+      } ${onOpen ? "rounded-lg hover:bg-black/5 dark:hover:bg-white/5" : ""}`}
+      title={onOpen ? `How ${displayName(pick)} scored` : pick.name}
     >
       <span className="relative shrink-0">
         {pick.isTeam && seats.length > 0 ? (
@@ -230,7 +228,7 @@ function PickFace({
             row either side of the slot they belong to. */}
         <SlotPoints pick={pick} better={better} />
       </span>
-    </span>
+    </Row>
   );
 }
 
@@ -393,6 +391,16 @@ export function MatchupLineup({ matchup }: { matchup: Matchup }) {
   const [mine, theirs] = matchup.sides;
   const anyPicks = matchup.sides.some((side) => side.slots.some(Boolean));
 
+  /**
+   * The pick whose breakdown is open, with the slot it filled.
+   *
+   * Held here rather than per row so only one can be open: two sheets stacked
+   * on a phone would cover each other, and the natural next question after "why
+   * did mine score that" is "why did theirs" — which is a new sheet, not a
+   * second one.
+   */
+  const [open, setOpen] = useState<{ pick: MatchupPick; slot: string } | null>(null);
+
   if (!anyPicks) {
     return (
       <div className="space-y-1 rounded-xl border border-dashed border-zinc-300 p-4 text-center dark:border-zinc-700">
@@ -442,6 +450,7 @@ export function MatchupLineup({ matchup }: { matchup: Matchup }) {
               pick={ours}
               mirrored={false}
               better={comparable && ourPoints > theirPoints}
+              onOpen={ours?.breakdown ? () => setOpen({ pick: ours, slot: row.label }) : undefined}
             />
 
             {/* The multiplier used to be repeated here as well as on the face.
@@ -457,6 +466,9 @@ export function MatchupLineup({ matchup }: { matchup: Matchup }) {
                 pick={yours}
                 mirrored
                 better={comparable && theirPoints > ourPoints}
+                onOpen={
+                  yours?.breakdown ? () => setOpen({ pick: yours, slot: row.label }) : undefined
+                }
               />
             ) : (
               <span className="min-w-0 flex-1" />
@@ -464,6 +476,17 @@ export function MatchupLineup({ matchup }: { matchup: Matchup }) {
           </div>
         );
       })}
+
+      {open?.pick.breakdown && (
+        <PickBreakdownSheet
+          title={displayName(open.pick)}
+          subtitle={open.slot}
+          breakdown={open.pick.breakdown}
+          boost={open.pick.boost}
+          total={open.pick.points ?? 0}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </div>
   );
 }
