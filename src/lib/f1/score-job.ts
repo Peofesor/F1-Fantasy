@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { rankConstructorsForRace } from "./scoring";
+import { backmarkerScoresPoints, rankConstructorsForRace } from "./scoring";
 import { resolveDuel, scoreRoster, type RoundFacts, type SlotBreakdown } from "./round-scoring";
 import { backmarkerPayoutEntry, priceDriftEntries, type LedgerEntry } from "./ledger";
 import type { ActiveChips } from "./chips";
@@ -233,7 +233,13 @@ export async function loadRoundFacts(
     resultRows.length,
   );
 
-  return { drivers, constructorDrivers, constructorRanking, fieldSize: resultRows.length };
+  return {
+    drivers,
+    constructorDrivers,
+    constructorRanking,
+    fieldSize: resultRows.length,
+    backmarkerScoresPoints: backmarkerScoresPoints(season, round),
+  };
 }
 
 export async function scoreRound(
@@ -357,7 +363,10 @@ export async function scoreRound(
       duel_points: null,
     });
 
-    // The backmarker slot pays cost cap instead of scoring (spec §4).
+    // On rounds before the changeover the backmarker still pays cost cap, so
+    // re-scoring one of them writes the payout back exactly as it stood. From
+    // the changeover on, `scoreRoster` reports no budget and the slot settles
+    // entirely in points.
     if (selection.backmarker) {
       const payout = backmarkerPayoutEntry(
         roster.member_id,

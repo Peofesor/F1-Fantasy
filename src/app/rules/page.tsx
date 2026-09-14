@@ -83,9 +83,14 @@ export default function RulesPage() {
           <Row label="Back of the grid — 1 driver + 1 team" value="2 slots" />
         </div>
         <p className="pt-1 text-amber-700 dark:text-amber-500">
-          <strong>The back two are reversed</strong>, and by different means. The backmarker
-          scores no points at all — it pays you cost cap equal to where it finishes, so P18 pays
-          18. The reverse team does score points, more of them the lower it ranks that weekend.
+          <strong>The back two are reversed</strong>, and by the same rule. The backmarker scores
+          points equal to where it finishes, so P18 pays 18 — the further back, the better. The
+          reverse team is scored the same way, on how it ranks that weekend.
+        </p>
+        <p className="text-xs">
+          The backmarker paid <em>cost cap</em> rather than points up to and including round 14 of
+          2026. Those rounds are left exactly as they were settled — the cap was earned and spent —
+          so a squad from earlier in the season shows the slot paying cap, not points.
         </p>
         <p className="text-xs">
           A retirement pays the same as last place — the most the slot can pay, and no more. A
@@ -117,8 +122,8 @@ export default function RulesPage() {
           One per bracket rather than one overall, so the midfield choice is a real decision
           instead of always being your most expensive driver. Teams cannot be captained: a team
           already scores its two drivers combined, so doubling that on top would let one slot
-          decide the round. The backmarker cannot either, since it pays cost cap rather than
-          points.
+          decide the round. The backmarker cannot either: it is scored for finishing badly, and an
+          armband on it would pay double for the worst car on the grid.
         </p>
         <p>
           You are asked who wears the armband when you save, so it is never picked for you by
@@ -215,9 +220,11 @@ export default function RulesPage() {
 
       <Section title="The two slots that score differently">
         <p>
-          <strong>Your backmarker scores no points at all.</strong> Instead they pay you cost cap
-          equal to their finishing position — P18 pays 18. A retirement pays the same as last
-          place, so a driver who does not see the flag is the best outcome the slot has.
+          <strong>Your backmarker is scored in reverse.</strong> It pays points equal to its
+          finishing position — P18 pays 18 — so the further back the car finishes the more it is
+          worth. A retirement pays the same as last place, so a driver who does not see the flag
+          is the best outcome the slot has. Up to round 14 of 2026 the same amount was paid as
+          cost cap instead; those rounds keep what they paid.
         </p>
         <p>
           <strong>A constructor scores its two drivers combined</strong>, so it swings about twice

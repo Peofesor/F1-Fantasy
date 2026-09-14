@@ -11,7 +11,8 @@ import {
   qualifyingProgressPoints,
   sprintScore,
   teammatePoints,
-  backmarkerBudget,
+  backmarkerPoints,
+  backmarkerScoresPoints,
   overtakePoints,
   positionChangePoints,
   qualifyingPoints,
@@ -183,38 +184,38 @@ describe("scoreDriver", () => {
   });
 });
 
-describe("backmarkerBudget", () => {
+describe("backmarkerPoints", () => {
   const FIELD = 20;
 
   it("pays more for a worse finish", () => {
-    expect(backmarkerBudget(20, "finished", FIELD)).toBe(20);
-    expect(backmarkerBudget(12, "finished", FIELD)).toBe(12);
+    expect(backmarkerPoints(20, "finished", FIELD)).toBe(20);
+    expect(backmarkerPoints(12, "finished", FIELD)).toBe(12);
   });
 
   it("pays a retirement the same as last place", () => {
     // Paying nothing made the slot run backwards at the bottom: the worse a
     // car did the more it paid, until it did worst of all and paid nothing.
-    expect(backmarkerBudget(null, "retired", FIELD)).toBe(FIELD);
-    expect(backmarkerBudget(18, "retired", FIELD)).toBe(FIELD);
-    expect(backmarkerBudget(null, "did-not-start", FIELD)).toBe(FIELD);
+    expect(backmarkerPoints(null, "retired", FIELD)).toBe(FIELD);
+    expect(backmarkerPoints(18, "retired", FIELD)).toBe(FIELD);
+    expect(backmarkerPoints(null, "did-not-start", FIELD)).toBe(FIELD);
   });
 
   it("pays a retirement no more than last place", () => {
     // The cap is what stops "whoever crashes most" being the only pick worth
     // making: a reliable last-place car is worth exactly as much.
-    expect(backmarkerBudget(null, "retired", FIELD)).toBe(
-      backmarkerBudget(FIELD, "finished", FIELD),
+    expect(backmarkerPoints(null, "retired", FIELD)).toBe(
+      backmarkerPoints(FIELD, "finished", FIELD),
     );
   });
 
   it("pays nothing for a disqualification", () => {
     // Not a bad result but a removal from the classification, and usually the
     // team's own doing — paying for it would put a bounty on a rule breach.
-    expect(backmarkerBudget(18, "disqualified", FIELD)).toBe(0);
+    expect(backmarkerPoints(18, "disqualified", FIELD)).toBe(0);
   });
 
   it("pays little for a strong finish", () => {
-    expect(backmarkerBudget(1, "finished", FIELD)).toBe(1);
+    expect(backmarkerPoints(1, "finished", FIELD)).toBe(1);
   });
 });
 
@@ -379,5 +380,25 @@ describe("scoreDriver with the new components", () => {
     const score = scoreDriver(driver({ qualifyingPosition: 5, finishPosition: 5 }));
     expect(score.sprint).toBe(0);
     expect(score.teammate).toBe(0);
+  });
+});
+
+describe("backmarkerScoresPoints", () => {
+  it("pays cost cap on the rounds settled before the changeover", () => {
+    expect(backmarkerScoresPoints(2026, 14)).toBe(false);
+    expect(backmarkerScoresPoints(2026, 1)).toBe(false);
+  });
+
+  it("pays points from the changeover round on", () => {
+    expect(backmarkerScoresPoints(2026, 15)).toBe(true);
+    expect(backmarkerScoresPoints(2026, 23)).toBe(true);
+  });
+
+  it("pays points for every later season and cap for every earlier one", () => {
+    // The boundary is a moment in one season, not a round number to compare
+    // against blindly: round 14 of 2027 is after the change, round 14 of 2026
+    // is before it.
+    expect(backmarkerScoresPoints(2027, 1)).toBe(true);
+    expect(backmarkerScoresPoints(2025, 23)).toBe(false);
   });
 });

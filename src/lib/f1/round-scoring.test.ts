@@ -32,7 +32,11 @@ const facts: RoundFacts = {
   ]),
   constructorRanking: ["fastteam", "slowteam"],
   fieldSize: 20,
+  backmarkerScoresPoints: true,
 };
+
+/** The same round before the changeover, when the slot still paid cost cap. */
+const payingCapFacts: RoundFacts = { ...facts, backmarkerScoresPoints: false };
 
 const selection: RosterSelection = {
   top: ["winner", "second", "midfield"],
@@ -56,18 +60,37 @@ describe("constructorScore", () => {
 });
 
 describe("scoreRoster", () => {
-  it("excludes the backmarker from points and reports it as budget instead", () => {
+  it("scores the backmarker on its place from the front", () => {
     const score = scoreRoster(selection, facts);
+    const backmarkerSlot = score.slots.find((slot) => slot.slot === "driver_backmarker");
+    expect(backmarkerSlot?.points).toBe(18);
+    expect(score.budget).toBe(0);
+  });
+
+  it("still pays cost cap on a round from before the changeover", () => {
+    // Rounds settled under the old rule keep it: members spent that cap on
+    // rosters and bets that still stand.
+    const score = scoreRoster(selection, payingCapFacts);
     const backmarkerSlot = score.slots.find((slot) => slot.slot === "driver_backmarker");
     expect(backmarkerSlot?.points).toBe(0);
     expect(score.budget).toBe(18);
+  });
+
+  it("pays the same amount whichever currency it is in", () => {
+    // Only the denomination changed at the boundary, never the arithmetic.
+    const asPoints = scoreRoster(selection, facts);
+    const asCap = scoreRoster(selection, payingCapFacts);
+    const slotOf = (score: typeof asPoints) =>
+      score.slots.find((slot) => slot.slot === "driver_backmarker")!.points;
+    expect(slotOf(asPoints)).toBe(asCap.budget);
   });
 
   it("pays a retired backmarker the same as last place", () => {
     // The slot exists to reward a bad weekend, and a retirement is the worst
     // one there is — paying nothing for it made the reward run backwards.
     const score = scoreRoster({ ...selection, backmarker: "retiree" }, facts);
-    expect(score.budget).toBe(facts.fieldSize);
+    const slot = score.slots.find((entry) => entry.slot === "driver_backmarker");
+    expect(slot?.points).toBe(facts.fieldSize);
   });
 
   it("scores the reverse constructor on its race placing", () => {
@@ -79,8 +102,9 @@ describe("scoreRoster", () => {
 
   it("totals every scoring slot", () => {
     const score = scoreRoster(selection, facts);
-    // 35 + 27 + midfield(0 quali + 2 race + 2 delta = 4) + team 62 + reverse 2
-    expect(score.points).toBe(130);
+    // 35 + 27 + midfield(0 quali + 2 race + 2 delta = 4) + team 62 + reverse 2,
+    // and the backmarker's 18 now among them rather than paid as cost cap.
+    expect(score.points).toBe(148);
   });
 
   it("scores a missing driver as zero rather than throwing", () => {
@@ -165,10 +189,11 @@ describe("slot breakdowns", () => {
     expect(detail.note).toMatch(/did not take part/i);
   });
 
-  it("says the backmarker pays cap, and how much", () => {
+  it("says where the backmarker finished and what that paid", () => {
     const detail = detailFor("backmarker");
-    expect(detail.subtotal).toBe(0);
-    expect(detail.note).toMatch(/cost cap/i);
+    expect(detail.subtotal).toBe(18);
+    expect(detail.lines).toHaveLength(1);
+    expect(detail.note).toMatch(/one point per place/i);
   });
 
   it("keeps the subtotal before the chip that multiplied it", () => {
