@@ -188,7 +188,11 @@ export default async function BetsPage({ params }: PageProps<"/leagues/[id]/bets
 
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight">Bets</h1>
+            {/* "Placed bets" rather than "Bets": the tab called Bets is where
+                you place one, and two screens with the same name made the two
+                halves of betting indistinguishable from the outside. This is
+                the record. */}
+            <h1 className="truncate text-xl font-semibold tracking-tight">Placed Bets</h1>
           </div>
           <p className="shrink-0 text-right text-xs text-zinc-500">
             your bank

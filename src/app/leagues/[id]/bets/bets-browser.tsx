@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { money } from "@/lib/f1/money";
 
 import { BetSlipList, type RoundBet } from "../bet-slip-list";
+import { RoundArrow } from "../round-arrow";
 import { PlacedBets, type PlacedBet } from "./placed-bets";
 
 export interface BrowsableRound {
@@ -79,7 +80,18 @@ export function BetsBrowser({
   form: ReactNode;
 }) {
   const [round, setRound] = useState(opening);
-  const selected = rounds.find((entry) => entry.round === round) ?? rounds[0];
+
+  // Sorted here rather than relying on the order they arrive in: the arrows
+  // mean "earlier" and "later", so left has to be the smaller round whichever
+  // way the page happened to build the list.
+  const ordered = [...rounds].sort((a, b) => a.round - b.round);
+  const index = Math.max(
+    0,
+    ordered.findIndex((entry) => entry.round === round),
+  );
+  const selected = ordered[index] ?? ordered[0];
+  const older = ordered[index - 1];
+  const newer = ordered[index + 1];
 
   const onRound = bets.filter((bet) => bet.round === round);
   const staked = onRound.reduce((total, bet) => total + bet.stake, 0);
@@ -102,36 +114,48 @@ export function BetsBrowser({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <select
-          value={round}
-          onChange={(select) => setRound(Number(select.target.value))}
-          aria-label="Race"
-          className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {rounds.map((entry) => (
-            <option key={entry.round} value={entry.round}>
-              R{entry.round} · {entry.raceName}
-              {entry.live ? " · live" : ""}
-              {entry.round === openRound ? " · open" : ""}
-            </option>
-          ))}
-        </select>
+      {/* Stepped through with arrows rather than picked from a dropdown. The
+          season is a line you move along, and it is the same movement the round
+          card on the league page makes — arriving here from that card and being
+          handed a different control for the same journey is a seam the reader
+          has to notice. The live dot and the open marker come inside the header
+          for the same reason: it is one thing that names the round, not a
+          control plus a caption. */}
+      <div className="flex items-stretch gap-1 rounded-xl border border-zinc-200 p-2 dark:border-zinc-800">
+        <RoundArrow
+          direction="left"
+          label={older ? `Back to round ${older.round}` : "No earlier round"}
+          onClick={older ? () => setRound(older.round) : undefined}
+        />
 
-        <span className="shrink-0 text-xs tabular-nums text-zinc-500">
-          {onRound.length} bet{onRound.length === 1 ? "" : "s"} · {money(staked)}
-        </span>
+        <div className="min-w-0 flex-1 text-center">
+          <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+            {selected?.live ? (
+              <>
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                </span>
+                <span className="text-red-600 dark:text-red-400">Live now</span>
+              </>
+            ) : (
+              `Round ${selected?.round ?? round}${isOpenRound ? " · open" : ""}`
+            )}
+          </p>
+
+          <h2 className="truncate text-base font-semibold">{selected?.raceName}</h2>
+
+          <p className="text-xs tabular-nums text-zinc-500">
+            {onRound.length} bet{onRound.length === 1 ? "" : "s"} · {money(staked)}
+          </p>
+        </div>
+
+        <RoundArrow
+          direction="right"
+          label={newer ? `On to round ${newer.round}` : "No later round"}
+          onClick={newer ? () => setRound(newer.round) : undefined}
+        />
       </div>
-
-      {selected?.live && (
-        <p className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-          </span>
-          This one is being run now.
-        </p>
-      )}
 
       {yours && (
         <section className="space-y-2">
@@ -204,7 +228,7 @@ export function BetsBrowser({
               No bets can be placed on {selected?.raceName ?? "this round"}.
             </strong>{" "}
             Betting closed when qualifying started, so this round is a record now.
-            {openRaceName && ` Choose ${openRaceName} above to place a bet.`}
+            {openRaceName && ` Step to ${openRaceName} above to place a bet.`}
           </p>
         )}
       </section>
