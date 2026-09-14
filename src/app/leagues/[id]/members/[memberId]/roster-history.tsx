@@ -248,7 +248,7 @@ export function RosterHistory({
                     {bet.odds !== null && ` × ${grossMultiplier(bet.odds).toFixed(2)}`}
                   </span>
                   <span
-                    className={`w-12 shrink-0 text-right ${
+                    className={`w-16 shrink-0 text-right tabular-nums ${
                       bet.outcome === "won"
                         ? "text-emerald-600 dark:text-emerald-400"
                         : bet.outcome === "lost"
@@ -256,7 +256,12 @@ export function RosterHistory({
                           : "text-zinc-500"
                     }`}
                   >
-                    {betStatus(bet.outcome, squad.round === openRound)}
+                    {/* The gain, not the return: a history read to see how
+                        somebody is doing wants the money they made, and the
+                        return on a short price is mostly their own stake. */}
+                    {bet.outcome === "won" && bet.returned !== null
+                      ? `+${money(bet.returned - bet.stake)}`
+                      : betStatus(bet.outcome, squad.round === openRound)}
                   </span>
                 </li>
               ))}

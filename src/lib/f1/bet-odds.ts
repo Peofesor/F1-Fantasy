@@ -178,3 +178,21 @@ export function payoutAt(stake: number, odds: number): number {
 export function grossMultiplier(odds: number): number {
   return Math.round((1 + odds) * 100) / 100;
 }
+
+/**
+ * What a winning bet actually gains: the payout less the stake that bought it.
+ *
+ * The screens showed the return and called it a win — "+$65.0M" on a $50M
+ * stake, when $50M of that was the player's own money coming back. The return
+ * is the right figure for the bank and the wrong one for judging the bet, so
+ * both are shown and this one is what the plus sign is allowed to mean.
+ *
+ * Derived from `payoutAt` rather than as `stake * odds`, and deliberately not
+ * rounded again on top of it: the payout is already rounded to a tenth while a
+ * stake need not be, so a second rounding made the profit disagree with the two
+ * figures either side of it — 3.33 at 1.01 returns 3.4, and the gain is the 0.07
+ * between them, not a tenth. Stake plus profit is exactly the payout.
+ */
+export function profitAt(stake: number, odds: number): number {
+  return payoutAt(stake, odds) - stake;
+}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { grossMultiplier, payoutAt, profitAt } from "@/lib/f1/bet-odds";
 import { betStatus } from "@/lib/f1/betting";
 import { money } from "@/lib/f1/money";
 
@@ -67,10 +67,13 @@ export function BetSlipList({
                   <span className="min-w-0 flex-1 truncate">
                     {bet.market} — <span className="text-zinc-500">{bet.selection}</span>
                   </span>
-                  {/* Stake, multiplier and what a win returns. The multiplier
-                      alone left everyone doing the arithmetic, and the stored
-                      figure is profit per unit — shown raw it read as getting
-                      less back than you staked. */}
+                  {/* Stake, multiplier, what a win returns, and the profit in
+                      that return. The multiplier alone left everyone doing the
+                      arithmetic, and the stored figure is profit per unit —
+                      shown raw it read as getting less back than you staked.
+                      The return on its own had the opposite problem: most of it
+                      is the stake coming home, so it flattered every short
+                      price. */}
                   <span className="shrink-0 tabular-nums text-zinc-500">
                     {money(bet.stake)}
                     {bet.odds !== null && (
@@ -79,6 +82,9 @@ export function BetSlipList({
                         × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
                         <span className="text-zinc-900 dark:text-zinc-100">
                           {money(payoutAt(bet.stake, bet.odds))}
+                        </span>{" "}
+                        <span className="text-zinc-400">
+                          (+{money(profitAt(bet.stake, bet.odds))})
                         </span>
                       </>
                     )}
@@ -92,10 +98,12 @@ export function BetSlipList({
                           : "text-zinc-500"
                     }`}
                   >
-                    {/* A settled winner shows what it actually paid rather than
-                        the word "won", which is the figure being looked for. */}
+                    {/* A settled winner shows what it made rather than the word
+                        "won", which is the figure being looked for. The profit,
+                        not the return: the plus sign claims a gain, and on a
+                        1.30 shot most of the return was never a gain. */}
                     {bet.outcome === "won" && bet.returned
-                      ? `+${money(bet.returned)}`
+                      ? `+${money(bet.returned - bet.stake)}`
                       : betStatus(bet.outcome, stillOpen)}
                   </span>
                 </li>

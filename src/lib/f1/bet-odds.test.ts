@@ -7,6 +7,7 @@ import {
   ODDS_WINDOW_RACES,
   oddsFor,
   payoutAt,
+  profitAt,
 } from "./bet-odds";
 import { BLIND_BET_PREMIUM, listedOdds, MARKET_LIST } from "./betting";
 
@@ -209,5 +210,46 @@ describe("grossMultiplier", () => {
     const stake = 10;
     const odds = priceOf("race_winner", { won: 3, total: 10 });
     expect(payoutAt(stake, odds)).toBeCloseTo(stake * grossMultiplier(odds), 5);
+  });
+});
+
+describe("profitAt", () => {
+  it("is the return less the stake that bought it", () => {
+    // The case that prompted it: 50 at a 1.30 gross price returns 65, of which
+    // 50 was already the player's. Calling that a +65 win overstated it by
+    // more than three times the actual gain.
+    expect(payoutAt(50, 0.3)).toBe(65);
+    expect(profitAt(50, 0.3)).toBe(15);
+  });
+
+  it("never disagrees with the payout it is shown beside", () => {
+    // Both appear on the same line, so a rounding difference between them
+    // would read as the app contradicting itself.
+    for (const stake of [0.5, 3.33, 7, 50, 130]) {
+      for (const odds of [0.01, 0.2, 0.28, 1.07, 3.85, 13.2]) {
+        expect(profitAt(stake, odds)).toBeCloseTo(payoutAt(stake, odds) - stake, 5);
+      }
+    }
+  });
+
+  it("is positive on every price the house will take", () => {
+    // A bet that won must never report a loss, which is the failure the gross
+    // multiplier was introduced to stop and this inherits.
+    for (const market of MARKET_LIST) {
+      expect(profitAt(10, listedOdds(market.id))).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("stake, profit and payout as shown together", () => {
+  it("always add up", () => {
+    // All three appear on one line. If the profit were rounded on top of an
+    // already-rounded payout they would stop reconciling, which is a bug a
+    // player reads as the app being wrong about their money.
+    for (const stake of [0.5, 3.33, 7, 50, 130]) {
+      for (const odds of [0.01, 0.2, 1.07, 13.2]) {
+        expect(stake + profitAt(stake, odds)).toBeCloseTo(payoutAt(stake, odds), 10);
+      }
+    }
   });
 });

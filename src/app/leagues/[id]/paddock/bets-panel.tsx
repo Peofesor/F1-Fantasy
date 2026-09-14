@@ -14,7 +14,7 @@ import {
 } from "@/lib/f1/betting";
 import Link from "next/link";
 
-import { grossMultiplier, payoutAt } from "@/lib/f1/bet-odds";
+import { grossMultiplier, payoutAt, profitAt } from "@/lib/f1/bet-odds";
 import { money } from "@/lib/f1/money";
 import { placeBet, type BetState } from "./bet-actions";
 
@@ -302,6 +302,13 @@ export function BetsPanel({
                 </p>
                 <p className="text-2xl font-semibold tabular-nums leading-none text-emerald-700 dark:text-emerald-400">
                   {money(payoutAt(stake, selectedOdds))}
+                </p>
+                {/* The return includes the stake, so on a short price it looks
+                    far better than the bet is. The gain is the number being
+                    weighed up, so it is said outright. */}
+                <p className="mt-1 text-[11px] tabular-nums text-zinc-500">
+                  {money(profitAt(stake, selectedOdds))} profit on top of your{" "}
+                  {money(stake)} stake
                 </p>
               </div>
               <p className="shrink-0 text-right text-xs text-zinc-500">
