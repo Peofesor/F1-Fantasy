@@ -124,11 +124,6 @@ describe("buildStandings", () => {
     expect(a.roundsPlayed).toBe(2);
   });
 
-  it("records the best single round", () => {
-    const table = buildStandings(members, scores, "free_for_all");
-    expect(table.find((row) => row.memberId === "b")?.bestRound).toBe(60);
-  });
-
   it("assigns positions from 1 upward", () => {
     const table = buildStandings(members, scores, "free_for_all");
     expect(table.map((row) => row.position)).toEqual([1, 2, 3]);

@@ -35,8 +35,6 @@ export interface StandingRow {
   draws: number;
   losses: number;
   roundsPlayed: number;
-  /** Best single-round score, which the table shows as a tiebreak-ish flourish. */
-  bestRound: number;
 }
 
 function round1(value: number): number {
@@ -71,7 +69,6 @@ export function buildStandings(
         draws: 0,
         losses: 0,
         roundsPlayed: 0,
-        bestRound: 0,
       },
     ]),
   );
@@ -83,7 +80,6 @@ export function buildStandings(
     row.points = round1(row.points + score.points);
     row.duelPoints = round1(row.duelPoints + (score.duelPoints ?? 0));
     row.roundsPlayed++;
-    row.bestRound = Math.max(row.bestRound, score.points);
 
     // A round with no fixture is skipped rather than counted: it is not a
     // result, so it belongs in no column of the record.

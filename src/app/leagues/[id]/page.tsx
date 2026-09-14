@@ -178,6 +178,64 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       )
     : [];
 
+  // Prices for the round being picked for, so a held roster can be valued at
+  // what it is worth now rather than what it cost. Asked here rather than in
+  // the wave above because the round is only known once `currentRound` returns.
+  const [{ data: driverPriceRows }, { data: constructorPriceRows }] = next
+    ? await Promise.all([
+        supabase
+          .from("driver_prices")
+          .select("driver_id, price")
+          .eq("season", next.season)
+          .eq("round", next.round),
+        supabase
+          .from("constructor_prices")
+          .select("constructor_id, price")
+          .eq("season", next.season)
+          .eq("round", next.round),
+      ])
+    : [{ data: null }, { data: null }];
+
+  const driverPrice = new Map(
+    (driverPriceRows ?? []).map((row) => [row.driver_id, Number(row.price)]),
+  );
+  const constructorPrice = new Map(
+    (constructorPriceRows ?? []).map((row) => [row.constructor_id, Number(row.price)]),
+  );
+
+  /**
+   * What each member has committed: the team they are fielding, valued at
+   * today's prices, plus every stake still riding on an unsettled bet.
+   *
+   * Taken from the most recent roster that can actually be read, which is the
+   * round being picked for on your own row and the last locked race on a
+   * rival's — their next team is sealed until qualifying, and this reports what
+   * it can see rather than pretending the sealed round is empty.
+   */
+  const inPlay = new Map<string, number>();
+  for (const memberId of memberIds) {
+    const latest = (rosterRows ?? [])
+      .filter((entry) => entry.member_id === memberId)
+      .sort((a, b) => b.round - a.round)[0];
+
+    const slots = (latest?.roster_slots ?? []) as unknown as {
+      driver_id: string | null;
+      constructor_id: string | null;
+    }[];
+
+    const roster = slots.reduce((total, slot) => {
+      if (slot.driver_id) return total + (driverPrice.get(slot.driver_id) ?? 0);
+      if (slot.constructor_id) return total + (constructorPrice.get(slot.constructor_id) ?? 0);
+      return total;
+    }, 0);
+
+    const staked = (betRows ?? [])
+      .filter((bet) => bet.member_id === memberId && bet.outcome === null)
+      .reduce((total, bet) => total + Number(bet.stake), 0);
+
+    inPlay.set(memberId, Math.round((roster + staked) * 10) / 10);
+  }
+
   const standings = buildStandings(
     memberIds,
     (scoreRows ?? [])
@@ -609,6 +667,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         rows={standings}
         names={nameByMemberId}
         mode={league.mode as LeagueMode}
+        inPlay={inPlay}
         currentMemberId={selfMemberId}
       />
 

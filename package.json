@@ -23,7 +23,8 @@
     "db:link": "supabase link --project-ref cffgnedqsxfrgruevkvl",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff",
-    "seed-league": "tsx scripts/seed-league.ts"
+    "seed-league": "tsx scripts/seed-league.ts",
+    "clear-early-rounds": "tsx scripts/clear-early-rounds.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",
