@@ -8,7 +8,8 @@
  *   npm run backfill -- 2023 2026 --relink   re-ingest only rounds missing an
  *                                            OpenF1 session link
  *
- * Rounds already present are skipped unless --force is given. That is not just
+ * Rounds whose results are already stored are skipped unless --force is given.
+ * A calendar entry alone does not count. That is not just
  * a speed optimisation: jolpica allows 500 requests an hour and each round costs
  * about six, so re-ingesting what is already stored can exhaust the budget
  * before reaching the rounds that are actually missing.
@@ -31,6 +32,15 @@ const EARLIEST_SEASON = 2023;
 /**
  * (season, round) pairs already ingested, as "season:round" keys.
  *
+ * A round counts as ingested when it has results, not merely when it has a row
+ * in `rounds`. Calendar ingestion writes a row for every race of the season as
+ * soon as the schedule is published, so reading a row as proof of ingestion
+ * made every future round look already stored — and once the calendar step
+ * joined the daily workflow ahead of this one, no newly run race was ever
+ * ingested again. `race_results` is what results ingestion actually writes, so
+ * it is what "already stored" has to mean. Only the presence of those rows
+ * matters, so one per round is enough to fetch.
+ *
  * With `completeOnly`, rounds that ingested but failed to link an OpenF1
  * session are treated as missing, so a re-run repairs them. That is how the
  * rounds stranded by the country-name mismatch get their overtake and
@@ -40,10 +50,18 @@ async function existingRounds(
   supabase: ReturnType<typeof createAdminClient>,
   completeOnly: boolean,
 ): Promise<Set<string>> {
-  const query = supabase.from("rounds").select("season, round, openf1_session_key");
-  const { data, error } = completeOnly ? await query.not("openf1_session_key", "is", null) : await query;
+  const { data, error } = await supabase
+    .from("rounds")
+    .select("season, round, openf1_session_key, race_results(season)")
+    .limit(1, { referencedTable: "race_results" });
   if (error) throw new Error(`Could not read existing rounds: ${error.message}`);
-  return new Set((data ?? []).map((row) => `${row.season}:${row.round}`));
+
+  return new Set(
+    (data ?? [])
+      .filter((row) => row.race_results.length > 0)
+      .filter((row) => !completeOnly || row.openf1_session_key !== null)
+      .map((row) => `${row.season}:${row.round}`),
+  );
 }
 
 async function main(): Promise<void> {
