@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 
 import { grossMultiplier } from "@/lib/f1/bet-odds";
-import { betStatus } from "@/lib/f1/betting";
+import { betOutcomeLabel } from "@/lib/f1/betting";
 import { money } from "@/lib/f1/money";
 import { RoundArrow } from "../../round-arrow";
 
@@ -256,12 +256,15 @@ export function RosterHistory({
                           : "text-zinc-500"
                     }`}
                   >
-                    {/* The gain, not the return: a history read to see how
-                        somebody is doing wants the money they made, and the
-                        return on a short price is mostly their own stake. */}
-                    {bet.outcome === "won" && bet.returned !== null
-                      ? `+${money(bet.returned - bet.stake)}`
-                      : betStatus(bet.outcome, squad.round === openRound)}
+                    {/* The money, not the word: a history read to see how
+                        somebody is doing wants the amounts, and "won" beside
+                        "lost" says nothing about which way the round went. */}
+                    {betOutcomeLabel(
+                      bet.outcome,
+                      squad.round === openRound,
+                      bet.stake,
+                      bet.returned,
+                    )}
                   </span>
                 </li>
               ))}

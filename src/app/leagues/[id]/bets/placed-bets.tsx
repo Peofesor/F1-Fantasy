@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { betStatus, type MarketId } from "@/lib/f1/betting";
+import { betOutcomeLabel, type MarketId } from "@/lib/f1/betting";
 import { grossMultiplier, payoutAt, profitAt } from "@/lib/f1/bet-odds";
 import { money } from "@/lib/f1/money";
 import { cancelBet, type BetState } from "../paddock/bet-actions";
@@ -90,7 +90,9 @@ export function PlacedBets({
                       : "text-zinc-500"
                 }`}
               >
-                {betStatus(bet.outcome, !locked)}
+                {/* The amount rather than the word: a lost 1.5 and a lost 50
+                    read identically when both just say "lost". */}
+                {betOutcomeLabel(bet.outcome, !locked, bet.stake, bet.returned)}
               </span>
             </div>
 
@@ -110,15 +112,11 @@ export function PlacedBets({
                   </>
                 )}
               </span>
-              {/* What settling actually did to the bank. A win shows the gain
-                  rather than the return, which is mostly the stake coming back;
-                  a void shows the stake going home, which is not a gain and
-                  should not be coloured like one. */}
-              {bet.outcome === "won" && bet.returned !== null && (
-                <span className="shrink-0 tabular-nums text-emerald-600 dark:text-emerald-400">
-                  +{money(bet.returned - bet.stake)} profit
-                </span>
-              )}
+              {/* Only the void says anything here now. Won and lost carry their
+                  amount in the header, and printing it twice on one card read
+                  as two separate movements of the same money. A void has no
+                  amount to put there, so this is where it says the stake came
+                  home — in grey, because nothing was gained. */}
               {bet.outcome === "void" && (
                 <span className="shrink-0 tabular-nums text-zinc-500">
                   {money(bet.stake)} back

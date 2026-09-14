@@ -321,6 +321,30 @@ export function betStatus(outcome: string | null, stillOpen: boolean): string {
 }
 
 /**
+ * What settling a bet did to the bank, as the figure to show in place of the
+ * word for it.
+ *
+ * "Won" and "lost" name the result but not its size, and size is the whole
+ * question when a slip holds three of them: a lost bet at 1.5 and a lost bet at
+ * 50 read identically. A win shows the profit rather than the return, for the
+ * same reason it does everywhere else — most of a short-priced return is the
+ * stake coming home.
+ *
+ * A void keeps its word. Nothing happened to the bank, so a signed 0 beside two
+ * real amounts would invite the reader to add it up as though it had.
+ */
+export function betOutcomeLabel(
+  outcome: string | null,
+  stillOpen: boolean,
+  stake: number,
+  returned: number | null,
+): string {
+  if (outcome === "won" && returned !== null) return `+${money(returned - stake)}`;
+  if (outcome === "lost") return `-${money(stake)}`;
+  return betStatus(outcome, stillOpen);
+}
+
+/**
  * Total returned on a winning bet at a market's listed price.
  *
  * Prices are per selection now (see ./bet-odds.ts), so this is the fallback for

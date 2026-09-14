@@ -138,7 +138,11 @@ function PickFace({
         aria-hidden
         className={`flex min-w-0 flex-1 items-center gap-2 ${mirrored ? "flex-row-reverse" : ""}`}
       >
-        <span className="h-8 w-8 shrink-0 rounded-full border border-dashed border-zinc-300 dark:border-zinc-700" />
+        {/* The same well a filled pick gets, so an empty row's dash starts
+            where every name does. */}
+        <span className={`flex w-[3.25rem] shrink-0 ${mirrored ? "justify-end" : "justify-start"}`}>
+          <span className="h-8 w-8 rounded-full border border-dashed border-zinc-300 dark:border-zinc-700" />
+        </span>
         <span className="text-xs text-zinc-400">—</span>
       </span>
     );
@@ -161,7 +165,19 @@ function PickFace({
       } ${onOpen ? "rounded-lg hover:bg-black/5 dark:hover:bg-white/5" : ""}`}
       title={onOpen ? `How ${displayName(pick)} scored` : pick.name}
     >
-      <span className="relative shrink-0">
+      {/* A fixed-width well for the portrait, wide enough for a team's two
+          overlapping faces. Sized by its content, a team pushed its name about
+          twenty pixels further in than a driver's, so ten rows of names started
+          at four different places and the column could not be read down. The
+          team picture is still visibly the bigger of the two — which is what
+          marks a team out — it just no longer moves the text.
+
+          The faces sit against the outer edge on both sides, so the wells
+          mirror each other the way the rest of the row does. */}
+      <span
+        className={`flex w-[3.25rem] shrink-0 ${mirrored ? "justify-end" : "justify-start"}`}
+      >
+        <span className="relative">
         {pick.isTeam && seats.length > 0 ? (
           <span className="flex items-center">
             {seats.map((seat, index) =>
@@ -213,6 +229,7 @@ function PickFace({
             {pick.boost}
           </span>
         )}
+        </span>
       </span>
       {/* Wrapped rather than truncated: two squads mirrored across a label
           leave each name about half a phone wide, and an ellipsis there hides

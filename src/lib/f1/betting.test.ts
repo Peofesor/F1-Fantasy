@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  betOutcomeLabel,
   checkStake,
   MARKETS,
   MARKET_LIST,
@@ -13,6 +14,7 @@ import {
   type SettlementFacts,
   roundStake,
 } from "./betting";
+import { money } from "./money";
 
 const facts: SettlementFacts = {
   finishPositions: new Map([
@@ -305,5 +307,35 @@ describe("marketsForRound", () => {
       const offered = marketsForRound(hasSprint).map((market) => market.id);
       for (const id of others) expect(offered, `hasSprint=${hasSprint}`).toContain(id);
     }
+  });
+});
+
+describe("betOutcomeLabel", () => {
+  it("says how much a lost bet cost rather than just that it lost", () => {
+    // The case that prompted it: two lost bets on one slip said the same word
+    // whether they had cost 1.5 or 50.
+    expect(betOutcomeLabel("lost", false, 50, 0)).toBe(`-${money(50)}`);
+    expect(betOutcomeLabel("lost", false, 1.5, 0)).toBe(`-${money(1.5)}`);
+  });
+
+  it("shows a win as the profit, not the return", () => {
+    // 50 at 1.30 returns 65, of which 50 was already the player's.
+    expect(betOutcomeLabel("won", false, 50, 65)).toBe(`+${money(15)}`);
+  });
+
+  it("leaves a void as a word", () => {
+    // Nothing happened to the bank, and a signed 0 between two real amounts
+    // invites the reader to add it up as though it had.
+    expect(betOutcomeLabel("void", false, 7, 7)).toBe("void");
+  });
+
+  it("still distinguishes an open bet from a locked one", () => {
+    expect(betOutcomeLabel(null, true, 5, null)).toBe("open");
+    expect(betOutcomeLabel(null, false, 5, null)).toBe("locked");
+  });
+
+  it("falls back to the word when a winner has no recorded return", () => {
+    // Nothing should print "+undefined" at a player.
+    expect(betOutcomeLabel("won", false, 5, null)).toBe("won");
   });
 });

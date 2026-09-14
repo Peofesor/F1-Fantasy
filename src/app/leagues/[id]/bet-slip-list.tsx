@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { grossMultiplier, payoutAt, profitAt } from "@/lib/f1/bet-odds";
-import { betStatus } from "@/lib/f1/betting";
+import { betOutcomeLabel } from "@/lib/f1/betting";
 import { money } from "@/lib/f1/money";
 
 export interface RoundBet {
@@ -90,7 +90,7 @@ export function BetSlipList({
                     )}
                   </span>
                   <span
-                    className={`w-10 shrink-0 text-right ${
+                    className={`w-16 shrink-0 text-right tabular-nums ${
                       bet.outcome === "won"
                         ? "text-emerald-600 dark:text-emerald-400"
                         : bet.outcome === "lost"
@@ -98,13 +98,11 @@ export function BetSlipList({
                           : "text-zinc-500"
                     }`}
                   >
-                    {/* A settled winner shows what it made rather than the word
-                        "won", which is the figure being looked for. The profit,
-                        not the return: the plus sign claims a gain, and on a
-                        1.30 shot most of the return was never a gain. */}
-                    {bet.outcome === "won" && bet.returned
-                      ? `+${money(bet.returned - bet.stake)}`
-                      : betStatus(bet.outcome, stillOpen)}
+                    {/* A settled bet shows what it did to the bank rather than
+                        the word for it: won and lost name the result but not
+                        its size, and size is the question when a slip holds
+                        three of them. */}
+                    {betOutcomeLabel(bet.outcome, stillOpen, bet.stake, bet.returned ?? null)}
                   </span>
                 </li>
               );
