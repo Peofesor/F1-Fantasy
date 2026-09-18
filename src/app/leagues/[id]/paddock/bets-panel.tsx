@@ -176,9 +176,8 @@ export function BetsPanel({
         pays; nothing is added later. They settle on the race.
       </p>
 
-      {/* No link through to the slip here. The Placed bets button above this
-          card goes to the same page and already carries the same count, so this
-          was a second door to one room, directly under the first. */}
+      {/* No link through to the slip here, and no count either: the slip is the
+          next thing on the page. */}
 
       {locked ? (
         <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">

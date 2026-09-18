@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { betOutcomeLabel, type MarketId } from "@/lib/f1/betting";
 import { grossMultiplier, payoutAt, profitAt } from "@/lib/f1/bet-odds";
 import { money } from "@/lib/f1/money";
-import { cancelBet, type BetState } from "../paddock/bet-actions";
+import { cancelBet, type BetState } from "./bet-actions";
 
 export interface PlacedBet {
   marketId: MarketId;
@@ -21,10 +21,16 @@ export interface PlacedBet {
 /**
  * The slip: every bet placed for this round, and the way to take one back.
  *
- * Its own page rather than a block inside the betting form. The form is for
- * deciding, and this is for checking what you already decided — two different
- * errands that were competing for the same screen, on a page that also sells
- * chips.
+ * Below the betting card rather than behind a link to a page of its own. The
+ * form is for deciding and this is for checking what you already decided, but
+ * they are two halves of one errand: a count you have to navigate to in order
+ * to believe is a count you check twice, and a withdrawal made here frees a
+ * market in the picker directly above it.
+ *
+ * The same cards on every round, not only the one still open. `locked` takes
+ * the withdrawal away and leaves everything else standing, which is the whole
+ * difference between a slip you can still change and a slip you are reading
+ * back.
  */
 export function PlacedBets({
   leagueId,
@@ -35,6 +41,11 @@ export function PlacedBets({
   leagueId: string;
   round: number;
   bets: PlacedBet[];
+  /**
+   * No stake can come back: qualifying has started, or the round being read is
+   * not the one still open. It hides the withdraw buttons and turns an
+   * unsettled bet from "open" into "locked".
+   */
   locked: boolean;
 }) {
   const [state, cancelAction] = useActionState<BetState, FormData>(cancelBet, null);
@@ -105,10 +116,14 @@ export function PlacedBets({
                 ) : (
                   <>
                     {money(bet.stake)} × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                       {money(payoutAt(bet.stake, bet.odds))}
                     </span>{" "}
-                    if it lands, {money(profitAt(bet.stake, bet.odds))} of it profit
+                    if it lands,{" "}
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      {money(profitAt(bet.stake, bet.odds))}
+                    </span>{" "}
+                    of it profit
                   </>
                 )}
               </span>

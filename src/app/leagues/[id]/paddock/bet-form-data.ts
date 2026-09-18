@@ -8,11 +8,10 @@ import type { RoundContext } from "@/lib/f1/round-context";
 /**
  * Everything the bet form needs that the member context does not already hold.
  *
- * Two pages now carry the form — the paddock, where a bet is one errand beside
- * the chip store, and the bets page, where the slip you are reading is the
- * reason you want to place another. Loading it in one place is what stops the
- * two from quoting different prices or offering a sprint market on different
- * weekends.
+ * Split out of the page so the loading can be read on its own: prices, the
+ * markets this weekend offers, and the two gates betting waits on are four
+ * unrelated questions, and the page that renders the form has enough to do
+ * assembling the league's whole season of bets underneath it.
  */
 export interface BetForm {
   drivers: { id: string; name: string }[];

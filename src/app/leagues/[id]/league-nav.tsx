@@ -32,14 +32,11 @@ export function LeagueNav({ leagueId }: { leagueId: string }) {
   const pathname = usePathname();
   const base = `/leagues/${leagueId}`;
 
-  // A member's profile and the bets page sit under the league but are not tabs
-  // of it. Bets was one until it proved to be a place you go *from* somewhere —
-  // the Bets button over the roster picker, or what is riding on the race on the
-  // league page — rather than one of the three screens the game is played on.
-  // Both have their own way back, and a bar with nothing lit would suggest the
-  // app had lost track of where you were.
-  if (pathname.startsWith(`${base}/members/`) || pathname.startsWith(`${base}/bets`))
-    return null;
+  // A member's profile sits under the league but is not a tab of it: it is a
+  // place you go *from* somewhere rather than one of the three screens the game
+  // is played on. It has its own way back, and a bar with nothing lit would
+  // suggest the app had lost track of where you were.
+  if (pathname.startsWith(`${base}/members/`)) return null;
 
   return (
     <nav className="flex items-center gap-1.5">
