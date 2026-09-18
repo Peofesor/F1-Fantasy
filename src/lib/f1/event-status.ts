@@ -144,3 +144,99 @@ export async function loadCurrentEvent(
     status,
   };
 }
+
+/**
+ * A round reduced to the two instants that place it on a clock.
+ *
+ * Structural rather than one of the event types, so both the weekend on track
+ * and the one being prepared for satisfy it without either having to know about
+ * the other.
+ */
+export interface RoundAnchor {
+  round: number;
+  qualifyingAt: string | null;
+  raceAt: string | null;
+}
+
+/**
+ * Which of the two rounds the hub should open on.
+ *
+ * It used to always open on the weekend on track, on the reasoning that the
+ * race being watched beats the race being prepared for. That holds for about a
+ * day. A fortnight later the "current" event is a race nobody has thought about
+ * since Sunday evening, and the round everyone is actually picking a team for
+ * is behind an arrow.
+ *
+ * So the two are compared on distance instead: whichever instant is nearer to
+ * now is the one worth opening on. In practice that keeps the finished race
+ * through the week after it and hands the card to the next one somewhere around
+ * the midpoint between them — which is also when the conversation changes.
+ *
+ * A weekend still running is never given up, whatever the arithmetic says. The
+ * gap between qualifying and the race is a day, and a page that jumped to the
+ * next grand prix while cars were on the grid would be wrong in the one moment
+ * it matters most.
+ *
+ * The clock defaults to now so that callers — server components, all of them —
+ * do not have to read it during render, and tests can pin it.
+ */
+export function openingRound({
+  current,
+  upcoming,
+  now = new Date(),
+}: {
+  /** The weekend on track, with the phase that says whether it has finished. */
+  current: (RoundAnchor & { status?: EventStatus | null }) | null;
+  /** The round nobody has raced yet, when there is one left in the season. */
+  upcoming: RoundAnchor | null;
+  now?: Date;
+}): number | undefined {
+  if (!upcoming) return current?.round;
+  if (!current) return upcoming.round;
+
+  if (current.status && current.status.phase !== "settling") return current.round;
+
+  // An older round can carry a race date and no session times, so neither
+  // anchor is guaranteed. Missing one is not a reason to move: the round on
+  // track is the safe answer, and the arrow is still there.
+  const behind = current.raceAt ?? current.qualifyingAt;
+  const ahead = upcoming.qualifyingAt ?? upcoming.raceAt;
+  if (!ahead) return current.round;
+  if (!behind) return upcoming.round;
+
+  const since = Math.abs(now.getTime() - new Date(behind).getTime());
+  const until = Math.abs(new Date(ahead).getTime() - now.getTime());
+
+  return until < since ? upcoming.round : current.round;
+}
+
+/**
+ * How long until an instant, in the coarsest terms that stay useful.
+ *
+ * Null once the instant has passed, which is the caller's cue to stop saying
+ * "in" anything — a countdown that runs negative reads as a bug, and the phase
+ * headings already own what happens next.
+ *
+ * The card ticks every thirty seconds, so nothing finer than a minute would
+ * survive to be read.
+ */
+export function timeUntil(iso: string | null, now: Date): string | null {
+  if (!iso) return null;
+
+  const ms = new Date(iso).getTime() - now.getTime();
+  if (ms <= 0) return null;
+
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return "under a minute";
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    const spare = minutes % 60;
+    return spare ? `${hours}h ${spare}m` : `${hours}h`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const spare = hours % 24;
+  return spare ? `${days}d ${spare}h` : `${days}d`;
+}

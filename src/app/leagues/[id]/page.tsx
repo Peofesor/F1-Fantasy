@@ -12,7 +12,7 @@ import { LINEUP_ROWS } from "./lineup-rows";
 import { MembersPanel } from "./members-panel";
 import { type RoundBet } from "./bet-slip-list";
 import { EventBrowser, type BrowsableEvent } from "./event-browser";
-import { loadCurrentEvent } from "@/lib/f1/event-status";
+import { loadCurrentEvent, openingRound } from "@/lib/f1/event-status";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
@@ -652,10 +652,13 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
 
   const browsable = upcomingEvent ? [...events, upcomingEvent] : events;
 
-  // Opens on the weekend on track rather than the one to come: that is the race
-  // being watched, and the round to come is one arrow away — with the deadline
-  // card right below it either way.
-  const openOn = event?.round ?? browsable[browsable.length - 1]?.round;
+  // Opens on whichever of the two rounds is nearer to now. For the days around
+  // a grand prix that is the weekend on track; once it is a week behind, the
+  // round being prepared for is closer than the one already raced and the card
+  // belongs to it. Either way the other is one arrow away.
+  const openOn =
+    openingRound({ current: event, upcoming: upcomingEvent }) ??
+    browsable[browsable.length - 1]?.round;
 
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">

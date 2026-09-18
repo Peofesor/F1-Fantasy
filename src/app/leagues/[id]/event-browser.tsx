@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { eventStatus, type EventPhase, type EventStatus } from "@/lib/f1/event-status";
+import {
+  eventStatus,
+  timeUntil,
+  type EventPhase,
+  type EventStatus,
+} from "@/lib/f1/event-status";
 import { money } from "@/lib/f1/money";
 import { BetSlipList, type RoundBet } from "./bet-slip-list";
 import { RoundArrow } from "./round-arrow";
@@ -149,6 +154,13 @@ export function EventBrowser({
       ? event.status
       : eventStatus({ qualifyingAt: event.qualifyingAt, raceAt: event.raceAt, now });
 
+  // How long is left to pick a team, on the round nobody has raced yet. Null
+  // until the clock arrives on mount — the server has no business guessing a
+  // countdown, and the sentence below reads perfectly well without one — and
+  // null again once qualifying starts, at which point the phase headings have
+  // something better to say.
+  const untilQualifying = event.upcoming && now ? timeUntil(event.qualifyingAt, now) : null;
+
   const hidden = event.hiddenBets ?? [];
   const hiddenTotal = hidden.reduce((total, entry) => total + entry.count, 0);
   const staked = event.bets.reduce((total, bet) => total + bet.stake, 0);
@@ -190,7 +202,16 @@ export function EventBrowser({
 
           <p className="text-xs text-zinc-500">
             {event.upcoming ? (
-              "Rosters and bets lock when qualifying starts."
+              untilQualifying ? (
+                <>
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                    Qualifying in {untilQualifying}
+                  </span>
+                  {" · rosters and bets lock then."}
+                </>
+              ) : (
+                "Rosters and bets lock when qualifying starts."
+              )
             ) : status ? (
               <>
                 {HEADING[status.phase]} · {NOTE[status.phase]}

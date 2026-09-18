@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { eventStatus, QUALIFYING_WINDOW_MS, RACE_WINDOW_MS } from "./event-status";
+import {
+  eventStatus,
+  openingRound,
+  QUALIFYING_WINDOW_MS,
+  RACE_WINDOW_MS,
+  timeUntil,
+} from "./event-status";
 
 // The Spanish Grand Prix as the calendar carries it: qualifying on Saturday
 // afternoon, the race at one o'clock the next day.
@@ -77,5 +83,79 @@ describe("eventStatus", () => {
     expect(
       eventStatus({ qualifyingAt: null, raceAt: null, now: new Date("2026-09-13T13:30:00Z") }),
     ).toBeNull();
+  });
+});
+
+describe("openingRound", () => {
+  // Two grands prix a fortnight apart: the one just run, and the one being
+  // picked for.
+  const current = { round: 16, qualifyingAt: QUALI, raceAt: RACE, status: null };
+  const upcoming = {
+    round: 17,
+    qualifyingAt: "2026-09-26T14:00:00Z",
+    raceAt: "2026-09-27T13:00:00Z",
+  };
+
+  const on = (iso: string) => openingRound({ current, upcoming, now: new Date(iso) });
+
+  it("stays on the weekend just run while it is the nearer of the two", () => {
+    expect(on("2026-09-14T09:00:00Z")).toBe(16);
+    expect(on("2026-09-17T09:00:00Z")).toBe(16);
+  });
+
+  it("moves on once the next qualifying is closer than the last race", () => {
+    // The midpoint falls on the Sunday between them; a day past it the round
+    // everyone is picking for is the nearer.
+    expect(on("2026-09-21T09:00:00Z")).toBe(17);
+    expect(on("2026-09-25T09:00:00Z")).toBe(17);
+  });
+
+  it("never gives up a weekend still running", () => {
+    // The arithmetic is irrelevant here — this is the one moment the card has
+    // a live session to report.
+    const running = { ...current, status: { phase: "race", live: true } as const };
+    expect(
+      openingRound({ current: running, upcoming, now: new Date("2026-09-13T13:30:00Z") }),
+    ).toBe(16);
+  });
+
+  it("has an answer when only one of the two exists", () => {
+    const now = new Date("2026-09-20T09:00:00Z");
+    expect(openingRound({ current, upcoming: null, now })).toBe(16);
+    expect(openingRound({ current: null, upcoming, now })).toBe(17);
+    expect(openingRound({ current: null, upcoming: null, now })).toBeUndefined();
+  });
+
+  it("stays put rather than guessing when the next round has no dates", () => {
+    // A calendar row without session times says nothing about how near it is,
+    // and the arrow still reaches it.
+    const undated = { round: 17, qualifyingAt: null, raceAt: null };
+    expect(
+      openingRound({ current, upcoming: undated, now: new Date("2026-09-25T09:00:00Z") }),
+    ).toBe(16);
+  });
+});
+
+describe("timeUntil", () => {
+  const now = new Date("2026-09-12T12:00:00Z");
+
+  it("counts down in the coarsest useful terms", () => {
+    expect(timeUntil("2026-09-12T12:45:00Z", now)).toBe("45 min");
+    expect(timeUntil("2026-09-12T16:30:00Z", now)).toBe("4h 30m");
+    expect(timeUntil("2026-09-12T16:00:00Z", now)).toBe("4h");
+    expect(timeUntil("2026-09-18T20:00:00Z", now)).toBe("6d 8h");
+    expect(timeUntil("2026-09-19T12:00:00Z", now)).toBe("7d");
+  });
+
+  it("says nothing about an instant that has passed", () => {
+    // The phase headings own the weekend from here, and a negative countdown
+    // reads as a bug.
+    expect(timeUntil("2026-09-12T12:00:00Z", now)).toBeNull();
+    expect(timeUntil("2026-09-12T11:00:00Z", now)).toBeNull();
+    expect(timeUntil(null, now)).toBeNull();
+  });
+
+  it("rounds the last minute down to words", () => {
+    expect(timeUntil("2026-09-12T12:00:30Z", now)).toBe("under a minute");
   });
 });
