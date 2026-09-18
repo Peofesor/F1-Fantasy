@@ -281,10 +281,25 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     })),
   );
 
+  // More than a name: the schedule draws both sides as members now — a
+  // monogram, a link to the profile behind it, and the record and league
+  // position that say whether the fixture is one to worry about.
+  const party = (memberId: string) => {
+    const standing = standings.find((entry) => entry.memberId === memberId);
+    return {
+      memberId,
+      name: nameByMemberId.get(memberId) ?? "Unknown",
+      record: standing
+        ? { wins: standing.wins, draws: standing.draws, losses: standing.losses }
+        : null,
+      position: standing?.position ?? null,
+    };
+  };
+
   const fixtures = (fixtureRows ?? []).map((fixture) => ({
     round: fixture.round,
-    home: nameByMemberId.get(fixture.home_member_id) ?? "Unknown",
-    away: nameByMemberId.get(fixture.away_member_id) ?? "Unknown",
+    home: party(fixture.home_member_id),
+    away: party(fixture.away_member_id),
   }));
 
   const nextRound = (calendar ?? []).find((entry) => entry.round === next?.round);
@@ -703,6 +718,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           leagueId={league.id}
           isOwner={league.owner_id === user.id}
           fixtures={fixtures}
+          currentRound={openOn}
+          currentMemberId={selfMemberId}
         />
       )}
 

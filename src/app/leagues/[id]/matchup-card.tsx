@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { LINEUP_ROWS } from "./lineup-rows";
+import { MemberMonogram } from "./member-monogram";
 import { PickBreakdownSheet, type PickBreakdown } from "./pick-breakdown";
 
 export interface MatchupPick {
@@ -82,40 +83,6 @@ export interface Matchup {
   sides: Side[];
   /** Whether the viewer is in it, which is the one the carousel opens on. */
   isSelf: boolean;
-}
-
-/** A colour from the id, so a member looks the same everywhere without storing one. */
-function monogramColour(seed: string): string {
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) % 360;
-  }
-  return `hsl(${hash} 55% 45%)`;
-}
-
-/**
- * A member's picture.
- *
- * Initials on a colour derived from their id: nothing in the schema holds an
- * uploaded portrait yet, and a grey silhouette repeated four times would
- * identify nobody. The colour is a pure function of the id, so a member is the
- * same colour on every card and every device.
- */
-function MemberAvatar({ side, size }: { side: Side; size: number }) {
-  return (
-    <span
-      aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
-      style={{
-        backgroundColor: monogramColour(side.memberId),
-        height: size,
-        width: size,
-        fontSize: size * 0.38,
-      }}
-    >
-      {side.name.slice(0, 2).toUpperCase()}
-    </span>
-  );
 }
 
 /**
@@ -399,7 +366,7 @@ function MemberColumn({
 
   return (
     <div className={`flex min-w-0 flex-1 gap-2 ${right ? "flex-row-reverse" : ""}`}>
-      <MemberAvatar side={side} size={40} />
+      <MemberMonogram memberId={side.memberId} name={side.name} size={40} />
       <div className={`min-w-0 flex-1 ${right ? "text-right" : ""}`}>
         <Link
           href={`/leagues/${leagueId}/members/${side.memberId}`}
