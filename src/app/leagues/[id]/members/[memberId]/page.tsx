@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { currentRound } from "@/lib/f1/round-context";
 import { MARKETS, type MarketId } from "@/lib/f1/betting";
+import { MemberMonogram } from "../../member-monogram";
 import { RosterHistory, type Bet, type Pick, type Squad } from "./roster-history";
 
 export const dynamic = "force-dynamic";
@@ -283,10 +284,17 @@ export default async function MemberPage({
           ← {league.name}
         </Link>
 
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {displayName}
-          {isSelf && <span className="ml-2 text-sm font-normal text-zinc-500">you</span>}
-        </h1>
+        {/* The same face the standings and the fixture card put beside this
+            name, so arriving here confirms you opened the member you meant —
+            the page used to open on a name alone, which every member's page
+            has. */}
+        <div className="flex items-center gap-3">
+          <MemberMonogram memberId={memberId} name={displayName} size={44} />
+          <h1 className="min-w-0 text-2xl font-semibold tracking-tight">
+            <span className="truncate">{displayName}</span>
+            {isSelf && <span className="ml-2 text-sm font-normal text-zinc-500">you</span>}
+          </h1>
+        </div>
       </header>
 
       <RosterHistory

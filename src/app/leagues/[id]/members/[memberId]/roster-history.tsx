@@ -39,10 +39,21 @@ export interface Squad {
   bets: Bet[];
 }
 
-const BRACKETS: { label: string; types: string[] }[] = [
-  { label: "Top", types: ["driver_top", "constructor_top"] },
-  { label: "Midfield", types: ["driver_mid", "constructor_mid"] },
-  { label: "Back of the grid", types: ["driver_backmarker", "constructor_reverse"] },
+/**
+ * The order a squad reads in, and what each slot is called.
+ *
+ * The same order and the same words the round card uses, because a squad met on
+ * a rival's profile and the same squad met on a fixture should not be two
+ * different lists. Drivers lead their bracket and the team closes it, which is
+ * also the order the roster picker fills them in.
+ */
+const SLOT_ORDER: { type: string; label: string }[] = [
+  { type: "driver_top", label: "Top" },
+  { type: "constructor_top", label: "Top team" },
+  { type: "driver_mid", label: "Mid" },
+  { type: "constructor_mid", label: "Mid team" },
+  { type: "driver_backmarker", label: "Backmarker" },
+  { type: "constructor_reverse", label: "Backmarker team" },
 ];
 
 /**
@@ -56,7 +67,7 @@ const BRACKETS: { label: string; types: string[] }[] = [
 function PickPoints({ pick }: { pick: Pick }) {
   const points = pick.points ?? 0;
   if (points === 0) {
-    return <span className="text-[11px] font-medium tabular-nums text-zinc-500">0 pts</span>;
+    return <span className="text-sm font-semibold tabular-nums text-zinc-500">0 pts</span>;
   }
 
   const backmarker = pick.slotType === "driver_backmarker";
@@ -64,85 +75,142 @@ function PickPoints({ pick }: { pick: Pick }) {
 
   return (
     <span
-      className={`text-[11px] font-medium tabular-nums ${
+      className={`text-sm font-semibold tabular-nums ${
         lost ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
       }`}
     >
-      {backmarker ? `-${Math.abs(points).toFixed(0)}` : `${points > 0 ? "+" : ""}${points.toFixed(0)}`}{" "}
+      {backmarker
+        ? `-${Math.abs(points).toFixed(0)}`
+        : `${points > 0 ? "+" : ""}${points.toFixed(0)}`}{" "}
       pts
     </span>
   );
 }
 
+/**
+ * The portrait, or a team's two cars overlapped where there is no portrait.
+ *
+ * Sized by a fixed well wide enough for the two overlapping faces, rather than
+ * by whichever it happens to be. Left to its content a team pushed its name
+ * about twenty-five pixels further in than a driver's, so ten rows of names
+ * started in two different places and the column could not be read down. The
+ * team picture is still visibly the wider of the two — which is what marks a
+ * team out — it just no longer moves the text. The same well the fixture card
+ * uses, for the same reason.
+ */
 function Face({ pick }: { pick: Pick }) {
   const accent = pick.colour ? `#${pick.colour}` : "#a1a1aa";
 
   return (
-    <span className="flex w-16 flex-col items-center gap-1 text-center">
+    <span className="flex w-[4.125rem] shrink-0 justify-start">
+      {/* The badge hangs off the picture, so it anchors to the faces rather
+          than to the well — on a driver the two edges are twenty-five pixels
+          apart, which is a badge floating in the margin. */}
       <span className="relative">
-        {pick.lineup?.length ? (
-          <span className="flex items-center">
-            {pick.lineup.slice(0, 2).map((seat, index) =>
-              seat.headshotUrl ? (
-                <Image
-                  key={seat.name}
-                  src={seat.headshotUrl}
-                  alt=""
-                  width={96}
-                  height={96}
-                  className="h-12 w-12 rounded-full object-cover"
-                  style={{ outline: `2px solid ${accent}`, marginLeft: index === 0 ? 0 : "-30%" }}
-                  unoptimized
-                />
-              ) : (
-                <span
-                  key={seat.name}
-                  className="h-12 w-12 flex items-center justify-center rounded-full text-[8px] font-semibold text-white"
-                  style={{ backgroundColor: accent, marginLeft: index === 0 ? 0 : "-30%" }}
-                >
-                  {seat.name.slice(0, 2).toUpperCase()}
-                </span>
-              ),
-            )}
-          </span>
-        ) : pick.headshotUrl ? (
-          <Image
-            src={pick.headshotUrl}
-            alt=""
-            width={96}
-            height={96}
-            className="h-12 w-12 rounded-full object-cover"
-            style={{ outline: `2px solid ${accent}` }}
-            unoptimized
-          />
-        ) : (
-          <span
-            className="flex h-12 w-12 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-            style={{ backgroundColor: accent }}
-          >
-            {pick.name.slice(0, 2).toUpperCase()}
-          </span>
-        )}
-        {pick.boost && (
-          <span
-            aria-label={`scored ${pick.boost}`}
-            className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1 text-[9px] font-bold leading-4 text-zinc-900"
-          >
-            {pick.boost}
-          </span>
-        )}
-      </span>
-      <span className="w-full truncate text-[10px] leading-tight">{pick.name}</span>
-      {/* What it scored, then what it cost. The profile showed only the price,
-          which said what the pick was worth to buy and nothing about whether it
-          was worth buying — the question a rival's page is opened to answer.
-          Signed and coloured the same way the round card does it, so a pick
-          reads identically wherever it is met. */}
-      {pick.points !== null && <PickPoints pick={pick} />}
-      {pick.price !== null && (
-        <span className="text-[10px] tabular-nums text-zinc-500">{money(pick.price)}</span>
+      {pick.lineup?.length ? (
+        <span className="flex items-center">
+          {pick.lineup.slice(0, 2).map((seat, index) =>
+            seat.headshotUrl ? (
+              <Image
+                key={seat.name}
+                src={seat.headshotUrl}
+                alt=""
+                width={96}
+                height={96}
+                className="h-10 w-10 rounded-full object-cover"
+                style={{ outline: `2px solid ${accent}`, marginLeft: index === 0 ? 0 : "-35%" }}
+                unoptimized
+              />
+            ) : (
+              <span
+                key={seat.name}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                style={{ backgroundColor: accent, marginLeft: index === 0 ? 0 : "-35%" }}
+              >
+                {seat.name.slice(0, 2).toUpperCase()}
+              </span>
+            ),
+          )}
+        </span>
+      ) : pick.headshotUrl ? (
+        <Image
+          src={pick.headshotUrl}
+          alt=""
+          width={96}
+          height={96}
+          className="h-10 w-10 rounded-full object-cover"
+          style={{ outline: `2px solid ${accent}` }}
+          unoptimized
+        />
+      ) : (
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+          style={{ backgroundColor: accent }}
+        >
+          {pick.name.slice(0, 2).toUpperCase()}
+        </span>
       )}
+      {pick.boost && (
+        <span
+          aria-label={`scored ${pick.boost}`}
+          className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1 text-[9px] font-bold leading-4 text-zinc-900"
+        >
+          {pick.boost}
+        </span>
+      )}
+      </span>
     </span>
+  );
+}
+
+/**
+ * A team's name with the boilerplate off, the same way the round card trims it.
+ *
+ * The reference data calls them "Alpine F1 Team" and "Aston Martin F1 Team", of
+ * which one word identifies the team.
+ */
+function displayName(pick: Pick): string {
+  return pick.lineup ? pick.name.replace(/\s+(?:F1|Formula 1)\s+Team$/i, "") : pick.name;
+}
+
+/**
+ * One pick, as a row: who it is on the left, which slot they filled and what
+ * they scored on the right.
+ *
+ * A row rather than a tile. The squad used to wrap across three little grids of
+ * portraits, which packed ten picks into a small space but made the one thing
+ * the page is opened for — how did each of them do — a hunt through captions
+ * four words wide. Down the page each pick gets a full line, the names line up
+ * under one another, and the scores form a column that can be read without
+ * reading anything else.
+ */
+function PickRow({ pick, label }: { pick: Pick; label: string }) {
+  const seats = pick.lineup?.slice(0, 2) ?? [];
+
+  return (
+    <li className="flex items-center gap-3 px-3 py-2 odd:bg-[color-mix(in_oklab,var(--accent)_7%,var(--background))]">
+      <Face pick={pick} />
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold leading-tight">{displayName(pick)}</p>
+        {/* A team spends its second line on the two cars it is drawn as —
+            without the names the badge is a picture of two people the reader is
+            expected to recognise at ten pixels. A driver spends it on what they
+            cost. */}
+        <p className="truncate text-[11px] leading-tight text-zinc-500">
+          {seats.length > 0 && seats.map((seat) => seat.name).join(" · ")}
+          {seats.length > 0 && pick.price !== null && " · "}
+          {pick.price !== null && <span className="tabular-nums">{money(pick.price)}</span>}
+        </p>
+      </div>
+
+      <div className="shrink-0 text-right">
+        <p className="text-[10px] font-medium uppercase leading-tight tracking-wide text-zinc-400">
+          {label}
+        </p>
+        {pick.points !== null && <PickPoints pick={pick} />}
+      </div>
+    </li>
   );
 }
 
@@ -215,72 +283,62 @@ export function RosterHistory({
     );
   }
 
+  // One flat list in slot order, the boosted driver leading its bracket — the
+  // order the round card reads in. The rows arrive in whatever order the
+  // database returned them, so without this a team could lead its own bracket
+  // here and trail it there: the same squad reading differently depending on
+  // which screen you met it on.
+  const rows = SLOT_ORDER.flatMap(({ type, label }) =>
+    squad.picks
+      .filter((pick) => pick.slotType === type)
+      .sort((a, b) => Number(Boolean(b.boost)) - Number(Boolean(a.boost)))
+      .map((pick) => ({ pick, label })),
+  );
+
   return (
     <div className="space-y-3">
       {seal}
 
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] dark:border-zinc-800">
-      <div className="flex items-stretch gap-1 border-b border-zinc-200 p-2 dark:border-zinc-800">
-        <RoundArrow
-          direction="left"
-          label={older ? `Back to round ${older.round}` : "No earlier round"}
-          onClick={older ? () => setRound(older.round) : undefined}
-        />
+        <div className="flex items-stretch gap-1 border-b border-zinc-200 p-2 dark:border-zinc-800">
+          <RoundArrow
+            direction="left"
+            label={older ? `Back to round ${older.round}` : "No earlier round"}
+            onClick={older ? () => setRound(older.round) : undefined}
+          />
 
-        <div className="min-w-0 flex-1 text-center">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-            Round {squad.round}
-          </p>
-          <h2 className="truncate text-base font-semibold">{squad.raceName}</h2>
-          <p className="text-xs text-zinc-500">
-            {squad.points !== null
-              ? `${squad.points.toFixed(0)} points`
-              : squad.picks.length === 0
-                ? "Bets only — no squad to show"
-                : "Not scored yet"}
-          </p>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              Round {squad.round}
+            </p>
+            <h2 className="truncate text-base font-semibold">{squad.raceName}</h2>
+            <p className="text-xs text-zinc-500">
+              {squad.points !== null
+                ? `${squad.points.toFixed(0)} points`
+                : squad.picks.length === 0
+                  ? "Bets only — no squad to show"
+                  : "Not scored yet"}
+            </p>
+          </div>
+
+          <RoundArrow
+            direction="right"
+            label={newer ? `On to round ${newer.round}` : "No later round"}
+            onClick={newer ? () => setRound(newer.round) : undefined}
+          />
         </div>
 
-        <RoundArrow
-          direction="right"
-          label={newer ? `On to round ${newer.round}` : "No later round"}
-          onClick={newer ? () => setRound(newer.round) : undefined}
-        />
-      </div>
-
-      <div className="space-y-3 p-4">
-        {BRACKETS.map((bracket) => {
-          // Drivers first, team last, which is the order the roster picker
-          // lays a bracket out in. The rows arrived in whatever order the
-          // database returned them, so a team could lead its own bracket here
-          // and trail it there — the same squad reading differently depending
-          // on which screen you met it on.
-          const inBracket = squad.picks
-            .filter((pick) => bracket.types.includes(pick.slotType))
-            .sort(
-              (a, b) =>
-                bracket.types.indexOf(a.slotType) - bracket.types.indexOf(b.slotType),
-            );
-          if (inBracket.length === 0) return null;
-          return (
-            <div key={bracket.label}>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-                {bracket.label}
-              </p>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {inBracket.map((pick) => (
-                  <Face key={`${pick.slotType}-${pick.name}`} pick={pick} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+        {rows.length > 0 && (
+          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            {rows.map(({ pick, label }) => (
+              <PickRow key={`${pick.slotType}-${pick.name}`} pick={pick} label={label} />
+            ))}
+          </ul>
+        )}
 
         {squad.bets.length > 0 && (
-          <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-              Bets
-            </p>
+          <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Bets</p>
             <ul className="mt-1.5 space-y-1">
               {squad.bets.map((bet) => (
                 <li
@@ -318,7 +376,6 @@ export function RosterHistory({
             </ul>
           </div>
         )}
-      </div>
       </section>
     </div>
   );
