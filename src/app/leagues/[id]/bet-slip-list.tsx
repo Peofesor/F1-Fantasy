@@ -80,10 +80,10 @@ export function BetSlipList({
                       <>
                         {" "}
                         × {grossMultiplier(bet.odds).toFixed(2)} ={" "}
-                        <span className="text-zinc-900 dark:text-zinc-100">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                           {money(payoutAt(bet.stake, bet.odds))}
                         </span>{" "}
-                        <span className="text-zinc-400">
+                        <span className="text-emerald-600 dark:text-emerald-400">
                           (+{money(profitAt(bet.stake, bet.odds))})
                         </span>
                       </>

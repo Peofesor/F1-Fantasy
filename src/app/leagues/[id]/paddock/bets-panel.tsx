@@ -300,15 +300,17 @@ export function BetsPanel({
                 <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
                   Returns if it lands
                 </p>
-                <p className="text-2xl font-semibold tabular-nums leading-none text-emerald-700 dark:text-emerald-400">
+                <p className="text-2xl font-bold tabular-nums leading-none text-zinc-900 dark:text-zinc-100">
                   {money(payoutAt(stake, selectedOdds))}
                 </p>
                 {/* The return includes the stake, so on a short price it looks
                     far better than the bet is. The gain is the number being
                     weighed up, so it is said outright. */}
                 <p className="mt-1 text-[11px] tabular-nums text-zinc-500">
-                  {money(profitAt(stake, selectedOdds))} profit on top of your{" "}
-                  {money(stake)} stake
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    {money(profitAt(stake, selectedOdds))}
+                  </span>{" "}
+                  profit on top of your {money(stake)} stake
                 </p>
               </div>
               <p className="shrink-0 text-right text-xs text-zinc-500">
