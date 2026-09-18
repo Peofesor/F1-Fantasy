@@ -185,6 +185,8 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
       headshotUrl: round.driverHeadshots.get(driverId),
       colour: round.driverColours.get(driverId),
       form: round.driverForm.get(driverId) ?? 0,
+      priceDelta: round.driverPriceDelta.get(driverId),
+      formDelta: round.driverFormDelta.get(driverId),
     }))
     .sort((a, b) => b.price - a.price);
 
@@ -207,6 +209,8 @@ export default async function RosterPage({ params }: PageProps<"/leagues/[id]/ro
           headshotUrl: round.driverHeadshots.get(driverId),
         })),
         form: round.constructorForm.get(constructorId) ?? 0,
+        priceDelta: round.constructorPriceDelta.get(constructorId),
+        formDelta: round.constructorFormDelta.get(constructorId),
       };
     })
     .sort((a, b) => b.price - a.price);

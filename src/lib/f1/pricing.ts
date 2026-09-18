@@ -2,14 +2,87 @@
  * Price derivation.
  *
  * No upstream source publishes F1 Fantasy prices, so prices are derived from
- * form rather than imported. The signal is the same rolling 5-race window that
- * drives tier assignment (see ./tiers.ts), deliberately: if price and tier were
- * computed from different signals they could disagree, and a driver could be
- * top-bracket while priced like a backmarker.
+ * results rather than imported. The signal blends two horizons — the rolling
+ * 5-race window that answers "who is quick now" and the season to date that
+ * answers "who is quick" — weighted `FORM_WEIGHT` to the former.
+ *
+ * Tier assignment reads the same blended signal (see ./tiers.ts), deliberately:
+ * if price and tier were computed from different signals they could disagree,
+ * and a driver could be top-bracket while priced like a backmarker.
  *
  * Prices are recomputed after every race, and a player's cost cap moves with
  * the value of what they own (spec §2).
  */
+
+/**
+ * How much of the pricing signal is recent form rather than the season so far.
+ *
+ * Price used to be a pure function of the rolling 5-race window, which made it
+ * a strictly increasing transform of form — so sorting the picker by price and
+ * sorting it by form produced the same order every time, and two of the three
+ * sort controls were one control. Worse than redundant: price was form with
+ * information destroyed by rounding.
+ *
+ * The season total is the missing half. Measured on 2026 round 15 the two
+ * disagree by 1.8 places on average and by as much as 7: Bearman banked 18
+ * points early and nothing since, so form alone had him 20th and priced beside
+ * drivers who have scored nothing all year.
+ *
+ * Seven-three rather than an even split. Form has to stay the dominant term or
+ * the price stops answering the question a player is actually asking — who is
+ * worth picking for the next race — and a championship position earned in March
+ * would keep a driver expensive through a summer of nothing. Thirty percent is
+ * enough to separate a quiet season from a bad one without letting it outvote
+ * what is happening now.
+ */
+export const FORM_WEIGHT = 0.7;
+
+/**
+ * Blends the two horizons into one signal in [0, 1].
+ *
+ * Each is normalised against the best in the field *before* they are combined,
+ * because the two are on wildly different scales: a season total is fifteen
+ * races of points and a window is five. Blending the raw figures would be an
+ * elaborate way of using the season total alone.
+ *
+ * The result feeds both price and tier, deliberately. They have always shared a
+ * signal so that they cannot contradict each other — a driver priced like a
+ * star while slotted as midfield is a bug a player would report — and splitting
+ * them here would have bought a better price at the cost of that guarantee. On
+ * the 2026 round-15 field the blend moves nobody between brackets at all, so
+ * the guarantee costs nothing to keep.
+ */
+export function blendSignals(
+  competitorIds: readonly string[],
+  windowForm: ReadonlyMap<string, number>,
+  seasonForm: ReadonlyMap<string, number>,
+  formWeight: number = FORM_WEIGHT,
+): Map<string, number> {
+  const share = (raw: ReadonlyMap<string, number>) => {
+    const max = Math.max(0, ...competitorIds.map((id) => raw.get(id) ?? 0));
+    return (id: string) => (max <= 0 ? 0 : (raw.get(id) ?? 0) / max);
+  };
+
+  const formShare = share(windowForm);
+  const seasonShare = share(seasonForm);
+
+  // A season with no completed rounds — round one, or a fresh dataset — leaves
+  // every season share at zero. Scaling the form term back up keeps the field
+  // spread across the whole band rather than squashing it into the bottom 70%,
+  // which is the same answer the old form-only pricing gave.
+  const hasSeason = competitorIds.some((id) => (seasonForm.get(id) ?? 0) > 0);
+
+  const blended = new Map<string, number>();
+  for (const id of competitorIds) {
+    blended.set(
+      id,
+      hasSeason
+        ? formWeight * formShare(id) + (1 - formWeight) * seasonShare(id)
+        : formShare(id),
+    );
+  }
+  return blended;
+}
 
 export interface PriceBand {
   min: number;

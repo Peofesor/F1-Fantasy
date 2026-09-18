@@ -5,10 +5,12 @@ import {
   buildSeedRanks,
   formPoints,
   rollingWindowPoints,
+  championshipPoints,
   TOP_CONSTRUCTOR_BRACKET_SIZE,
   type RoundPoints,
   type Tier,
 } from "./tiers";
+import { blendSignals } from "./pricing";
 
 /**
  * Assembles everything needed to build or validate a roster for one round:
@@ -48,6 +50,19 @@ export interface RoundContext {
    */
   driverForm: Map<string, number>;
   constructorForm: Map<string, number>;
+  /**
+   * What price and form did between the last round and this one, per
+   * competitor. Absent where there is nothing to compare against — the first
+   * round of a dataset, or a competitor with no price last time.
+   *
+   * Carried as deltas rather than as the previous figures because a delta is
+   * the whole of what the picker shows, and the previous price is a number
+   * nobody wants to read next to the current one.
+   */
+  driverPriceDelta: Map<string, number>;
+  constructorPriceDelta: Map<string, number>;
+  driverFormDelta: Map<string, number>;
+  constructorFormDelta: Map<string, number>;
   constructorNames: Map<string, string>;
   /**
    * A team's own colour and its drivers, so the picker can show a team as
@@ -95,6 +110,31 @@ export async function currentRound(
   return latest ?? null;
 }
 
+/**
+ * What moved, keyed by whoever appears in both readings.
+ *
+ * A competitor missing from either side is left out entirely rather than
+ * treated as having come from zero. A driver who was not priced last round has
+ * not risen by their whole price — nobody knows what they did, and an arrow
+ * claiming otherwise would be the most eye-catching lie on the page.
+ *
+ * Exact equality is left out too: no arrow is the honest rendering of a price
+ * that did not move, and there are always several.
+ */
+function deltas(
+  current: ReadonlyMap<string, number>,
+  previous: ReadonlyMap<string, number>,
+): Map<string, number> {
+  const moved = new Map<string, number>();
+  for (const [id, now] of current) {
+    const before = previous.get(id);
+    if (before === undefined) continue;
+    const delta = now - before;
+    if (delta !== 0) moved.set(id, delta);
+  }
+  return moved;
+}
+
 export async function loadRoundContext(
   supabase: SupabaseClient,
   season: number,
@@ -127,8 +167,17 @@ export async function loadRoundContext(
   const round = await currentRound(supabase, season);
   if (!round) return null;
 
-  const [results, priorDrivers, priorConstructors, prices, constructorPrices, drivers, constructors] =
-    await Promise.all([
+  const [
+    results,
+    priorDrivers,
+    priorConstructors,
+    prices,
+    constructorPrices,
+    drivers,
+    constructors,
+    lastPrices,
+    lastConstructorPrices,
+  ] = await Promise.all([
       pending.results,
       pending.priorDrivers,
       pending.priorConstructors,
@@ -144,6 +193,24 @@ export async function loadRoundContext(
         .eq("round", round.round),
       pending.drivers,
       pending.constructors,
+      // The round before, for the arrows. Round one has no predecessor within
+      // the season and gets an empty list rather than a lookup into the last
+      // one: a price carried over a winter of rule changes is not a price this
+      // round moved from.
+      round.round > 1
+        ? supabase
+            .from("driver_prices")
+            .select("driver_id, price")
+            .eq("season", season)
+            .eq("round", round.round - 1)
+        : Promise.resolve({ data: [] as { driver_id: string; price: number }[] }),
+      round.round > 1
+        ? supabase
+            .from("constructor_prices")
+            .select("constructor_id, price")
+            .eq("season", season)
+            .eq("round", round.round - 1)
+        : Promise.resolve({ data: [] as { constructor_id: string; price: number }[] }),
     ]);
 
   const resultRows = results.data ?? [];
@@ -186,6 +253,27 @@ export async function loadRoundContext(
     points: formPoints(row.position === null ? null : Number(row.position)),
   }));
   const constructorFormMap = rollingWindowPoints(constructorPoints, {
+    season: round.season,
+    round: round.round,
+  });
+
+  // The same windows one round earlier, which is what the arrows compare
+  // against: not "how has this driver done" but "which way did the last race
+  // move them".
+  const previous = { season: round.season, round: round.round - 1 };
+  const lastForm =
+    round.round > 1 ? rollingWindowPoints(driverPoints, previous) : new Map<string, number>();
+  const lastConstructorForm =
+    round.round > 1 ? rollingWindowPoints(constructorPoints, previous) : new Map<string, number>();
+
+  // Season totals through this round, the other half of the pricing signal.
+  // Tiers read the blend rather than the window alone so that a driver cannot
+  // be bracketed on one measure and priced on another.
+  const seasonForm = championshipPoints(driverPoints, {
+    season: round.season,
+    round: round.round,
+  });
+  const constructorSeasonForm = championshipPoints(constructorPoints, {
     season: round.season,
     round: round.round,
   });
@@ -236,13 +324,16 @@ export async function loadRoundContext(
     round: round.round,
     raceName: round.race_name,
     hasSprint: round.has_sprint,
-    tiers: assignTiers(driverIds, form, seeds),
-    constructorTiers: assignTiers(
-      [...new Set(seasonRows.map((row) => row.constructor_id))],
-      constructorFormMap,
-      new Map(),
-      TOP_CONSTRUCTOR_BRACKET_SIZE,
-    ),
+    tiers: assignTiers(driverIds, blendSignals(driverIds, form, seasonForm), seeds),
+    constructorTiers: (() => {
+      const ids = [...new Set(seasonRows.map((row) => row.constructor_id))];
+      return assignTiers(
+        ids,
+        blendSignals(ids, constructorFormMap, constructorSeasonForm),
+        new Map(),
+        TOP_CONSTRUCTOR_BRACKET_SIZE,
+      );
+    })(),
     driverPrices: new Map(
       (prices.data ?? []).map((row) => [row.driver_id, Number(row.price)]),
     ),
@@ -267,6 +358,18 @@ export async function loadRoundContext(
     driverColours,
     driverForm: form,
     constructorForm: constructorFormMap,
+    driverPriceDelta: deltas(
+      new Map((prices.data ?? []).map((row) => [row.driver_id, Number(row.price)])),
+      new Map((lastPrices.data ?? []).map((row) => [row.driver_id, Number(row.price)])),
+    ),
+    constructorPriceDelta: deltas(
+      new Map((constructorPrices.data ?? []).map((row) => [row.constructor_id, Number(row.price)])),
+      new Map(
+        (lastConstructorPrices.data ?? []).map((row) => [row.constructor_id, Number(row.price)]),
+      ),
+    ),
+    driverFormDelta: deltas(form, lastForm),
+    constructorFormDelta: deltas(constructorFormMap, lastConstructorForm),
     constructorNames: new Map(
       (constructors.data ?? []).map((row) => [row.constructor_id, row.name]),
     ),

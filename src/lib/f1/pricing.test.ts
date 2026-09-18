@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  blendSignals,
   CONSTRUCTOR_PRICE_BAND,
   DRIVER_PRICE_BAND,
   priceField,
@@ -105,5 +106,71 @@ describe("rosterCostRange", () => {
 
     expect(cheapest).toBeLessThan(dearest);
     expect(cheapest).toBeGreaterThan(0);
+  });
+});
+
+describe("blendSignals", () => {
+  const ids = ["hot", "steady", "faded", "nobody"];
+
+  // A driver on a tear, one who has been there all year, one who was and has
+  // stopped, and one who has never scored.
+  const windowForm = new Map([
+    ["hot", 60],
+    ["steady", 40],
+    ["faded", 2],
+    ["nobody", 0],
+  ]);
+  const seasonForm = new Map([
+    ["hot", 80],
+    ["steady", 200],
+    ["faded", 120],
+    ["nobody", 0],
+  ]);
+
+  it("weights recent form above the season", () => {
+    const blended = blendSignals(ids, windowForm, seasonForm);
+
+    // hot leads the window outright (1.0) and has 80/200 of the season.
+    expect(blended.get("hot")).toBeCloseTo(0.7 * 1 + 0.3 * 0.4, 5);
+    // steady leads the season outright and has 40/60 of the window.
+    expect(blended.get("steady")).toBeCloseTo(0.7 * (40 / 60) + 0.3 * 1, 5);
+  });
+
+  it("keeps the in-form driver ahead of the season's leader", () => {
+    // The point of 70/30: what is happening now still decides the order.
+    const blended = blendSignals(ids, windowForm, seasonForm);
+    expect(blended.get("hot")!).toBeGreaterThan(blended.get("steady")!);
+  });
+
+  it("rescues a driver whose season the window has forgotten", () => {
+    // Faded has 2 points in five races — on form alone, indistinguishable from
+    // someone who has never scored. The season half is what separates them.
+    const formOnly = blendSignals(ids, windowForm, new Map(), 0.7);
+    expect(formOnly.get("faded")! - formOnly.get("nobody")!).toBeCloseTo(2 / 60, 5);
+
+    const blended = blendSignals(ids, windowForm, seasonForm);
+    expect(blended.get("faded")! - blended.get("nobody")!).toBeGreaterThan(0.15);
+  });
+
+  it("falls back to form alone before a season has any results", () => {
+    // Round one. Scaling the form term back up keeps the field across the whole
+    // band rather than squashing it into the bottom 70%.
+    const blended = blendSignals(ids, windowForm, new Map());
+    expect(blended.get("hot")).toBe(1);
+    expect(blended.get("steady")).toBeCloseTo(40 / 60, 5);
+  });
+
+  it("gives everyone nothing when nobody has scored at all", () => {
+    const blended = blendSignals(ids, new Map(), new Map());
+    expect([...blended.values()]).toEqual([0, 0, 0, 0]);
+  });
+
+  it("is still ordered the same as price, since price maps it monotonically", () => {
+    // The blend changes *what* is ranked, not that price follows the ranking.
+    const blended = blendSignals(ids, windowForm, seasonForm);
+    const prices = priceField(ids, blended);
+    expect(prices.get("hot")!).toBeGreaterThan(prices.get("steady")!);
+    expect(prices.get("steady")!).toBeGreaterThan(prices.get("faded")!);
+    expect(prices.get("faded")!).toBeGreaterThan(prices.get("nobody")!);
   });
 });

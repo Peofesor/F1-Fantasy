@@ -42,8 +42,50 @@ export interface PickOption {
   shortName: string;
   /** Six-digit hex without the hash. */
   colour?: string;
-  /** Points over the rolling window — the signal behind price and tier. */
+  /** Points over the rolling window — half the signal behind price and tier. */
   form: number;
+  /**
+   * How far price and form moved at the last race. Absent where nothing moved,
+   * or where there is no previous round to compare against.
+   */
+  priceDelta?: number;
+  formDelta?: number;
+}
+
+/**
+ * Which way a figure moved at the last race.
+ *
+ * A price is only meaningful against the one before it — a driver at $14.0 is
+ * a different proposition depending on whether they were $11 or $17 a week ago,
+ * and the picker showed no trace of which. The arrow is the smallest thing that
+ * carries it.
+ *
+ * Green up and red down throughout, which is the one place in this app those
+ * colours are not about winning and losing. They are not ambiguous here: a
+ * price that rose and a form that rose are both a driver on the way up, and
+ * that is what the colour says. Whether an expensive driver is *good news* is
+ * the player's problem, which is the right place for it.
+ *
+ * The exact figure goes in the title rather than on screen. Three numbers per
+ * row is a table nobody reads; a direction is legible at a glance.
+ */
+function Movement({ delta, unit = "" }: { delta?: number; unit?: string }) {
+  if (!delta) return null;
+
+  const up = delta > 0;
+  const size = Math.abs(delta) >= 10 ? Math.round(Math.abs(delta)) : Math.abs(delta).toFixed(1);
+
+  return (
+    <span
+      title={`${up ? "up" : "down"} ${unit}${size} since the last race`}
+      className={`text-[8px] leading-none ${
+        up ? "text-emerald-600 dark:text-emerald-500" : "text-red-600 dark:text-red-500"
+      }`}
+    >
+      {up ? "▲" : "▼"}
+      <span className="sr-only">{up ? "up" : "down"} since the last race</span>
+    </span>
+  );
 }
 
 type SortField = "price" | "form" | "name";
@@ -65,7 +107,7 @@ const SORT_SUBLABELS: Partial<Record<SortField, string>> = {
  * up. A plain list let each row size its own columns, which put the headings
  * over nothing in particular.
  */
-const TABLE_COLUMNS = "grid-cols-[1fr_3.25rem_4.25rem]";
+const TABLE_COLUMNS = "grid-cols-[1fr_4.25rem_4.75rem]";
 
 /**
  * Default direction per field.
@@ -517,21 +559,10 @@ export function RosterBuilder({
     <div className="space-y-4">
       <section className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
         <div className="flex items-baseline justify-between text-sm">
-          {/* Said as a price rather than as a state. "Transfers cost cap" sat
-              beside the budget figure and read as a standing rule — that every
-              transfer is charged — when the first two of a round are free and
-              only the third onward costs anything. Naming the amount is also
-              the only way to know what the next swap will actually take. */}
-          <span className={transfers.fee > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-500"}>
-            {freeRemaining > 0
-              ? `${freeRemaining} free transfer${freeRemaining === 1 ? "" : "s"} left`
-              : transfers.chargeable > 0
-                ? // Named before the save rather than discovered in the ledger
-                  // after it. This is the one number a player would want back.
-                  `${transfers.chargeable} paid transfer${
-                    transfers.chargeable === 1 ? "" : "s"
-                  } · ${money(transfers.fee)}`
-                : `${money(EXTRA_CHANGE_FEE)} per transfer now`}
+          {/* The figure and the bar below it were the only unlabelled numbers
+              on the page. Naming them costs a word and saves a guess. */}
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Cost cap
           </span>
           <span className="tabular-nums">
             <strong className={overBudget ? "text-red-600 dark:text-red-400" : ""}>
@@ -545,6 +576,49 @@ export function RosterBuilder({
             className={`h-full rounded-full transition-all ${overBudget ? "bg-red-500" : "bg-[var(--accent)]"}`}
             style={{ width: `${Math.min(100, (validation.cost / costCap) * 100)}%` }}
           />
+        </div>
+
+        {/* Transfers, given a strip of their own rather than the grey half
+            sentence they used to share with the budget figure.
+
+            Three questions, and the line answered at most one of them at a
+            time: how many changes am I about to save, how many free ones are
+            left, and what does the next one cost? "2 free transfers left" never
+            named the price, so the fee arrived as a surprise on the save after
+            it — and once the free two were gone the count vanished entirely,
+            which is exactly when the number starts to matter.
+
+            It turns amber the moment the draft would actually be charged. Not
+            a warning — a fee is a legitimate move — but the one state worth
+            noticing before the save rather than after it. */}
+        <div
+          className={`mt-2.5 flex items-baseline justify-between gap-3 rounded-lg px-2.5 py-1.5 text-xs ${
+            transfers.fee > 0
+              ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+          }`}
+        >
+          <span className="min-w-0 truncate">
+            {transfers.changes > 0 ? (
+              <>
+                <strong className="tabular-nums">{transfers.changes}</strong> change
+                {transfers.changes === 1 ? "" : "s"} to save
+              </>
+            ) : (
+              "No changes yet"
+            )}
+          </span>
+          <span className="shrink-0 tabular-nums">
+            {transfers.fee > 0 ? (
+              <strong>{money(transfers.fee)} fee</strong>
+            ) : freeRemaining > 0 ? (
+              <>
+                <strong>{freeRemaining}</strong> free left · then {money(EXTRA_CHANGE_FEE)} each
+              </>
+            ) : (
+              `${money(EXTRA_CHANGE_FEE)} per change from here`
+            )}
+          </span>
         </div>
 
         {/* The two places you leave the picker for, above the cards rather
@@ -1479,8 +1553,12 @@ function ChooserSheet({
                     )}
                   </span>
                 </span>
-                <span className="text-right tabular-nums text-sm">{money(option.price)}</span>
-                <span className="text-right tabular-nums text-sm text-zinc-500">
+                <span className="flex items-center justify-end gap-1 tabular-nums text-sm">
+                  <Movement delta={option.priceDelta} unit="$" />
+                  {money(option.price)}
+                </span>
+                <span className="flex items-center justify-end gap-1 tabular-nums text-sm text-zinc-500">
+                  <Movement delta={option.formDelta} />
                   {option.form.toFixed(0)}
                 </span>
               </button>

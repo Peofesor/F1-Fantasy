@@ -1,11 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  blendSignals,
   CONSTRUCTOR_PRICE_BAND,
   DRIVER_PRICE_BAND,
   priceField,
 } from "./pricing";
-import { formPoints, rollingWindowPoints, type RoundKey, type RoundPoints } from "./tiers";
+import {
+  championshipPoints,
+  formPoints,
+  rollingWindowPoints,
+  type RoundKey,
+  type RoundPoints,
+} from "./tiers";
 
 /**
  * Price population.
@@ -56,6 +63,9 @@ export function pricesForRound(
   const driverThrough = latest(priorDriver);
   const constructorThrough = latest(priorConstructor);
 
+  // Both horizons are read through the last round that actually happened
+  // rather than through the target, so a gap in the calendar cannot silently
+  // shorten either of them.
   const driverForm = driverThrough
     ? rollingWindowPoints(priorDriver, driverThrough)
     : new Map<string, number>();
@@ -63,11 +73,26 @@ export function pricesForRound(
     ? rollingWindowPoints(priorConstructor, constructorThrough)
     : new Map<string, number>();
 
+  const driverSeason = driverThrough
+    ? championshipPoints(priorDriver, driverThrough)
+    : new Map<string, number>();
+  const constructorSeason = constructorThrough
+    ? championshipPoints(priorConstructor, constructorThrough)
+    : new Map<string, number>();
+
   return {
     season: target.season,
     round: target.round,
-    driverPrices: priceField(driverIds, driverForm, DRIVER_PRICE_BAND),
-    constructorPrices: priceField(constructorIds, constructorForm, CONSTRUCTOR_PRICE_BAND),
+    driverPrices: priceField(
+      driverIds,
+      blendSignals(driverIds, driverForm, driverSeason),
+      DRIVER_PRICE_BAND,
+    ),
+    constructorPrices: priceField(
+      constructorIds,
+      blendSignals(constructorIds, constructorForm, constructorSeason),
+      CONSTRUCTOR_PRICE_BAND,
+    ),
   };
 }
 

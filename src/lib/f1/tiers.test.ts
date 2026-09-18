@@ -5,7 +5,9 @@ import {
   formPoints,
   ROLLING_WINDOW_ROUNDS,
   orderDrivers,
+  championshipPoints,
   rollingWindowPoints,
+  seasonPoints,
   tierSwaps,
   type RoundPoints,
 
@@ -260,5 +262,73 @@ describe("formPoints", () => {
   it("treats a nonsensical position as unscored rather than throwing", () => {
     expect(formPoints(0)).toBe(0);
     expect(formPoints(-3)).toBe(0);
+  });
+});
+
+describe("seasonPoints", () => {
+  const entries: RoundPoints[] = [
+    { season: 2025, round: 20, driverId: "a", points: 25 },
+    { season: 2026, round: 1, driverId: "a", points: 10 },
+    { season: 2026, round: 2, driverId: "a", points: 8 },
+    { season: 2026, round: 3, driverId: "a", points: 6 },
+    { season: 2026, round: 2, driverId: "b", points: 18 },
+  ];
+
+  it("totals the season up to and including the round asked for", () => {
+    expect(seasonPoints(entries, { season: 2026, round: 2 }).get("a")).toBe(18);
+    expect(seasonPoints(entries, { season: 2026, round: 3 }).get("a")).toBe(24);
+  });
+
+  it("leaves the previous season out of it", () => {
+    // The rolling window crosses the boundary deliberately; a championship
+    // does not, and this is meant to read as the championship.
+    expect(seasonPoints(entries, { season: 2026, round: 1 }).get("a")).toBe(10);
+  });
+
+  it("omits a driver who has not scored rather than storing a zero", () => {
+    expect(seasonPoints(entries, { season: 2026, round: 1 }).has("b")).toBe(false);
+  });
+});
+
+describe("championshipPoints", () => {
+  // A full previous season, and a current one that has barely started.
+  const lastSeason: RoundPoints[] = Array.from({ length: 24 }, (_, i) => ({
+    season: 2025,
+    round: i + 1,
+    driverId: "veteran",
+    points: 10,
+  }));
+
+  const entries: RoundPoints[] = [
+    ...lastSeason,
+    { season: 2026, round: 1, driverId: "veteran", points: 1 },
+    { season: 2026, round: 2, driverId: "veteran", points: 1 },
+  ];
+
+  it("uses last season's table while this one is too short to be a championship", () => {
+    // Two races is not a championship, and both are already inside the rolling
+    // window — counting them again would weight one weekend twice.
+    expect(championshipPoints(entries, { season: 2026, round: 2 }).get("veteran")).toBe(240);
+  });
+
+  it("switches to this season once the window's worth of races have run", () => {
+    const fullStart: RoundPoints[] = [
+      ...lastSeason,
+      ...Array.from({ length: ROLLING_WINDOW_ROUNDS }, (_, i) => ({
+        season: 2026,
+        round: i + 1,
+        driverId: "veteran",
+        points: 4,
+      })),
+    ];
+    expect(
+      championshipPoints(fullStart, { season: 2026, round: ROLLING_WINDOW_ROUNDS }).get("veteran"),
+    ).toBe(4 * ROLLING_WINDOW_ROUNDS);
+  });
+
+  it("has nothing to offer at the very start of the dataset", () => {
+    // No previous season to fall back on, so the blend runs on form alone.
+    const onlyNow: RoundPoints[] = [{ season: 2026, round: 1, driverId: "rookie", points: 5 }];
+    expect(championshipPoints(onlyNow, { season: 2026, round: 1 }).size).toBe(0);
   });
 });

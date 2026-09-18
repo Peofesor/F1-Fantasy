@@ -131,6 +131,74 @@ export function rollingWindowPoints(
 }
 
 /**
+ * Each driver total over one whole season, up to and including `through`.
+ *
+ * The same currency as the rolling window — `formPoints` per finish — so the
+ * two can be compared and blended rather than merely correlated. What differs
+ * is the horizon: five weekends is a read on who is quick *now*, a season is a
+ * read on who is quick. Neither is the whole answer, which is why pricing takes
+ * both (see ./pricing.ts).
+ *
+ * Only the target season counts. A season total that bled into the one before
+ * would be a 30-race window rather than a championship, and the championship is
+ * the thing a player recognises.
+ */
+export function seasonPoints(
+  entries: readonly RoundPoints[],
+  through: RoundKey,
+): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const entry of entries) {
+    if (entry.season !== through.season) continue;
+    if (entry.round > through.round) continue;
+    totals.set(entry.driverId, (totals.get(entry.driverId) ?? 0) + entry.points);
+  }
+  return totals;
+}
+
+/**
+ * The championship half of the pricing signal: this season once it means
+ * something, last season until then.
+ *
+ * A season total is only a championship after enough races have run. At round
+ * two it is one race — and worse, a race the rolling window already contains,
+ * since the window reaches back across the boundary. Blending it in at that
+ * point is not a second opinion, it is the same opinion counted twice: a dry
+ * run of this migration had Hamilton moving $15.0 to $18.3 at round two on the
+ * strength of a single result.
+ *
+ * So below `minRounds` the term falls back to the previous season's final
+ * table, which is the answer the tier seeds have always used for drivers with
+ * no history (see `buildSeedRanks`). Either way the 30% is a championship
+ * rather than a handful of races, which is what it was meant to be.
+ */
+export function championshipPoints(
+  entries: readonly RoundPoints[],
+  through: RoundKey,
+  minRounds: number = ROLLING_WINDOW_ROUNDS,
+): Map<string, number> {
+  const runThisSeason = new Set(
+    entries
+      .filter((entry) => entry.season === through.season && entry.round <= through.round)
+      .map((entry) => entry.round),
+  ).size;
+
+  if (runThisSeason >= minRounds) return seasonPoints(entries, through);
+
+  const lastSeason = through.season - 1;
+  const lastRound = Math.max(
+    0,
+    ...entries.filter((entry) => entry.season === lastSeason).map((entry) => entry.round),
+  );
+
+  // No previous season either — the start of the dataset. Form alone then,
+  // which `blendSignals` falls back to when handed nothing.
+  if (lastRound === 0) return new Map();
+
+  return seasonPoints(entries, { season: lastSeason, round: lastRound });
+}
+
+/**
  * Builds seed ranks used to break ties and to place drivers with no scoring
  * history.
  *
