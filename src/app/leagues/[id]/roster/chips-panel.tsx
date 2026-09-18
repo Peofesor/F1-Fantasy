@@ -143,6 +143,11 @@ export function ChipsPanel({
 
           const target = targets[chip.chipId] ?? "";
 
+          // Whether the cap covers this chip. Asked once and used three times:
+          // it decides the disabled state, the explanation, and whether the
+          // button is dressed as something to press.
+          const affordable = chip.price <= balance;
+
           // The 3x landing on the driver who already has the 2x wastes the
           // armband on a slot that is boosted anyway — six times one driver and
           // nothing on the rest. Rather than let that happen quietly, the play
@@ -207,14 +212,24 @@ export function ChipsPanel({
                     <input type="hidden" name="leagueId" value={leagueId} />
                     <input type="hidden" name="chipId" value={chip.chipId} />
                     <input type="hidden" name="quantity" value={1} />
+                    {/* Dressed in the league colour when it can actually be
+                        pressed. As a grey outline it read as a label rather
+                        than a button, and on a dark background it barely read
+                        at all — while the one thing it wants to say is that
+                        there is something here worth spending on. A chip
+                        beyond the cap keeps the outline: it is not an offer. */}
                     <button
-                      disabled={chip.price > balance}
+                      disabled={!affordable}
                       title={
-                        chip.price > balance
-                          ? `${money(chip.price)} and you have ${money(balance)}`
-                          : undefined
+                        affordable
+                          ? undefined
+                          : `${money(chip.price)} and you have ${money(balance)}`
                       }
-                      className="rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 dark:border-zinc-700"
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 ${
+                        affordable
+                          ? "bg-[var(--accent)] text-[var(--accent-ink)]"
+                          : "border border-zinc-300 dark:border-zinc-700"
+                      }`}
                     >
                       Buy · {money(chip.price)}
                     </button>
