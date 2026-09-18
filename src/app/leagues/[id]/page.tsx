@@ -182,7 +182,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
   // Prices for the round being picked for, so a held roster can be valued at
   // what it is worth now rather than what it cost. Asked here rather than in
   // the wave above because the round is only known once `currentRound` returns.
-  const [{ data: driverPriceRows }, { data: constructorPriceRows }] = next
+  const [{ data: driverPriceRows }, { data: constructorPriceRows }, { data: totalRows }] = next
     ? await Promise.all([
         supabase
           .from("driver_prices")
@@ -194,8 +194,37 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           .select("constructor_id, price")
           .eq("season", next.season)
           .eq("round", next.round),
+        // Every member's cap, split four ways, past both seals and valued at the
+        // same round the prices above are for. The whole money half of the
+        // standings comes from this one read, so the four figures cannot
+        // disagree about which round they describe.
+        supabase.rpc("cap_totals", {
+          target_league: id,
+          target_season: next.season,
+          price_round: next.round,
+        }),
       ])
-    : [{ data: null }, { data: null }];
+    : [{ data: null }, { data: null }, { data: null }];
+
+  type CapRow = {
+    member: string;
+    squad: number | string;
+    bank: number | string;
+    staked: number | string;
+    total: number | string;
+  };
+
+  const capTotal = new Map(
+    ((totalRows ?? []) as CapRow[]).map((row) => [
+      row.member,
+      {
+        squad: Number(row.squad),
+        bank: Number(row.bank),
+        staked: Number(row.staked),
+        total: Number(row.total),
+      },
+    ]),
+  );
 
   const driverPrice = new Map(
     (driverPriceRows ?? []).map((row) => [row.driver_id, Number(row.price)]),
@@ -213,10 +242,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
    * prices, bank is what is left uncommitted, bets is what cannot be got back
    * until the race settles — and the three add up to everything they have.
    *
-   * The squad is taken from the most recent roster that can actually be read,
-   * which is the round being picked for on your own row and the last locked
-   * race on a rival's: their next team is sealed until qualifying, and this
-   * reports what it can see rather than pretending the sealed round is empty.
+   * All four come from `cap_totals`, which reads past the two seals the rows
+   * here sit behind — a rival's roster is hidden until qualifying and their
+   * ledger until the round locks. Read from the rows instead, a member who
+   * joined on the open round showed an empty squad and a bank still holding the
+   * grant they had already spent. The amounts are league-wide; which drivers
+   * they picked is not, and stays sealed.
    */
   const cash = new Map<string, { drivers: number; bank: number; bets: number; total: number }>();
   for (const memberId of memberIds) {
@@ -235,22 +266,24 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       return total;
     }, 0);
 
-    // A stake leaves the bank the moment it is placed, so it is counted here
-    // rather than there — adding both would have every open bet twice.
-    const bets = (betRows ?? [])
-      .filter((bet) => bet.member_id === memberId && bet.outcome === null)
-      .reduce((total, bet) => total + Number(bet.stake), 0);
-
     const bank = (allLedger ?? [])
       .filter((entry) => entry.member_id === memberId)
       .reduce((total, entry) => total + Number(entry.amount), 0);
 
     const round1 = (value: number) => Math.round(value * 10) / 10;
+
+    // All four figures come from the function, which reads past the seals. The
+    // rows above are the fallback for a database that has not had the migration
+    // yet: they are right for your own member and stale for everyone else,
+    // which is the behaviour this replaced rather than a second opinion worth
+    // having.
+    const truth = capTotal.get(memberId);
+
     cash.set(memberId, {
-      drivers: round1(drivers),
-      bank: round1(bank),
-      bets: round1(bets),
-      total: round1(drivers + bank + bets),
+      drivers: round1(truth?.squad ?? drivers),
+      bank: round1(truth?.bank ?? bank),
+      bets: round1(truth?.staked ?? 0),
+      total: round1(truth?.total ?? drivers + bank),
     });
   }
 
@@ -696,8 +729,9 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         />
       )}
 
-      <StatsCard series={stats} />
-
+      {/* The table before the chart: the standings answer who is winning, which
+          is the question the page is opened with. The season panels explain how
+          it got that way, which is the question asked second. */}
       <Standings
         leagueId={league.id}
         rows={standings}
@@ -706,6 +740,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         cash={cash}
         currentMemberId={selfMemberId}
       />
+
+      <StatsCard series={stats} />
 
       <MembersPanel
         leagueId={league.id}

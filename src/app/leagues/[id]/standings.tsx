@@ -25,6 +25,10 @@ export function Standings({
   /**
    * Where each member's cap is, keyed by member: the squad they hold, the bank
    * left over, the stakes still riding, and the three added up.
+   *
+   * True for every member, not only the reader: the page reads these past the
+   * seals on a rival's roster and ledger, so the four figures balance on every
+   * row and two rows can be compared.
    */
   cash: ReadonlyMap<string, { drivers: number; bank: number; bets: number; total: number }>;
   currentMemberId?: string;
@@ -40,12 +44,13 @@ export function Standings({
           : "Ranked on cumulative fantasy points."}
       </p>
       {/* What the money columns count. Drivers includes the teams held as well
-          as the drivers — it is the whole squad — and the sealing is the part
-          that would otherwise look like a bug. */}
+          as the drivers — it is the whole squad — and the last sentence is the
+          part a reader would otherwise have to guess at. */}
       <p className="mt-0.5 text-xs text-zinc-500">
         Drivers is the whole squad at today&rsquo;s prices, teams included; bets is what is still
-        riding and cannot be got back yet. A rival&rsquo;s next squad and bets are sealed until
-        qualifying, so theirs count the last race until then.
+        riding and cannot be got back yet; total cash is all three. Everyone&rsquo;s figures are
+        current, this weekend&rsquo;s spending included &mdash; what stays sealed until qualifying
+        is which drivers they bought, not what they paid.
       </p>
 
       {!scored ? (
@@ -53,24 +58,33 @@ export function Standings({
           Nothing scored yet. The table fills in once a race has been run and scored.
         </p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="-mx-4 mt-3 overflow-x-auto px-4">
+          {/* On a phone this is eight columns in about twenty ems, and `w-full`
+              had the browser solve that by squeezing rather than scrolling:
+              headers wrapped onto two lines and the money columns ran together
+              into one wall of digits. `min-w-max` lets the table take the width
+              it actually needs and hands the overflow to the scroller, so every
+              column is its widest figure plus a gutter — and the duel league's
+              extra column widens the table instead of taking room from the ones
+              beside it. The negative margin puts the scroll edge at the edge of
+              the card, so a row that runs off does not appear to stop short. */}
+          <table className="w-full min-w-max text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
-                <th className="w-8 py-1 font-medium">#</th>
-                <th className="py-1 font-medium">Member</th>
+                <th className="py-1 pr-3 font-medium">#</th>
+                <th className="py-1 pr-4 font-medium">Member</th>
                 {/* Match points are gone: win 1 and draw 0.5 means the record
                     beside them already says the number, and a column that can
                     be read off the one next to it is a column asking to be
                     checked against it. */}
                 {mode === "duel" && (
-                  <th className="w-16 py-1 text-right font-medium">W-D-L</th>
+                  <th className="py-1 pl-5 text-right font-medium whitespace-nowrap">W-D-L</th>
                 )}
-                <th className="w-20 py-1 text-right font-medium">Points</th>
-                <th className="w-20 py-1 text-right font-medium">Drivers</th>
-                <th className="w-20 py-1 text-right font-medium">Bank</th>
-                <th className="w-20 py-1 text-right font-medium">Bets</th>
-                <th className="w-24 py-1 text-right font-medium">Total cash</th>
+                <th className="py-1 pl-5 text-right font-medium">Points</th>
+                <th className="py-1 pl-5 text-right font-medium">Drivers</th>
+                <th className="py-1 pl-5 text-right font-medium">Bank</th>
+                <th className="py-1 pl-5 text-right font-medium">Bets</th>
+                <th className="py-1 pl-5 text-right font-medium whitespace-nowrap">Total cash</th>
               </tr>
             </thead>
             <tbody>
@@ -81,11 +95,11 @@ export function Standings({
                     row.memberId === currentMemberId ? "font-medium" : ""
                   }`}
                 >
-                  <td className="py-1.5 tabular-nums text-zinc-500">{row.position}</td>
-                  <td className="py-1.5">
+                  <td className="py-2.5 pr-3 tabular-nums text-zinc-500">{row.position}</td>
+                  <td className="py-2.5 pr-4">
                     <Link
                       href={`/leagues/${leagueId}/members/${row.memberId}`}
-                      className="block truncate underline-offset-2 hover:underline"
+                      className="block max-w-40 truncate underline-offset-2 hover:underline"
                     >
                       {names.get(row.memberId) ?? "Unknown"}
                     </Link>
@@ -94,21 +108,21 @@ export function Standings({
                     )}
                   </td>
                   {mode === "duel" && (
-                    <td className="py-1.5 text-right tabular-nums">
+                    <td className="py-2.5 pl-5 text-right tabular-nums">
                       {row.wins}-{row.draws}-{row.losses}
                     </td>
                   )}
-                  <td className="py-1.5 text-right tabular-nums">{row.points.toFixed(0)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                  <td className="py-2.5 pl-5 text-right tabular-nums">{row.points.toFixed(0)}</td>
+                  <td className="py-2.5 pl-5 text-right tabular-nums text-zinc-500">
                     {money(cash.get(row.memberId)?.drivers ?? 0)}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                  <td className="py-2.5 pl-5 text-right tabular-nums text-zinc-500">
                     {money(cash.get(row.memberId)?.bank ?? 0)}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums text-zinc-500">
+                  <td className="py-2.5 pl-5 text-right tabular-nums text-zinc-500">
                     {money(cash.get(row.memberId)?.bets ?? 0)}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums">
+                  <td className="py-2.5 pl-5 text-right tabular-nums">
                     {money(cash.get(row.memberId)?.total ?? 0)}
                   </td>
                 </tr>
