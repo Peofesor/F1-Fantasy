@@ -503,6 +503,8 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
         isTeam: true,
         points: scoredPoints(slot),
         scoresPoints: true,
+        // The backmarker team is scored the other way up, like the backmarker.
+        isBackmarker: slot.slot_type === "constructor_reverse",
         breakdown: breakdownFor(slot),
       };
     };

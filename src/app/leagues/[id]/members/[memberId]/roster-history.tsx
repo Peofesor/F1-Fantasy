@@ -60,7 +60,8 @@ const SLOT_ORDER: { type: string; label: string }[] = [
  * What a pick scored, signed and coloured the way the round card does it, so a
  * pick reads identically wherever it is met.
  *
- * Zero takes no sign in either direction. The backmarker reads with a minus
+ * Zero takes no sign in either direction. The backmarker and the backmarker team
+ * read with a minus
  * because it is scored the other way up, but on a round where it paid cost cap
  * instead its score really is nothing — and "-0" is not a number anyone means.
  */
@@ -70,7 +71,9 @@ function PickPoints({ pick }: { pick: Pick }) {
     return <span className="text-sm font-semibold tabular-nums text-zinc-500">0 pts</span>;
   }
 
-  const backmarker = pick.slotType === "driver_backmarker";
+  // Both backmarker slots, driver and team, are scored the other way up.
+  const backmarker =
+    pick.slotType === "driver_backmarker" || pick.slotType === "constructor_reverse";
   const lost = !backmarker && points < 0;
 
   return (

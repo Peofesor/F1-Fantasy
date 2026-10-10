@@ -35,7 +35,8 @@ export interface MatchupPick {
    */
   scoresPoints?: boolean;
   /**
-   * Whether this is the backmarker, which is scored the other way up: it earns
+   * Whether this is the backmarker or the backmarker team, which are scored the
+   * other way up: each earns
    * by finishing badly, so its score is shown with a minus even though it is
    * added like any other.
    */
