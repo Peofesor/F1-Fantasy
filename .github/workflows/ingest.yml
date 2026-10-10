@@ -1,14 +1,21 @@
 name: Ingest F1 data
 
-# Race results land within roughly 24 hours, so a daily poll keeps the database
-# current without burning jolpica's 500 requests/hour budget. Rounds already
+# Race results land within hours, so a daily poll keeps the database current
+# without burning jolpica's 500 requests/hour budget. Rounds already
 # stored are skipped, so a run with nothing new to do costs only the handful of
 # requests needed to read the season schedule.
 on:
   schedule:
-    # 06:00 UTC daily — after a Sunday race has settled, including the late
-    # night races in the Americas that finish after midnight UTC.
-    - cron: "0 6 * * *"
+    # GitHub starts scheduled runs late — five to eight hours late, measured in
+    # October 2026 — and worst on the hour, so both times sit at :17.
+    #
+    # Daily, to pick up results and calendar changes such as moved session
+    # times, which the sprint-weekend lock depends on.
+    - cron: "17 6 * * *"
+    # And Monday night, so a Sunday race is scored by Monday morning however
+    # late GitHub runs it: early enough for the slack, late enough that the
+    # races in the Americas have finished and been published.
+    - cron: "17 0 * * 1"
   workflow_dispatch:
     inputs:
       season:
