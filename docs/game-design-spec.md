@@ -146,7 +146,7 @@ Prices are **derived from form**, not imported: no upstream source publishes F1 
 - **Bands**: drivers 4–28, constructors 5–26.
 - **Curve**: normalised form is raised to the power **0.5** before mapping onto the band. The points table is heavily top-weighted (25 for a win against 1 for tenth), so a linear map bunches everyone below the leader near the floor; the exponent compresses the top and spreads the midfield, which is where roster decisions are actually made.
 - **Known interaction with the backmarker slot:** because price now tracks expected finishing position, and the backmarker slot pays out *more* for a worse finish, the cheapest driver is also the highest-paying backmarker. That makes the slot a weaker decision than intended — still true now that the slot pays points rather than cap, since the change altered the currency and not the incentive. It is a scoring-balance question, not a pricing one, and the flat floor it replaced was degenerate in its own way (seven identically-priced drivers).
-- Recalculated after every race, same cadence as tiers. Owning a driver whose price rises grows your cost cap; a price drop shrinks it (§2).
+- Recalculated after every race, same cadence as tiers. Owning a driver whose price rises grows your spending power; a price drop shrinks it (§2, §7).
 
 ### Starting cost cap: 160
 
@@ -273,7 +273,7 @@ Nine reasons move the cap, and each writes its own entry so the balance is alway
 - **Opening balance** is granted by a database trigger on joining, not by application code. It is atomic with the membership row, so a member can never exist without a balance, and the amount is read from the league rather than supplied by the caller. `cost_cap_entries` grants no INSERT to `authenticated` at all — a member who could write their own ledger could simply credit themselves.
 - **A swap records a sale and a purchase**, not a single net figure, so the ledger reads like what happened rather than hiding which competitor each half belonged to.
 - **A sale returns the competitor's current price**, not what was paid. This is what makes holding a riser profitable and dumping a faller costly.
-- **Price drift is applied symmetrically** — rises credit, falls charge. A one-way ratchet would remove any downside to a pick whose value craters, which is most of what makes pricing a real decision. Only competitors held across both rounds drift; anything bought or sold is already accounted for by its own entry.
+- **Price movement reaches the cap once, through the squad.** What a member holds is valued at current prices, and a sale pays the current price, so a rise or fall already moves their spending power. Up to **2026 round 16**, scoring *also* wrote the change into the bank as a `price_change` entry. That counted every move twice: a driver bought at 30 who fell to 25 cost 10, and enough of those put banks below zero, which should be impossible when a roster can only cost what a member has. From round 17 no drift is written and the bank is plain cash. Rounds up to 16 keep the drift they were scored with, for the same reason the backmarker's old cap payouts stand: members have spent it on rosters and bets that still stand. `PRICE_DRIFT_UNTIL` in `ledger.ts` is the boundary.
 - **Drift and payouts are replaced on re-scoring**, not appended, so a stewards' correction cannot credit a backmarker payout twice. Verified against the real Monza round: re-scoring left the balance unchanged at 139.8.
 
 ### Bank versus spending power
@@ -374,7 +374,7 @@ Backfill target is **2023 onward** — where both sources overlap. Pre-2026 race
 ### League and roster data model
 
 - **Rosters are snapshotted per round**, not stored as one mutable row per player. Scoring a past race requires the roster exactly as it stood when that round locked, and rule changes during balancing mean history gets recomputed — which a mutable roster would make impossible.
-- **Cost cap is an append-only ledger**, not a running balance column; the balance is the sum of entries. Slower to read, but it answers "why is my cap this number?" when the figure moves for nine different reasons (purchases, sales, price drift, transfer fees, chip purchases, bet stakes and payouts, backmarker payouts, and the opening balance).
+- **Cost cap is an append-only ledger**, not a running balance column; the balance is the sum of entries. Slower to read, but it answers "why is my cap this number?" when the figure moves for nine different reasons (purchases, sales, price drift up to 2026 round 16, transfer fees, chip purchases, bet stakes and payouts, backmarker payouts, and the opening balance).
 - **Roster slot shape is enforced by database constraints**, not application code: a driver cannot occupy a constructor slot, the backmarker and reverse-constructor slots accept only index 1, normal constructors cap at 2, and the same driver cannot fill two slots. A malformed roster cannot reach the database by any path.
 - **Rosters become visible to other league members only once the round locks**, so picks cannot be copied before the deadline. Enforced in row-level security, not in the UI.
 - **The cost cap ledger is private to its owner.** A rival knowing your spare cap would reveal your betting capacity.
@@ -390,7 +390,7 @@ Measured behaviour: prices span the full 4.0–28.0 band, and the median round-t
 
 ### Your team persists between rounds
 
-A roster carries into the next round automatically, and money does not move when it does: the drivers were bought when first picked, and price drift is credited separately by scoring, so re-recording a purchase would charge for them twice. The carried roster is revalued at the new round prices and gets a fresh transfer allowance.
+A roster carries into the next round automatically, and money does not move when it does: the drivers were bought when first picked, and their value moves with their price, so re-recording a purchase would charge for them twice. The carried roster is revalued at the new round prices and gets a fresh transfer allowance.
 
 This is what makes the transfer rules mean anything. Without it every round began with an empty grid — so nobody was transferring, they were rebuilding, the fee never triggered, and a member who did not open the app scored zero rather than fielding the team they already had.
 

@@ -4,6 +4,7 @@ import {
   EXTRA_CHANGE_FEE,
   FREE_CHANGES_PER_ROUND,
   ledgerBalance,
+  priceDriftApplies,
   priceDriftEntries,
   rosterChangeEntries,
   spendableCap,
@@ -207,5 +208,17 @@ describe("spendableCap", () => {
 
   it("rises when held value rises", () => {
     expect(spendableCap(35.5, 100)).toBeGreaterThan(spendableCap(35.5, 94.5));
+  });
+});
+
+describe("priceDriftApplies", () => {
+  it("keeps drift on the rounds already scored with it", () => {
+    expect(priceDriftApplies(2026, 1)).toBe(true);
+    expect(priceDriftApplies(2026, 16)).toBe(true);
+  });
+
+  it("writes none from the round after, so a price move counts once", () => {
+    expect(priceDriftApplies(2026, 17)).toBe(false);
+    expect(priceDriftApplies(2027, 1)).toBe(false);
   });
 });

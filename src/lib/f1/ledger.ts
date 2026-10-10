@@ -44,12 +44,33 @@ export function ledgerBalance(entries: readonly { amount: number }[]): number {
 }
 
 /**
- * Value drift on a held roster between two rounds.
+ * The last round that wrote value drift into the bank.
  *
- * Owning a competitor whose price rises grows the cap; a fall shrinks it
- * (spec §2). Applied symmetrically on purpose: a one-way ratchet would remove
- * any downside to picking a driver whose value craters, which is most of what
- * makes pricing a real decision.
+ * Drift counted every price move twice. The squad is already valued at
+ * today's prices, and a sale already pays today's price, so also moving the
+ * bank by the change took a fall off a member's cap once in each column: a
+ * driver bought at 30 who dropped to 25 cost 10, not 5, and enough of those
+ * put banks below zero. Without drift the bank is plain cash, a roster can
+ * only cost what a member has, and a price move shows up once — in the value
+ * of the squad, and in what selling it returns.
+ *
+ * Rounds up to this one keep the drift they were scored with, because members
+ * have already spent that cap on rosters and bets that stand. The same
+ * boundary rule as `BACKMARKER_POINTS_FROM`: a settled round is a record.
+ */
+export const PRICE_DRIFT_UNTIL = { season: 2026, round: 16 } as const;
+
+/** Whether scoring this round writes drift entries, which only old rounds do. */
+export function priceDriftApplies(season: number, round: number): boolean {
+  if (season !== PRICE_DRIFT_UNTIL.season) return season < PRICE_DRIFT_UNTIL.season;
+  return round <= PRICE_DRIFT_UNTIL.round;
+}
+
+/**
+ * Value drift on a held roster between two rounds, for rounds up to
+ * `PRICE_DRIFT_UNTIL` only.
+ *
+ * Owning a competitor whose price rose grew the cap; a fall shrank it.
  *
  * Only competitors held in both rounds drift. Something bought or sold between
  * rounds is accounted for by its purchase or sale entry instead, so counting

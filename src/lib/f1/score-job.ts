@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { backmarkerScoresPoints, rankConstructorsForRace } from "./scoring";
 import { resolveDuel, scoreRoster, type RoundFacts, type SlotBreakdown } from "./round-scoring";
-import { backmarkerPayoutEntry, priceDriftEntries, type LedgerEntry } from "./ledger";
+import {
+  backmarkerPayoutEntry,
+  priceDriftApplies,
+  priceDriftEntries,
+  type LedgerEntry,
+} from "./ledger";
 import type { ActiveChips } from "./chips";
 import type { DriverRaceInput } from "./scoring";
 import type { FinishClassification } from "./types";
@@ -378,9 +383,10 @@ export async function scoreRound(
       if (payout) ledgerEntries.push(payout);
     }
 
-    // Value drift on what was held. Only competitors priced in both rounds
-    // drift; anything bought or sold is already accounted for by its own entry.
-    ledgerEntries.push(
+    // Value drift on what was held, on the rounds that still had it. Only
+    // competitors priced in both rounds drift; anything bought or sold is
+    // already accounted for by its own entry.
+    if (priceDriftApplies(season, round)) ledgerEntries.push(
       ...priceDriftEntries(
         roster.member_id,
         season,

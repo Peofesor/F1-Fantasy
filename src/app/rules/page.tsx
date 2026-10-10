@@ -236,8 +236,9 @@ export default function RulesPage() {
       <Section title="Transfers and the cost cap">
         <p>
           {FREE_CHANGES_PER_ROUND} free changes each round, then {money(EXTRA_CHANGE_FEE)} cost cap
-          per change. Your cap moves with your roster: it grows when a driver you own rises in price
-          and shrinks when they fall, so a bad pick costs you twice.
+          per change. Your cap moves with your roster: what you hold is worth its current price, so
+          your cap grows when a driver you own rises and shrinks when they fall. The bank is
+          only the cash you have not spent.
         </p>
         <p>
           Selling returns a driver&apos;s <em>current</em> price, not what you paid. Swapping
