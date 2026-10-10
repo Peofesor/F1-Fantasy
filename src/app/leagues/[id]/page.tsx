@@ -18,6 +18,7 @@ import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
 import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
+import { backmarkerScoresPoints } from "@/lib/f1/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -482,10 +483,12 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           boost: boostOn(slot.driver_id),
           isTeam: false,
           points: scoredPoints(slot),
-          // The backmarker is paid in cost cap, not points, so a 0 next to it
-          // is not a bad pick — it is the wrong currency. The row says so
-          // rather than letting the zero be read as a failure.
-          scoresPoints: slot.slot_type !== "driver_backmarker",
+          // Up to round 14 the backmarker was paid in cost cap, not points, so
+          // a 0 next to it there is not a bad pick — it is the wrong currency.
+          // The row says so rather than letting the zero be read as a failure.
+          scoresPoints:
+            slot.slot_type !== "driver_backmarker" ||
+            backmarkerScoresPoints(league.season, round),
           isBackmarker: slot.slot_type === "driver_backmarker",
           breakdown: breakdownFor(slot),
         };

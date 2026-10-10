@@ -29,8 +29,8 @@ export interface MatchupPick {
    */
   points?: number | null;
   /**
-   * Whether this slot pays in points at all. The backmarker pays cost cap
-   * instead, so its 0 means "not that kind of slot" rather than "scored
+   * Whether this slot pays in points at all. The backmarker paid cost cap
+   * instead up to round 14, so its 0 there means "not that kind of slot" rather than "scored
    * nothing", and a row that showed the number flat would libel the pick.
    */
   scoresPoints?: boolean;
@@ -236,8 +236,8 @@ function PickFace({
 function SlotPoints({ pick, better }: { pick: MatchupPick; better: boolean }) {
   if (pick.points === null || pick.points === undefined) return null;
 
-  // The backmarker pays cost cap rather than points, so its zero is a category
-  // rather than a score. Saying so does not read as a pick that failed.
+  // Up to round 14 the backmarker paid cost cap rather than points, so its zero
+  // there is a category rather than a score. Saying so does not read as a pick that failed.
   if (pick.scoresPoints === false) {
     return (
       <span className="text-[10px] leading-tight text-zinc-400" title="Pays cost cap, not points">
