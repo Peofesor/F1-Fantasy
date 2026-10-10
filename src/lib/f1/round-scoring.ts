@@ -134,7 +134,8 @@ function driverLines(breakdown: ScoreBreakdown): SlotBreakdownLine[] {
     ["fastestLap", "Fastest lap"],
     ["driverOfTheDay", "Driver of the day"],
     ["teammate", "Beat teammate"],
-    ["penalties", "Penalties"],
+    ["retired", "Retired"],
+    ["noQualifyingTime", "No quali time"],
   ];
 
   return labels

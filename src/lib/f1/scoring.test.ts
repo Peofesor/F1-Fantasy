@@ -120,7 +120,7 @@ describe("scoreDriver", () => {
     const score = scoreDriver(
       driver({ finishPosition: null, classification: "retired", qualifyingPosition: 3 }),
     );
-    expect(score.penalties).toBe(-20);
+    expect(score.retired).toBe(-20);
     expect(score.race).toBe(0);
     expect(score.total).toBe(-12); // 8 for qualifying third, minus 20
   });
@@ -134,7 +134,7 @@ describe("scoreDriver", () => {
 
   it("applies the qualifying penalty for setting no time", () => {
     const score = scoreDriver(driver({ qualifyingPosition: null, qualifyingNoTime: true }));
-    expect(score.penalties).toBe(-5);
+    expect(score.noQualifyingTime).toBe(-5);
   });
 
   it("adds fastest lap and driver of the day", () => {
@@ -167,7 +167,7 @@ describe("scoreDriver", () => {
     );
     expect(score.race).toBe(2);
     expect(score.positionsGained).toBe(3);
-    expect(score.penalties).toBe(0);
+    expect(score.retired).toBe(0);
   });
 
   it("can produce a negative total for a bad weekend", () => {
@@ -372,7 +372,8 @@ describe("scoreDriver with the new components", () => {
         score.fastestLap +
         score.driverOfTheDay +
         score.teammate +
-        score.penalties,
+        score.retired +
+        score.noQualifyingTime,
     );
   });
 

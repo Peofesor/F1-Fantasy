@@ -132,7 +132,9 @@ export interface ScoreBreakdown {
   fastestLap: number;
   driverOfTheDay: number;
   teammate: number;
-  penalties: number;
+  /** A retirement, disqualification or non-start in the race. */
+  retired: number;
+  noQualifyingTime: number;
   total: number;
 }
 
@@ -234,9 +236,8 @@ export function scoreDriver(input: DriverRaceInput): ScoreBreakdown {
     fastestLap: input.fastestLap ? FASTEST_LAP_POINTS : 0,
     driverOfTheDay: input.driverOfTheDay ? DRIVER_OF_THE_DAY_POINTS : 0,
     teammate: teammatePoints(input),
-    penalties:
-      (penalised ? DNF_PENALTY : 0) +
-      (input.qualifyingNoTime ? QUALIFYING_NO_TIME_PENALTY : 0),
+    retired: penalised ? DNF_PENALTY : 0,
+    noQualifyingTime: input.qualifyingNoTime ? QUALIFYING_NO_TIME_PENALTY : 0,
     total: 0,
   };
 
@@ -250,7 +251,8 @@ export function scoreDriver(input: DriverRaceInput): ScoreBreakdown {
     breakdown.fastestLap +
     breakdown.driverOfTheDay +
     breakdown.teammate +
-    breakdown.penalties;
+    breakdown.retired +
+    breakdown.noQualifyingTime;
 
   return breakdown;
 }

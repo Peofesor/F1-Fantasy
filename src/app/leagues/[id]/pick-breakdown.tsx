@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { DNF_PENALTY, QUALIFYING_NO_TIME_PENALTY } from "@/lib/f1/scoring";
 
 /** One line of a pick's score, with any driver id already resolved to a name. */
 export interface BreakdownLine {
@@ -93,7 +94,7 @@ export function PickBreakdownSheet({
 
         {breakdown.lines.length > 0 && (
           <ul className="mt-3 space-y-1">
-            {breakdown.lines.map((line) => (
+            {breakdown.lines.flatMap(splitPenalties).map((line) => (
               <li
                 key={line.label}
                 className="flex items-baseline justify-between gap-3 text-xs text-zinc-600 dark:text-zinc-400"
@@ -143,4 +144,20 @@ export function PickBreakdownSheet({
       </div>
     </div>
   );
+}
+
+/**
+ * A round scored before retirements and missed qualifying had lines of their
+ * own stored both under "Penalties", which read as a steward's penalty. The
+ * stored figure is unmultiplied, so it can only be one of three sums, and the
+ * sum says which. Anything else is left as it was rather than guessed at.
+ */
+function splitPenalties(line: BreakdownLine): BreakdownLine[] {
+  if (line.label !== "Penalties") return [line];
+  const retired = { label: "Retired", points: DNF_PENALTY };
+  const noTime = { label: "No quali time", points: QUALIFYING_NO_TIME_PENALTY };
+  if (line.points === DNF_PENALTY) return [retired];
+  if (line.points === QUALIFYING_NO_TIME_PENALTY) return [noTime];
+  if (line.points === DNF_PENALTY + QUALIFYING_NO_TIME_PENALTY) return [retired, noTime];
+  return [line];
 }
