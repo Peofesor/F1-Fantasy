@@ -329,8 +329,10 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     };
   };
 
+  const raceNameOf = new Map((calendar ?? []).map((entry) => [entry.round, entry.race_name]));
   const fixtures = (fixtureRows ?? []).map((fixture) => ({
     round: fixture.round,
+    raceName: raceNameOf.get(fixture.round) ?? null,
     home: party(fixture.home_member_id),
     away: party(fixture.away_member_id),
   }));

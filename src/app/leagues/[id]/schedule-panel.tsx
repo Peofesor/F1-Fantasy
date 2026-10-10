@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 import { MemberMonogram } from "./member-monogram";
 import { RoundArrow } from "./round-arrow";
 import { generateSchedule, type ScheduleState } from "./schedule-actions";
+import { shortRaceName } from "@/lib/f1/race-name";
 
 interface Party {
   memberId: string;
@@ -24,6 +25,8 @@ interface Party {
 
 export interface Fixture {
   round: number;
+  /** The race the round is, or null before the calendar names it. */
+  raceName: string | null;
   home: Party;
   away: Party;
 }
@@ -88,6 +91,7 @@ export function SchedulePanel({
   const newer = rounds[index + 1];
   const showing = fixtures.filter((fixture) => fixture.round === showingRound);
   const onThisWeek = showingRound === thisWeek;
+  const showingName = showing[0]?.raceName ?? null;
 
   /**
    * The draw control, shown to the owner whether or not fixtures exist.
@@ -155,8 +159,14 @@ export function SchedulePanel({
             label={older ? `Back to round ${older}` : "No earlier round drawn"}
             onClick={older ? () => setRound(older) : undefined}
           />
-          <span className="w-[4.5rem] text-center text-sm font-semibold tabular-nums">
-            Round {showingRound}
+          {/* The race rather than its number: "who did I have at Monza" is how a
+              round is remembered. The number stays in the tooltip, and the box
+              is a minimum rather than a width so a long name does not wrap. */}
+          <span
+            title={`Round ${showingRound}`}
+            className="min-w-[4.5rem] text-center text-sm font-semibold whitespace-nowrap"
+          >
+            {showingName ? shortRaceName(showingName) : `Round ${showingRound}`}
           </span>
           <RoundArrow
             direction="right"
