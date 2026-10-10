@@ -1,5 +1,6 @@
 import {
   backmarkerPoints,
+  isClassified,
   reverseConstructorPoints,
   scoreDriver,
   type DriverRaceInput,
@@ -115,7 +116,8 @@ export function constructorScore(constructorId: string, facts: RoundFacts): numb
 /**
  * A driver's scoring components as readable lines, zeros left out.
  *
- * Everything that scored nothing is dropped: a list of ten rows where eight say
+ * Everything that scored nothing is dropped, except the qualifying and race
+ * results, which are shown with the position whenever there is one: a list of ten rows where eight say
  * 0 buries the two that explain the score. Penalties are the exception worth
  * naming — they are the reason a good race can still read badly — but they are
  * only ever non-zero when something went wrong, so the same rule covers them.
@@ -123,13 +125,28 @@ export function constructorScore(constructorId: string, facts: RoundFacts): numb
  * Ordered as the weekend ran rather than by size, so the list can be read as a
  * story: Saturday, then Sunday, then what was added or taken off at the end.
  */
-function driverLines(breakdown: ScoreBreakdown): SlotBreakdownLine[] {
+function driverLines(breakdown: ScoreBreakdown, input: DriverRaceInput): SlotBreakdownLine[] {
+  // Where the car actually ended up, beside what it paid. "Qualifying 8" says
+  // the points and leaves the reader to remember that eight means third.
+  const at = (position: number | null | undefined) => (position ? ` P${position}` : "");
+  // A retired car can still carry a classification number, which is not a
+  // finish anyone would call one, so only a classified car shows where it ended.
+  const finished = isClassified(input.classification) ? input.finishPosition : null;
+  const grid = input.gridPosition === 0 ? "pit lane" : `P${input.gridPosition}`;
+  const moved = finished !== null ? ` (${grid} → P${finished})` : "";
+
   const labels: [keyof ScoreBreakdown, string][] = [
-    ["qualifying", "Qualifying"],
-    ["qualifyingProgress", "Qualifying progress"],
-    ["sprint", "Sprint"],
-    ["race", "Race finish"],
-    ["positionsGained", "Positions gained"],
+    ["qualifying", `Qualifying${at(input.qualifyingPosition)}`],
+    ["qualifyingProgress", `Reached ${input.qualifyingReached ?? "Q2"}`],
+    [
+      "sprint",
+      `Sprint${input.sprint?.position ? at(input.sprint.position) : input.sprint ? " DNF" : ""}`,
+    ],
+    ["race", `Race finish${at(finished)}`],
+    [
+      "positionsGained",
+      `${breakdown.positionsGained < 0 ? "Positions lost" : "Positions gained"}${moved}`,
+    ],
     ["overtakes", "Overtakes"],
     ["fastestLap", "Fastest lap"],
     ["driverOfTheDay", "Driver of the day"],
@@ -138,9 +155,17 @@ function driverLines(breakdown: ScoreBreakdown): SlotBreakdownLine[] {
     ["noQualifyingTime", "No quali time"],
   ];
 
+  // The two results are kept at zero too, when there is a result to show: a
+  // P14 finish pays nothing, but where the car finished is still the first
+  // thing anyone looking at the score wants to know.
+  const showsResult = (key: keyof ScoreBreakdown) =>
+    (key === "qualifying" && input.qualifyingPosition !== null) ||
+    (key === "race" && finished !== null);
+
   return labels
-    .map(([key, label]) => ({ label, points: breakdown[key] }))
-    .filter((line) => line.points !== 0);
+    .map(([key, label]) => ({ key, label, points: breakdown[key] }))
+    .filter((line) => line.points !== 0 || showsResult(line.key))
+    .map(({ label, points }) => ({ label, points }));
 }
 
 export function scoreRoster(
@@ -159,7 +184,7 @@ export function scoreRoster(
       points: breakdown?.total ?? 0,
       breakdown,
       detail: breakdown
-        ? { lines: driverLines(breakdown), subtotal: breakdown.total }
+        ? { lines: driverLines(breakdown, input!), subtotal: breakdown.total }
         : {
             lines: [],
             subtotal: 0,

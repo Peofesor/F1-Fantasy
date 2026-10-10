@@ -188,7 +188,7 @@ function isPenalisedFinish(classification: FinishClassification): boolean {
  * a large "positions lost" penalty on top of the DNF penalty — Leclerc at Monza
  * 2026 scored -19 for places he never lost, plus -20 for the retirement.
  */
-function isClassified(classification: FinishClassification): boolean {
+export function isClassified(classification: FinishClassification): boolean {
   return classification === "finished" || classification === "lapped";
 }
 

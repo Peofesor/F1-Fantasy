@@ -174,7 +174,23 @@ describe("slot breakdowns", () => {
     // Ten rows of which eight say 0 buries the two that explain the score.
     const detail = detailFor("winner");
     expect(detail.lines.every((line) => line.points !== 0)).toBe(true);
-    expect(detail.lines.map((line) => line.label)).toContain("Race finish");
+    expect(detail.lines.map((line) => line.label)).toContain("Race finish P1");
+  });
+
+  it("names the position beside each result", () => {
+    // Qualifying 11th pays nothing but is still shown, so the eleventh is
+    // visible next to the two places gained in the race.
+    const labels = detailFor("midfield").lines.map((line) => line.label);
+    expect(labels).toEqual(
+      expect.arrayContaining(["Qualifying P11", "Race finish P9", "Positions gained (P11 → P9)"]),
+    );
+  });
+
+  it("shows no finishing place for a car that retired", () => {
+    const detail = detailFor("retiree", { ...selection, top: ["retiree"] });
+    const labels = detail.lines.map((line) => line.label);
+    expect(labels.some((label) => label.startsWith("Race finish"))).toBe(false);
+    expect(labels).toContain("Retired");
   });
 
   it("breaks a team down into its cars", () => {
