@@ -120,7 +120,7 @@ export function PlacedBets({
                       {money(payoutAt(bet.stake, bet.odds))}
                     </span>{" "}
                     if it lands,{" "}
-                    <span className="text-emerald-600 dark:text-emerald-400">
+                    <span className="text-sky-600 dark:text-sky-400">
                       {money(profitAt(bet.stake, bet.odds))}
                     </span>{" "}
                     of it profit

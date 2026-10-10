@@ -294,7 +294,7 @@ export function BetsPanel({
 
           {/* The payout is what a bet is for, so it gets the size. */}
           {selection ? (
-            <div className="flex items-end justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-50/40 px-3 py-2.5 dark:bg-emerald-950/20">
+            <div className="flex items-end justify-between gap-3 rounded-xl border border-sky-500/40 bg-sky-50/40 px-3 py-2.5 dark:bg-sky-950/20">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
                   Returns if it lands
@@ -306,7 +306,7 @@ export function BetsPanel({
                     far better than the bet is. The gain is the number being
                     weighed up, so it is said outright. */}
                 <p className="mt-1 text-[11px] tabular-nums text-zinc-500">
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  <span className="font-medium text-sky-600 dark:text-sky-400">
                     {money(profitAt(stake, selectedOdds))}
                   </span>{" "}
                   profit on top of your {money(stake)} stake

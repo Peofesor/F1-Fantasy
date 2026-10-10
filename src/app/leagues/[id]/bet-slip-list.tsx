@@ -83,7 +83,7 @@ export function BetSlipList({
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                           {money(payoutAt(bet.stake, bet.odds))}
                         </span>{" "}
-                        <span className="text-emerald-600 dark:text-emerald-400">
+                        <span className="text-sky-600 dark:text-sky-400">
                           (+{money(profitAt(bet.stake, bet.odds))})
                         </span>
                       </>
