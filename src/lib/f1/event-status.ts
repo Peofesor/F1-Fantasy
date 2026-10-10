@@ -32,8 +32,30 @@ export const QUALIFYING_WINDOW_MS = 75 * 60_000;
  */
 export const RACE_WINDOW_MS = 180 * 60_000;
 
+/**
+ * When a round locks: sprint qualifying on a sprint weekend, qualifying on any
+ * other. The weekend's first competitive session sets a grid, and a roster or
+ * bet changed after it would be picked with that grid in view.
+ *
+ * Mirrors `is_round_locked` in the database, which is what actually enforces
+ * it; this is the same rule for the clock on screen.
+ */
+export function lockAt(round: {
+  sprintQualifyingAt?: string | null;
+  qualifyingAt: string | null;
+}): string | null {
+  return round.sprintQualifyingAt ?? round.qualifyingAt;
+}
+
 export type EventPhase =
-  /** Qualifying is running. Rosters have locked, bets are still open. */
+  /** Sprint qualifying is running. Rosters and bets have locked. */
+  | "sprint_qualifying"
+  /**
+   * After sprint qualifying and before qualifying — the sprint itself runs in
+   * here. Not live: the calendar carries no sprint start to light the dot by.
+   */
+  | "sprint"
+  /** Qualifying is running. Rosters and bets have locked. */
   | "qualifying"
   /** Between qualifying and the race — the gap is a day on most weekends. */
   | "waiting"
@@ -51,28 +73,41 @@ export interface EventStatus {
 /**
  * The phase of one round, or null when its weekend has not started.
  *
- * Null is the "not yet" answer, not an error: before qualifying the round is
- * the next race rather than the current event, and the deadline card already
- * owns it. Rendering both would put the same grand prix on screen twice.
+ * Null is the "not yet" answer, not an error: before the lock the round is the
+ * next race rather than the current event, and the deadline card already owns
+ * it. Rendering both would put the same grand prix on screen twice.
+ *
+ * A sprint weekend opens at sprint qualifying, a day before qualifying, so the
+ * round becomes the event at the same moment it stops being the deadline.
  */
 export function eventStatus({
+  sprintQualifyingAt = null,
   qualifyingAt,
   raceAt,
   now,
 }: {
-  /** ISO instants, either of which the calendar may be missing. */
+  /** ISO instants, any of which the calendar may be missing. */
+  sprintQualifyingAt?: string | null;
   qualifyingAt: string | null;
   raceAt: string | null;
   now: Date;
 }): EventStatus | null {
+  const sprintQuali = sprintQualifyingAt ? new Date(sprintQualifyingAt) : null;
   const quali = qualifyingAt ? new Date(qualifyingAt) : null;
   const race = raceAt ? new Date(raceAt) : null;
 
   // An older round can have a race date and no session times. It still has a
   // start, so it can still be watched; it just has no qualifying to report.
-  const opens = quali ?? race;
+  const opens = sprintQuali ?? quali ?? race;
   if (!opens) return null;
   if (now < opens) return null;
+
+  if (sprintQuali && (!quali || now < quali)) {
+    if (now.getTime() - sprintQuali.getTime() < QUALIFYING_WINDOW_MS) {
+      return { phase: "sprint_qualifying", live: true };
+    }
+    if (quali) return { phase: "sprint", live: false };
+  }
 
   if (quali && now >= quali && now.getTime() - quali.getTime() < QUALIFYING_WINDOW_MS) {
     return { phase: "qualifying", live: true };
@@ -91,6 +126,7 @@ export interface CurrentEvent {
   round: number;
   raceName: string;
   /** ISO instants, carried through so the card can tick its own clock. */
+  sprintQualifyingAt: string | null;
   qualifyingAt: string | null;
   raceAt: string | null;
   status: EventStatus;
@@ -99,8 +135,8 @@ export interface CurrentEvent {
 /**
  * The round whose weekend is under way, if one is.
  *
- * The most recent round whose qualifying has started — which is the round
- * `currentRound` has just stopped returning, since that looks for the next one
+ * The most recent round that has locked — sprint qualifying or qualifying has
+ * started — which is the round `currentRound` has just stopped returning, since that looks for the next one
  * a member can still act on. Between them the two cover the season with no gap
  * and no overlap.
  *
@@ -119,9 +155,11 @@ export async function loadCurrentEvent(
 
   const { data } = await supabase
     .from("rounds")
-    .select("round, race_name, qualifying_at, race_date, race_time")
+    .select("round, race_name, sprint_qualifying_at, qualifying_at, race_date, race_time")
     .eq("season", season)
-    .lte("qualifying_at", now.toISOString())
+    // Sprint qualifying always runs before qualifying, so a round has locked
+    // when either has started.
+    .or(`sprint_qualifying_at.lte.${now.toISOString()},qualifying_at.lte.${now.toISOString()}`)
     .order("round", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -133,12 +171,18 @@ export async function loadCurrentEvent(
     ? new Date(`${data.race_date}T${data.race_time ?? "00:00:00"}Z`).toISOString()
     : null;
 
-  const status = eventStatus({ qualifyingAt: data.qualifying_at, raceAt, now });
+  const status = eventStatus({
+    sprintQualifyingAt: data.sprint_qualifying_at,
+    qualifyingAt: data.qualifying_at,
+    raceAt,
+    now,
+  });
   if (!status) return null;
 
   return {
     round: data.round,
     raceName: data.race_name,
+    sprintQualifyingAt: data.sprint_qualifying_at,
     qualifyingAt: data.qualifying_at,
     raceAt,
     status,
@@ -154,6 +198,8 @@ export async function loadCurrentEvent(
  */
 export interface RoundAnchor {
   round: number;
+  /** Only on a sprint weekend, where it, not qualifying, is the deadline. */
+  sprintQualifyingAt?: string | null;
   qualifyingAt: string | null;
   raceAt: string | null;
 }
@@ -200,7 +246,7 @@ export function openingRound({
   // anchor is guaranteed. Missing one is not a reason to move: the round on
   // track is the safe answer, and the arrow is still there.
   const behind = current.raceAt ?? current.qualifyingAt;
-  const ahead = upcoming.qualifyingAt ?? upcoming.raceAt;
+  const ahead = lockAt(upcoming) ?? upcoming.raceAt;
   if (!ahead) return current.round;
   if (!behind) return upcoming.round;
 

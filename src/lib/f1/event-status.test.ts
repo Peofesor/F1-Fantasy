@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   eventStatus,
+  lockAt,
   openingRound,
   QUALIFYING_WINDOW_MS,
   RACE_WINDOW_MS,
@@ -83,6 +84,43 @@ describe("eventStatus", () => {
     expect(
       eventStatus({ qualifyingAt: null, raceAt: null, now: new Date("2026-09-13T13:30:00Z") }),
     ).toBeNull();
+  });
+});
+
+describe("eventStatus on a sprint weekend", () => {
+  // Singapore 2026: sprint qualifying on Friday, the sprint and qualifying on
+  // Saturday, the race on Sunday.
+  const SPRINT_QUALI = "2026-10-09T12:30:00Z";
+  const SAT_QUALI = "2026-10-10T13:00:00Z";
+  const SUN_RACE = "2026-10-11T12:00:00Z";
+  const sprintAt = (iso: string) =>
+    eventStatus({
+      sprintQualifyingAt: SPRINT_QUALI,
+      qualifyingAt: SAT_QUALI,
+      raceAt: SUN_RACE,
+      now: new Date(iso),
+    });
+
+  it("opens at sprint qualifying, which is when the round locks", () => {
+    expect(sprintAt("2026-10-09T12:29:00Z")).toBeNull();
+    expect(sprintAt("2026-10-09T12:30:00Z")).toEqual({ phase: "sprint_qualifying", live: true });
+  });
+
+  it("holds the sprint between the two qualifying sessions", () => {
+    expect(sprintAt("2026-10-09T20:00:00Z")).toEqual({ phase: "sprint", live: false });
+    expect(sprintAt("2026-10-10T09:00:00Z")).toEqual({ phase: "sprint", live: false });
+  });
+
+  it("runs the rest of the weekend as any other", () => {
+    expect(sprintAt("2026-10-10T13:10:00Z")).toEqual({ phase: "qualifying", live: true });
+    expect(sprintAt("2026-10-11T09:00:00Z")).toEqual({ phase: "waiting", live: false });
+    expect(sprintAt("2026-10-11T12:30:00Z")).toEqual({ phase: "race", live: true });
+  });
+
+  it("locks at sprint qualifying rather than qualifying", () => {
+    expect(lockAt({ sprintQualifyingAt: SPRINT_QUALI, qualifyingAt: SAT_QUALI })).toBe(SPRINT_QUALI);
+    expect(lockAt({ sprintQualifyingAt: null, qualifyingAt: SAT_QUALI })).toBe(SAT_QUALI);
+    expect(lockAt({ qualifyingAt: SAT_QUALI })).toBe(SAT_QUALI);
   });
 });
 

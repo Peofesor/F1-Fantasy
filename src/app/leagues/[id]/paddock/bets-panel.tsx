@@ -38,6 +38,7 @@ export function BetsPanel({
   constructors,
   nationalities,
   locked,
+  lockSession,
   hasRoster,
   odds,
   markets,
@@ -51,6 +52,8 @@ export function BetsPanel({
   constructors: { id: string; name: string }[];
   nationalities: string[];
   locked: boolean;
+  /** The session the round locks at, as it reads in a sentence. */
+  lockSession: "sprint qualifying" | "qualifying";
   /** Whether a full roster is saved for this round. Betting waits on it. */
   hasRoster: boolean;
   /**
@@ -168,10 +171,10 @@ export function BetsPanel({
       </div>
       <p className="mt-0.5 text-xs text-zinc-500">
         Staked from your bank, not from cap tied up in the roster. One bet per market. An open
-        bet can be withdrawn until qualifying starts, and the stake comes back.
+        bet can be withdrawn until {lockSession} starts, and the stake comes back.
       </p>
       <p className="mt-1 text-xs text-zinc-500">
-        <strong>Bets close when qualifying starts</strong> — the same deadline as your roster, so
+        <strong>Bets close when {lockSession} starts</strong> — the same deadline as your roster, so
         every bet is placed without knowing the grid. The price beside a name is already what it
         pays; nothing is added later. They settle on the race.
       </p>
@@ -181,7 +184,7 @@ export function BetsPanel({
 
       {locked ? (
         <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-          <strong>Betting closed for this round.</strong> Qualifying has started, so the grid is
+          <strong>Betting closed for this round.</strong> The round locked at {lockSession}, so a grid is
           known and the market is shut. The next race opens as soon as this one is under way.
         </p>
       ) : !hasRoster ? (
@@ -286,9 +289,9 @@ export function BetsPanel({
           {/* The deadline, said where the bet is actually being made rather
               than only in the rules line at the top. There is no odds window to
               report any more — the premium for calling it blind is inside the
-              price, and the form is only reachable before qualifying. */}
+              price, and the form is only reachable before the lock. */}
           <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-            <strong>Closes when qualifying starts.</strong> The price shown is the whole deal — it
+            <strong>Closes when {lockSession} starts.</strong> The price shown is the whole deal — it
             already carries the premium for calling it without the grid.
           </p>
 

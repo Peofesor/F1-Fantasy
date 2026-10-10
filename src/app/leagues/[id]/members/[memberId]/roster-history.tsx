@@ -265,7 +265,7 @@ export function RosterHistory({
 
   const seal = sealed && (
     <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-center text-xs text-zinc-500 dark:border-zinc-700">
-      R{sealed.round} · {sealed.raceName} is picked but sealed until qualifying
+      R{sealed.round} · {sealed.raceName} is picked but sealed until the lock
       {sealed.bets > 0 && `, with ${sealed.bets} bet${sealed.bets === 1 ? "" : "s"}`}.
     </p>
   );

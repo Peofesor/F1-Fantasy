@@ -50,7 +50,7 @@ export function Standings({
       <p className="mt-0.5 text-xs text-zinc-500">
         Drivers is the whole squad at today&rsquo;s prices, teams included; bets is what is still
         riding and cannot be got back yet; total cash is all three. Everyone&rsquo;s figures are
-        current, this weekend&rsquo;s spending included &mdash; what stays sealed until qualifying
+        current, this weekend&rsquo;s spending included &mdash; what stays sealed until the lock
         is which drivers they bought, not what they paid.
       </p>
 

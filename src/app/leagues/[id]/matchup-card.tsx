@@ -293,7 +293,7 @@ function displayName(pick: MatchupPick): string {
 
 /** What a side has instead of a lineup, when it has none to show. */
 function emptyNote(side: Side): string {
-  return side.hasTeam ? "team picked, hidden until qualifying" : "no team picked yet";
+  return side.hasTeam ? "team picked, hidden until the lock" : "no team picked yet";
 }
 
 /**

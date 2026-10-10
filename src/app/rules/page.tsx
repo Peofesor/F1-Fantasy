@@ -275,7 +275,8 @@ export default function RulesPage() {
           tied up in your roster — and you can stake all of it if you want to.
         </p>
         <p>
-          <strong>Betting closes when qualifying starts</strong>, the same deadline as your
+          <strong>Betting closes when qualifying starts</strong> — sprint qualifying on a sprint
+          weekend — the same deadline as your
           roster — one moment a weekend shuts, not two. Every bet is therefore placed without
           knowing the grid, and the premium for calling it blind is already inside the price you
           are shown. There is no bonus added afterwards: the figure beside the name is the figure
@@ -318,7 +319,7 @@ export default function RulesPage() {
         </div>
 
         <p className="pt-1 text-xs">
-          One bet per market per round. An open bet can be withdrawn until qualifying starts and
+          One bet per market per round. An open bet can be withdrawn until the round locks and
           the stake comes back. If the data needed to settle a market never arrives, the bet is voided
           and your stake returned.
         </p>

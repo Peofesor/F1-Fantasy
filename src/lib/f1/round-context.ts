@@ -77,8 +77,9 @@ export interface RoundContext {
 /**
  * The round a roster is currently being picked for.
  *
- * The next round whose qualifying has not yet started — the one a member can
- * still act on. Picking the *latest* round instead would always land on a race
+ * The next round that has not locked — neither qualifying nor, on a sprint
+ * weekend, sprint qualifying has started — the one a member can still act on.
+ * Picking the *latest* round instead would always land on a race
  * that has already run and locked, leaving nothing selectable.
  *
  * Falls back to the most recent round when the season is over, so the page
@@ -88,11 +89,13 @@ export async function currentRound(
   supabase: SupabaseClient,
   season: number,
 ): Promise<{ season: number; round: number; race_name: string; has_sprint: boolean | null } | null> {
+  const now = new Date().toISOString();
   const { data: upcoming } = await supabase
     .from("rounds")
     .select("season, round, race_name, has_sprint")
     .eq("season", season)
-    .gt("qualifying_at", new Date().toISOString())
+    .gt("qualifying_at", now)
+    .or(`sprint_qualifying_at.is.null,sprint_qualifying_at.gt.${now}`)
     .order("round", { ascending: true })
     .limit(1)
     .maybeSingle();

@@ -22,8 +22,13 @@ export interface BetForm {
   markets: MarketId[];
   /** Whether a full roster is saved for the round. Betting waits on it. */
   hasRoster: boolean;
-  /** Qualifying has started, or the round was frozen by hand. */
+  /** The round has locked, or was frozen by hand. */
   locked: boolean;
+  /**
+   * The session the round locks at, as it reads in a sentence: sprint
+   * qualifying on a sprint weekend, qualifying otherwise.
+   */
+  lockSession: "sprint qualifying" | "qualifying";
 }
 
 export async function loadBetForm(
@@ -31,7 +36,7 @@ export async function loadBetForm(
   memberId: string,
   round: RoundContext,
 ): Promise<BetForm> {
-  // Betting closes when qualifying starts, on the same clock as the roster —
+  // Betting closes when the round locks, on the same clock as the roster —
   // one deadline for the whole round. Asked of the database rather than derived
   // here, so the form shuts on the same answer the insert policy will give.
   // `locked_at` stays beside it as the manual freeze it has always been.
@@ -99,5 +104,6 @@ export async function loadBetForm(
     markets: marketsThisRound.map((market) => market.id),
     hasRoster: Boolean(hasRoster),
     locked: Boolean(roster?.locked_at) || Boolean(qualifyingStarted),
+    lockSession: round.hasSprint ? "sprint qualifying" : "qualifying",
   };
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { generateDuelSchedule } from "@/lib/f1/duel-schedule";
+import { lockAt } from "@/lib/f1/event-status";
 import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 
 export type ScheduleState = { error: string } | { ok: true; fixtures: number } | null;
@@ -57,7 +58,7 @@ export async function generateSchedule(
 
   const { data: rounds } = await supabase
     .from("rounds")
-    .select("round, qualifying_at")
+    .select("round, sprint_qualifying_at, qualifying_at")
     .eq("season", league.season)
     .order("round");
 
@@ -70,7 +71,13 @@ export async function generateSchedule(
   // that have already run.
   const now = Date.now();
   const openRounds = rounds
-    .filter((round) => !round.qualifying_at || new Date(round.qualifying_at).getTime() > now)
+    .filter((round) => {
+      const locks = lockAt({
+        sprintQualifyingAt: round.sprint_qualifying_at,
+        qualifyingAt: round.qualifying_at,
+      });
+      return !locks || new Date(locks).getTime() > now;
+    })
     .map((round) => round.round);
 
   if (openRounds.length === 0) {

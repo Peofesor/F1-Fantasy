@@ -73,8 +73,8 @@ export function PlacedBets({
           deadline. */}
       {locked && open > 0 && (
         <p className="text-xs text-zinc-500">
-          Qualifying has started, so these are locked in — a bet can only be withdrawn before the
-          session.
+          The round has locked, so these are locked in — a bet can only be withdrawn before the
+          lock.
         </p>
       )}
 

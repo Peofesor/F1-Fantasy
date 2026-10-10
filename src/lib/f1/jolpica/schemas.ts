@@ -109,9 +109,13 @@ const raceSchema = z.object({
       country: z.string(),
     }),
   }),
-  // Session times. Qualifying is the roster lock deadline, so it is the one
-  // that matters; the others are captured only because they arrive together.
+  // Session times. The weekend's first qualifying is the roster lock deadline:
+  // sprint qualifying on a sprint weekend, qualifying otherwise. 2023 called
+  // sprint qualifying the Sprint Shootout. The others are captured only because
+  // they arrive together.
   Qualifying: z.object({ date: z.string(), time: z.string().optional() }).optional(),
+  SprintQualifying: z.object({ date: z.string(), time: z.string().optional() }).optional(),
+  SprintShootout: z.object({ date: z.string(), time: z.string().optional() }).optional(),
   Sprint: z.object({ date: z.string(), time: z.string().optional() }).optional(),
   QualifyingResults: z.array(qualifyingResultSchema).optional(),
   Results: z.array(raceResultSchema).optional(),

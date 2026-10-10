@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import {
   eventStatus,
+  lockAt,
   timeUntil,
   type EventPhase,
   type EventStatus,
@@ -18,7 +19,9 @@ import { type Matchup } from "./matchup-card";
 export interface BrowsableEvent {
   round: number;
   raceName: string;
-  /** ISO instants; either can be missing from the calendar. */
+  /** ISO instants; any can be missing from the calendar. */
+  /** Only on a sprint weekend, where it is the lock instead of qualifying. */
+  sprintQualifyingAt?: string | null;
   qualifyingAt: string | null;
   raceAt: string | null;
   /** Points are in, so this weekend is history rather than in progress. */
@@ -56,6 +59,8 @@ export interface BrowsableEvent {
 }
 
 const HEADING: Record<EventPhase, string> = {
+  sprint_qualifying: "Sprint qualifying under way",
+  sprint: "Sprint weekend under way",
   qualifying: "Qualifying under way",
   waiting: "Qualifying done",
   race: "Race under way",
@@ -63,9 +68,11 @@ const HEADING: Record<EventPhase, string> = {
 };
 
 const NOTE: Record<EventPhase, string> = {
-  qualifying: "Rosters and bets locked when the session started.",
+  sprint_qualifying: "Rosters and bets locked when the session started.",
+  sprint: "Rosters and bets locked at sprint qualifying. Nothing left to do but watch.",
+  qualifying: "Rosters and bets are locked.",
   waiting: "Rosters and bets are locked. Nothing left to do but watch.",
-  race: "Everything locked at qualifying. Nothing left to do but watch.",
+  race: "Everything is locked. Nothing left to do but watch.",
   settling: "Points and settled bets land once the results are ingested.",
 };
 
@@ -152,14 +159,20 @@ export function EventBrowser({
   const status =
     event.upcoming || event.scored || !now
       ? event.status
-      : eventStatus({ qualifyingAt: event.qualifyingAt, raceAt: event.raceAt, now });
+      : eventStatus({
+          sprintQualifyingAt: event.sprintQualifyingAt,
+          qualifyingAt: event.qualifyingAt,
+          raceAt: event.raceAt,
+          now,
+        });
 
   // How long is left to pick a team, on the round nobody has raced yet. Null
   // until the clock arrives on mount — the server has no business guessing a
   // countdown, and the sentence below reads perfectly well without one — and
   // null again once qualifying starts, at which point the phase headings have
   // something better to say.
-  const untilQualifying = event.upcoming && now ? timeUntil(event.qualifyingAt, now) : null;
+  const lockSession = event.sprintQualifyingAt ? "Sprint qualifying" : "Qualifying";
+  const untilQualifying = event.upcoming && now ? timeUntil(lockAt(event), now) : null;
 
   const hidden = event.hiddenBets ?? [];
   const hiddenTotal = hidden.reduce((total, entry) => total + entry.count, 0);
@@ -205,12 +218,12 @@ export function EventBrowser({
               untilQualifying ? (
                 <>
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                    Qualifying in {untilQualifying}
+                    {lockSession} in {untilQualifying}
                   </span>
                   {" · rosters and bets lock then."}
                 </>
               ) : (
-                "Rosters and bets lock when qualifying starts."
+                `Rosters and bets lock when ${lockSession.toLowerCase()} starts.`
               )
             ) : status ? (
               <>
@@ -291,7 +304,7 @@ export function EventBrowser({
       {hiddenTotal > 0 && (
         <div className="border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-            Sealed until qualifying
+            Sealed until {lockSession.toLowerCase()}
           </p>
           <ul className="mt-1 space-y-0.5">
             {hidden.map((entry) => (

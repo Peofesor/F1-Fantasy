@@ -160,7 +160,7 @@ export function BetsBrowser({
           record into staking on the wrong weekend. */}
       {!isOpenRound && (
         <p className="text-xs leading-relaxed text-zinc-500">
-          Betting on {selected?.raceName ?? "this round"} closed when qualifying started, so this
+          Betting on {selected?.raceName ?? "this round"} closed when the round locked, so this
           is a record now.
           {openRaceName && ` The card above is still taking bets on ${openRaceName}.`}
         </p>
@@ -208,7 +208,7 @@ export function BetsBrowser({
                 }`}
               >
                 <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-                  Sealed until qualifying
+                  Sealed until the lock
                 </p>
                 <ul className="mt-1 space-y-0.5">
                   {sealedHere.map((entry) => (

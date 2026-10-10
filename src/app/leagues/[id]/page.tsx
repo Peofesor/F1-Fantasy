@@ -109,7 +109,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     // cheaper than a second query.
     supabase
       .from("rounds")
-      .select("round, race_name, qualifying_at, race_date, race_time")
+      .select("round, race_name, sprint_qualifying_at, qualifying_at, race_date, race_time")
       .eq("season", league.season)
       .order("round"),
     league.mode === "duel"
@@ -630,6 +630,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           return {
             round: entry.round,
             raceName: entry.race_name,
+            sprintQualifyingAt: entry.sprint_qualifying_at,
             qualifyingAt: entry.qualifying_at,
             raceAt: raceInstant(entry),
             scored,
@@ -687,6 +688,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
           return {
             round: next.round,
             raceName: nextRound.race_name,
+            sprintQualifyingAt: nextRound.sprint_qualifying_at,
             qualifyingAt: nextRound.qualifying_at,
             raceAt: raceInstant(nextRound),
             scored: false,

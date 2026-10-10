@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSeasonSchedule } from "./jolpica/client";
+import { lockAt } from "./event-status";
 import { sessionInstant } from "./ingest";
 
 /**
@@ -46,6 +47,9 @@ export async function ingestCalendar(
     race_date: race.date,
     race_time: race.time ? race.time.replace("Z", "") : null,
     qualifying_at: sessionInstant(race.Qualifying),
+    // The lock on a sprint weekend. Null on every other, which is what tells
+    // `is_round_locked` to fall back to qualifying.
+    sprint_qualifying_at: sessionInstant(race.SprintQualifying ?? race.SprintShootout),
     // Known from the schedule, so the sprint markets can be hidden on a weekend
     // that has no sprint instead of being offered and later voided.
     has_sprint: Boolean(race.Sprint),
@@ -61,9 +65,12 @@ export async function ingestCalendar(
   if (error) throw new Error(`Could not write calendar: ${error.message}`);
 
   const now = Date.now();
-  const upcoming = rows.filter(
-    (row) => row.qualifying_at && new Date(row.qualifying_at).getTime() > now,
-  );
+  const locksAt = (row: (typeof rows)[number]) =>
+    lockAt({ sprintQualifyingAt: row.sprint_qualifying_at, qualifyingAt: row.qualifying_at });
+  const upcoming = rows.filter((row) => {
+    const locks = locksAt(row);
+    return locks !== null && new Date(locks).getTime() > now;
+  });
   const next = upcoming.sort((a, b) => a.round - b.round)[0];
 
   return {
@@ -71,7 +78,7 @@ export async function ingestCalendar(
     rounds: rows.length,
     upcoming: upcoming.length,
     nextRound: next
-      ? { round: next.round, raceName: next.race_name, qualifyingAt: next.qualifying_at }
+      ? { round: next.round, raceName: next.race_name, qualifyingAt: locksAt(next) }
       : undefined,
   };
 }
