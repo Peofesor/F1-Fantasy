@@ -17,7 +17,7 @@ import { MARKETS, type MarketId } from "@/lib/f1/betting";
 import { currentRound } from "@/lib/f1/round-context";
 import { SchedulePanel } from "./schedule-panel";
 import { Standings } from "./standings";
-import { buildStandings, type LeagueMode } from "@/lib/f1/standings";
+import { buildStandings, formatRecord, hasDraws, type LeagueMode } from "@/lib/f1/standings";
 import { backmarkerScoresPoints } from "@/lib/f1/scoring";
 
 export const dynamic = "force-dynamic";
@@ -302,6 +302,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       })),
     league.mode as LeagueMode,
   );
+  const withDraws = hasDraws(standings);
 
   const stats = buildLeagueStats(
     (roster ?? []).map((member) => ({ id: member.id, name: member.name })),
@@ -323,9 +324,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
     return {
       memberId,
       name: nameByMemberId.get(memberId) ?? "Unknown",
-      record: standing
-        ? { wins: standing.wins, draws: standing.draws, losses: standing.losses }
-        : null,
+      record: standing ? formatRecord(standing, withDraws) : null,
       position: standing?.position ?? null,
     };
   };
@@ -547,9 +546,7 @@ export default async function LeaguePage({ params }: PageProps<"/leagues/[id]">)
       memberId,
       name: nameByMemberId.get(memberId) ?? "Unknown",
       slots: lineup,
-      record: standing
-        ? { wins: standing.wins, draws: standing.draws, losses: standing.losses }
-        : null,
+      record: standing ? formatRecord(standing, withDraws) : null,
       seasonPoints: standing?.points ?? 0,
       hasTeam: open ? (counted?.hasTeam ?? false) : Boolean(row),
       bets: open

@@ -11,12 +11,13 @@ interface Party {
   memberId: string;
   name: string;
   /**
-   * Wins, draws and losses so far, or null for a member with no scored round.
+   * Wins and losses so far, already written (draws join once the league has
+   * one), or null for a member with no scored round.
    *
    * A fixture is a question about form, and a name on its own does not answer
    * it: "who have I got" and "are they any good" used to be two panels apart.
    */
-  record: { wins: number; draws: number; losses: number } | null;
+  record: string | null;
   /** Where they sit in the table, or null before they have a place in it. */
   position: number | null;
 }
@@ -264,6 +265,5 @@ function PartyLink({
  */
 function form(party: Party): string {
   if (!party.record || party.position === null) return "—";
-  const { wins, draws, losses } = party.record;
-  return `${wins}-${draws}-${losses} (#${party.position})`;
+  return `${party.record} (#${party.position})`;
 }

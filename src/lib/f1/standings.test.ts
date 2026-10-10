@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildStandings, pointsByRound, type MemberRoundScore } from "./standings";
+import {
+  buildStandings,
+  formatRecord,
+  hasDraws,
+  pointsByRound,
+  type MemberRoundScore,
+} from "./standings";
 
 const members = ["a", "b", "c"];
 
@@ -151,5 +157,23 @@ describe("pointsByRound", () => {
     const byMember = pointsByRound(scores);
     expect(byMember.get("a")?.get(1)).toBe(50);
     expect(byMember.get("b")?.get(2)).toBe(60);
+  });
+});
+
+describe("formatRecord", () => {
+  const record = { wins: 4, draws: 1, losses: 2 };
+
+  it("writes wins and losses alone while nobody has drawn", () => {
+    expect(formatRecord({ wins: 4, draws: 0, losses: 2 }, false)).toBe("4-2");
+  });
+
+  it("puts draws on the end once the league has one", () => {
+    expect(formatRecord(record, true)).toBe("4-2-1");
+    expect(formatRecord({ wins: 3, draws: 0, losses: 3 }, true)).toBe("3-3-0");
+  });
+
+  it("brings the third column in for everyone on a single draw", () => {
+    expect(hasDraws([{ draws: 0 }, { draws: 0 }])).toBe(false);
+    expect(hasDraws([{ draws: 0 }, record])).toBe(true);
   });
 });

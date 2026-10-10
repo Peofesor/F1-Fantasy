@@ -55,7 +55,7 @@ export interface Side {
    * Wins, draws and losses across the season, or null in a league that does not
    * play head to head — where there is no record to have.
    */
-  record: { wins: number; draws: number; losses: number } | null;
+  record: string | null;
   /** Cumulative fantasy points, which is the standing a free-for-all has. */
   seasonPoints: number;
   /** One entry per LINEUP_ROWS row, null where the slot is empty or hidden. */
@@ -378,7 +378,7 @@ function MemberColumn({
           {/* A record is what a duel league is played for; a free-for-all has
               none, so it shows the thing it is actually ranked on instead. */}
           {duel && side.record
-            ? `${side.record.wins}-${side.record.draws}-${side.record.losses}`
+            ? side.record
             : `${side.seasonPoints.toFixed(0)} pts`}
         </p>
         {side.bets > 0 && (

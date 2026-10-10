@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { money } from "@/lib/f1/money";
-import type { LeagueMode, StandingRow } from "@/lib/f1/standings";
+import { formatRecord, hasDraws, type LeagueMode, type StandingRow } from "@/lib/f1/standings";
 
 /**
  * Standings table.
@@ -34,6 +34,7 @@ export function Standings({
   currentMemberId?: string;
 }) {
   const scored = rows.some((row) => row.roundsPlayed > 0);
+  const withDraws = hasDraws(rows);
 
   return (
     <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))]">
@@ -78,7 +79,9 @@ export function Standings({
                     be read off the one next to it is a column asking to be
                     checked against it. */}
                 {mode === "duel" && (
-                  <th className="py-1 pl-5 text-right font-medium whitespace-nowrap">W-D-L</th>
+                  <th className="py-1 pl-5 text-right font-medium whitespace-nowrap">
+                    {withDraws ? "W-L-D" : "W-L"}
+                  </th>
                 )}
                 <th className="py-1 pl-5 text-right font-medium">Points</th>
                 <th className="py-1 pl-5 text-right font-medium">Drivers</th>
@@ -109,7 +112,7 @@ export function Standings({
                   </td>
                   {mode === "duel" && (
                     <td className="py-2.5 pl-5 text-right tabular-nums">
-                      {row.wins}-{row.draws}-{row.losses}
+                      {formatRecord(row, withDraws)}
                     </td>
                   )}
                   <td className="py-2.5 pl-5 text-right tabular-nums">{row.points.toFixed(0)}</td>

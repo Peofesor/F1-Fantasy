@@ -118,3 +118,25 @@ export function pointsByRound(
   }
   return byMember;
 }
+
+/**
+ * A duel record as it is written everywhere: wins, then losses.
+ *
+ * Draws need the same score from both sides and almost never happen, so a
+ * third column that reads zero for every member all season is noise. It
+ * appears for the whole league once anyone has drawn — on every row, so the
+ * column lines up and two records are always written the same way — and goes
+ * on the end, so the first two numbers keep their meaning when it arrives.
+ */
+export function formatRecord(
+  record: { wins: number; draws: number; losses: number },
+  withDraws: boolean,
+): string {
+  const base = `${record.wins}-${record.losses}`;
+  return withDraws ? `${base}-${record.draws}` : base;
+}
+
+/** Whether anyone in the table has drawn, which brings in the third column. */
+export function hasDraws(rows: readonly { draws: number }[]): boolean {
+  return rows.some((row) => row.draws > 0);
+}
